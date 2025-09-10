@@ -1,0 +1,1 @@
+import{h as r,H as s}from"./index-xPavhQe8.js";function i({url:e,className:t="w-full"}){const[a,l]=r.useState(!1),n=()=>{l(!a)};return s.jsx("div",{className:"w-full relative",children:s.jsx("video",{src:e,onClick:n,controls:!0,className:t})})}const c=()=>s.jsx("div",{className:"div",children:s.jsx(i,{url:"https://vjs.zencdn.net/v/oceans.mp4"})});export{c as default};
