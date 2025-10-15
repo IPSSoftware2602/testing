@@ -1,0 +1,1083 @@
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import PolygonButton from '../../../components/ui/PolygonButton';
+import TopNavigation from '../../../components/ui/TopNavigation';
+import { commonStyles } from '../../../styles/common';
+import ResponsiveBackground from '../../../components/ResponsiveBackground';
+import { apiUrl, imageUrl } from '../../constant/constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { FontAwesome6 } from '@expo/vector-icons';
+import CustomDateTimePickerModal from '../../../components/ui/CustomDateTimePickerModal';
+import useAuthGuard from '../../auth/check_token_expiry';
+import MenuItem from '../../../components/menu/MenuItem';
+import CategoryItem from '../../../components/menu/CategoryItem';
+
+const { width } = Dimensions.get('window');
+
+const orderTypes = [
+  { key: 'dinein', label: 'Dine In' },
+  { key: 'pickup', label: 'Pick Up' },
+  { key: 'delivery', label: 'Delivery' },
+];
+
+const getCategoryToIndexMap = (items) => {
+  const map = {};
+  items.forEach((item, idx) => {
+    if (Array.isArray(item.categoryIds)) {
+      item.categoryIds.forEach(catId => {
+        // Only map to first appearance for each category
+        if (map[catId] === undefined) map[catId] = idx;
+      });
+    }
+  });
+  return map;
+};
+
+
+
+
+export default function MenuScreen() {
+  useAuthGuard();
+  // const [activeCategory, setActiveCategory] = useState(categories[0].key);
+  // const { outletId, distance, outletTitle } = useLocalSearchParams();
+  const [activeCategory, setActiveCategory] = useState('');
+  const [activeOrderType, setActiveOrderType] = useState(orderTypes[0].key);
+  const [categoryLock, setCategoryLock] = useState(false);
+  const [totalPrice, setTotalPrice] = useState(0);
+  const menuListRef = useRef(null);
+  const categoryListRef = useRef(null);
+  const router = useRouter();
+  // const [menuData, setMenuData] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
+  const categoryToIndex = useMemo(() => getCategoryToIndexMap(menuItems), [menuItems]);
+  const categoryLockRef = useRef(categoryLock);
+  const categoriesRef = useRef(categories);
+  const [selectedOutlet, setSelectedOutlet] = useState({});
+  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+  const [selectedDateTime, setSelectedDateTime] = useState(null);
+  const [selectedDeliveryAddress, setSelectedDeliveryAddress] = useState({});
+  // const [estimatedTime, setEstimatedTime] = useState({});
+  const [customer, setCustomer] = useState('');
+  const isProgrammaticScroll = useRef(false);
+  const [listReady, setListReady] = useState(false);
+
+  const handleSetOrderType = async (orderType) => {
+    setActiveOrderType(orderType);
+    try {
+      await AsyncStorage.setItem('orderType', orderType);
+    }
+    catch (err) {
+      console.log(err.response.data.message);
+    }
+  }
+
+  const setAsyncEstimatedTime = async ({ estimatedTime, date, time }) => {
+
+    let estimatedTimeDetail = {
+      estimatedTime,
+      date,
+      time
+    };
+    try {
+      await AsyncStorage.setItem('estimatedTime', JSON.stringify(estimatedTimeDetail));
+    }
+    catch (err) {
+      console.log(err.response.data.message);
+    }
+  }
+
+  useEffect(() => {
+    const fetchOutletData = async () => {
+      try {
+        const outletDetails = await AsyncStorage.getItem('outletDetails');
+        if (outletDetails) {
+          console.log('outletDetails', outletDetails);
+          const parsedOutletDetails = JSON.parse(outletDetails);
+          if(parsedOutletDetails.isHQ !== true) {
+          // console.log(outletDetails.outletId); 
+            setSelectedOutlet(parsedOutletDetails);
+            if (parsedOutletDetails.isOperate === false && activeOrderType !== "dinein") {
+              setShowDateTimePicker(true);
+            }
+          }else{
+            router.push('/');
+          }
+        }
+        else {
+          router.push('/screens/home/outlet_select');
+        }
+      } catch (err) {
+        console.log(err.response.data.message);
+      }
+    }
+    fetchOutletData();
+
+    const fetchEstimatedTime = async () => {
+      try {
+        const estimatedTime = await AsyncStorage.getItem('estimatedTime');
+        if (estimatedTime) {
+          const parsedEstimatedTime = JSON.parse(estimatedTime);
+
+          setSelectedDateTime(parsedEstimatedTime.estimatedTime);
+          // setEstimatedtime(parsedOutletDetails);
+        }
+        else {
+          setSelectedDateTime("ASAP");
+        }
+      } catch (err) {
+        console.log(err?.response?.data?.message);
+      }
+    }
+    fetchEstimatedTime();
+
+    const fetchAddressData = async () => {
+      try {
+        const deliveryAddressDetails = await AsyncStorage.getItem('deliveryAddressDetails');
+        if (deliveryAddressDetails) {
+          const parsedAddressDetails = JSON.parse(deliveryAddressDetails);
+          // console.log(outletDetails.outletId); 
+          setSelectedDeliveryAddress(parsedAddressDetails);
+        }
+        else if (!deliveryAddressDetails && activeOrderType === "delivery") {
+          router.push('/screens/home/address_select');
+        }
+      } catch (err) {
+        console.log(err.response.data.message);
+      }
+    }
+    fetchAddressData();
+
+  }, [router, activeOrderType, selectedDateTime])
+
+  useEffect(() => {
+    const fetchOrderType = async () => {
+      try {
+        const orderType = await AsyncStorage.getItem('orderType');
+        setActiveOrderType(orderType);
+      } catch (err) {
+        console.log(err.response.data.message);
+      }
+    }
+    fetchOrderType();
+
+  }, [router, activeOrderType])
+
+  useEffect(() => {
+    categoryLockRef.current = categoryLock;
+  }, [categoryLock]);
+
+  useEffect(() => {
+    categoriesRef.current = categories;
+  }, [categories]);
+
+  const onViewRef = useRef(({ viewableItems }) => {
+    if (categoryLockRef.current || isProgrammaticScroll.current) return; // 🔒 skip updates while lock is active
+    // console.log(123)
+    if (viewableItems.length > 0) {
+      const mostVisibleItem = [...viewableItems].sort((a, b) =>
+        b.percentVisible - a.percentVisible
+      )[0].item;
+  
+      const firstCatId = mostVisibleItem.categoryIds?.[0];
+      if (firstCatId && firstCatId !== activeCategory) {
+        setActiveCategory(firstCatId);
+  
+        const catIdx = categoriesRef.current.findIndex(c => c.key === firstCatId);
+        if (catIdx !== -1 && categoryListRef.current) {
+          categoryListRef.current.scrollToIndex({
+            index: catIdx,
+            viewPosition: 0.5,
+            animated: true,
+          });
+        }
+      }
+    }
+  });  
+
+  const isFirstInCategory = useCallback((items, index, activeCat) => {
+    if (index === 0) return true;
+    // Show divider if previous item does not include the same activeCat
+    return !items[index - 1].categoryIds?.includes(activeCat);
+  }, []);
+
+  // Memoized callback functions to prevent recreation on every render
+  const handleMenuItemPress = useCallback((itemId) => {
+    router.push({
+      pathname: '/screens/menu/menu_item',
+      params: { id: itemId },
+      source: 'add'
+    });
+  }, [router]);
+
+  const APPROX_ITEM_HEIGHT = 152; // your normal row height (without extra header)
+  const LOCK_RELEASE_MS = 1200;
+  
+  const handleCategoryPressCallback = useCallback((catKey) => {
+    // highlight the tapped category immediately
+    setActiveCategory(catKey);
+    setCategoryLock(true);
+    isProgrammaticScroll.current = true;
+    if (!listReady) {
+      console.log("FlatList not ready yet, ignoring tap");
+      return;
+    }
+  
+    // 1) Scroll the left category list to keep the tapped item centered
+    const catIdx = categoriesRef.current.findIndex(c => c.key === catKey);
+    if (catIdx !== -1 && categoryListRef.current) {
+      try {
+        categoryListRef.current.scrollToIndex({
+          index: catIdx,
+          viewPosition: 0.5,
+          animated: true,
+        });
+      } catch {
+        // soft fallback
+        categoryListRef.current.scrollToOffset({
+          offset: Math.max(0, catIdx * 90 - 90),
+          animated: true,
+        });
+      }
+    }
+  
+    // 2) Scroll the menu list to the first item for this category (the "title" lives with that row)
+    let index = categoryToIndex[catKey];
+    if (index == null || !menuListRef.current) {
+      setTimeout(() => setCategoryLock(false), LOCK_RELEASE_MS);
+      return;
+    }
+    index-=0.05;
+  
+    // Let layout settle, then attempt precise jump
+    requestAnimationFrame(() => {
+      try {
+        menuListRef.current.scrollToIndex({
+          index,
+          animated: true,
+          viewPosition: 0,      // align the category title at the top
+          viewOffset: 0,
+        });
+      } catch {
+        // If not measured yet, do an approximate offset first…
+        const roughOffset = Math.max(0, index * APPROX_ITEM_HEIGHT - APPROX_ITEM_HEIGHT);
+        menuListRef.current.scrollToOffset({ offset: roughOffset, animated: false });
+  
+        // …then retry the precise jump shortly after
+        setTimeout(() => {
+          try {
+            menuListRef.current.scrollToIndex({
+              index,
+              animated: true,
+              viewPosition: 0,
+            });
+          } catch {
+            // give up gracefully — user can still scroll manually
+          }
+        }, 120);
+      } finally {
+        // setTimeout(() => setCategoryLock(false), LOCK_RELEASE_MS);
+      }
+    });
+  }, [categoryToIndex, listReady]);
+
+  // Memoized key extractors
+  const categoryKeyExtractor = useCallback((item, index) => `${item.key}_${index}`, []);
+  const menuKeyExtractor = useCallback((item, index) => `${item.id}_${index}`, []);
+
+  // Memoized render functions
+  const renderCategoryItem = useCallback(({ item }) => (
+    <CategoryItem
+    item={item}
+    isActive={activeCategory === item.key}
+    onPress={listReady ? handleCategoryPressCallback : undefined} // 🔒 disable taps
+    disabled={!listReady}
+    style={!listReady ? { opacity: 0.4 } : {}}
+  />
+  ), [activeCategory, handleCategoryPressCallback, listReady]);
+
+  const renderMenuItem = useCallback(({ item, index }) => {
+    const isFirst = isFirstInCategory(menuItems, index, item.categoryIds?.[0]);
+    return (
+      <MenuItem
+        item={item}
+        index={index}
+        isFirstInCategory={isFirst}
+        categories={categories}
+        customer={customer}
+        onPress={handleMenuItemPress}
+      />
+    );
+  }, [menuItems, categories, customer, handleMenuItemPress, isFirstInCategory]);
+
+  useEffect(() => {
+    // Release the lock after a short delay to allow animations to complete
+    if (categoryLock) {
+      const timer = setTimeout(() => setCategoryLock(false), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [categoryLock]);
+
+  const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
+
+  const checkoutClearStorage = async () => {
+    const keysToRemove = [
+      'estimatedTime',
+      'deliveryAddressDetails',
+      'orderType',
+      'outletDetails',
+      'paymentMethod'
+    ];
+
+    try {
+      console.log('Attempting to clear:', keysToRemove);
+
+      // First verify what's actually in storage
+      const currentStorage = await AsyncStorage.multiGet(keysToRemove);
+      console.log('Current storage before clear:', currentStorage);
+
+      // Perform the removal
+      await AsyncStorage.multiRemove(keysToRemove);
+
+      // Verify removal was successful
+      const clearedStorage = await AsyncStorage.multiGet(keysToRemove);
+      const wereCleared = clearedStorage.every(([_, value]) => value === null);
+
+      if (!wereCleared) {
+        console.error('Failed to clear these keys:',
+          clearedStorage.filter(([_, value]) => value !== null)
+        );
+        throw new Error('Storage clearance failed');
+      }
+
+      console.log('Storage cleared successfully');
+      return true;
+    } catch (err) {
+      console.error('Clearance error:', err);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    const fetchMenuData = async () => {
+      try {
+        const token = await AsyncStorage.getItem('authToken');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await axios.get(apiUrl + 'menu/all/' + selectedOutlet.outletId, { headers });
+
+        // Categories
+        const fetchedCategories = (response.data.Categories || []).map(cat => ({
+          key: cat.id,
+          label: cat.title,
+          icon: cat.image_url
+            ? { uri: imageUrl + "menu_categories/" + cat.image_url }
+            : require('../../../assets/icons/burger.png'),
+        }));
+        setCategories(fetchedCategories);
+        if (fetchedCategories.length > 0) setActiveCategory(fetchedCategories[0].key);
+
+        // Menu Items
+        const fetchedItems = (response.data.Items || []).map(item => {
+          const imageUrlFull = (item.images && item.images.length > 0 && item.images[0].image_url)
+            ? imageUrl + "menu_images/" + item.images[0].image_url
+            : null;
+
+          const mappedTags = (item.tags || []).map(tag => ({
+            id: tag.id,
+            title: tag.title,
+            icon: tag.icon_url
+              ? { uri: imageUrl + "tags/" + tag.icon_url }
+              : require('../../../assets/icons/burger.png'), // fallback icon
+          }));
+
+          return {
+            id: item.id,
+            name: item.title,
+            description: item.short_description,
+            price: item.price,
+            image: imageUrlFull,
+            categoryIds: item.category_ids || [],
+            tags: mappedTags,
+            is_available: item.is_available,
+            membership_tier: item.membership_tier,
+          };
+        });
+
+        setMenuItems(fetchedItems);
+
+        if (fetchedCategories.length > 0) setActiveCategory(fetchedCategories[0].key);
+
+      } catch (err) {
+        console.log('Error fetching menu data:', err.response?.data || err.message);
+      }
+    };
+    if (selectedOutlet?.outletId) {
+      fetchMenuData();
+    }
+  }, [selectedOutlet]);
+
+  function limitDecimals(value, maxDecimals = 7) {
+    if (!value) return "";
+    const num = parseFloat(value);
+    return Math.floor(num * Math.pow(10, maxDecimals)) / Math.pow(10, maxDecimals);
+  }
+
+      // console.log('Request params:', {
+      //   customer_id: customer.id,
+      //   outlet_id: selectedOutlet.outletId
+      // });
+      const formatDateTime = useCallback(() => {
+          // console.log('selectedDateTime', selectedDateTime);
+          if (!selectedDateTime) return;
+
+          const now = new Date();
+          let finalDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          let finalTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+          if (selectedDateTime.split(" ").length > 1) {
+            const [dayLabel, timeString] = selectedDateTime.split(" ");
+            let selectedDate = new Date();
+
+            if (dayLabel.toLowerCase() === "today") {
+              const [hours, minutes] = timeString.split(":").map(Number);
+              selectedDate.setHours(hours, minutes, 0, 0);
+              const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+              if (selectedDate > oneHourFromNow) {
+                finalDate = selectedDate.toISOString().split("T")[0];
+                finalTime = `${String(selectedDate.getHours()).padStart(2, "0")}:${String(selectedDate.getMinutes()).padStart(2, "0")}`;
+              }
+            } else {
+              [finalDate, finalTime] = convertToDateTimeString(selectedDateTime);
+            }
+          }
+
+          setAsyncEstimatedTime({ estimatedTime: selectedDateTime, date: finalDate, time: finalTime });
+          return { estimatedTime: selectedDateTime, date: finalDate, time: finalTime };
+        }, [selectedDateTime]);
+
+  const fetchCartTotal = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      const customerData = await AsyncStorage.getItem('customerData');
+      const customer = customerData ? JSON.parse(customerData) : null;
+      setCustomer(customer);
+
+      if (!token || !customer?.id || !selectedOutlet?.outletId) {
+        return 0;
+      }
+
+      const estimatedTimeObj = formatDateTime();
+      // console.log('estimatedTimeObj', estimatedTimeObj);
+      const response = await axios.get(`${apiUrl}cart/get`, {
+        params: {
+          customer_id: customer.id,
+          outlet_id: selectedOutlet.outletId,
+          address: selectedDeliveryAddress ? selectedDeliveryAddress.address : "",
+          order_type: activeOrderType,
+          latitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.latitude) : "",
+          longitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.longitude) : "",
+          selected_date: estimatedTimeObj.estimatedTime === "ASAP" ? null : estimatedTimeObj.date,
+          selected_time: estimatedTimeObj.estimatedTime === "ASAP" ? null : estimatedTimeObj.time,
+          // selected_date: estimatedTimeObj.date,
+          // selected_time: estimatedTimeObj.time,
+        },
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.data?.status === 200 && response.data?.data?.order_summary) {
+        return parseFloat(response.data.data.order_summary.subtotal_amount) || 0;
+      }
+      return 0;
+    } catch (error) {
+      // console.log(error);
+      if (error?.response?.status === 400) {
+        if (error?.response?.data?.status === 405) {
+          router.push({ pathname: '(tabs)', params: { setErrorModal: true } });
+          checkoutClearStorage();
+        }
+
+        // console.log('Error fetching cart total:', error?.response?.data?.message ?? "Outlet not available for this order type");
+      }
+    }
+  }, [selectedOutlet, selectedDeliveryAddress, activeOrderType, router, formatDateTime]);
+
+  useEffect(() => {
+    const loadCartTotal = async () => {
+      const total = await fetchCartTotal();
+      setTotalPrice(total);
+    };
+    loadCartTotal();
+  }, [selectedOutlet, fetchCartTotal]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadCartTotal = async () => {
+        const total = await fetchCartTotal();
+        setTotalPrice(total);
+      };
+      loadCartTotal();
+    }, [fetchCartTotal])
+  );
+
+  function convertToDateTimeString(input) {
+    // input format: "Jul 31 14:00"
+    const [monthStr, dayStr, timeStr] = input.split(" "); // "Jul", "31", "14:00"
+    const [hours, minutes] = timeStr.split(":").map(Number);
+
+    // Create a Date object using current year
+    const now = new Date();
+    const year = now.getFullYear();
+
+    // Parse month string to month index (0-11)
+    const monthIndex = new Date(`${monthStr} 1, ${year}`).getMonth();
+
+    // Create date
+    const date = new Date(year, monthIndex, Number(dayStr), hours, minutes);
+
+    // Format as "YYYY-MM-DD HH:MM"
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    const hh = String(date.getHours()).padStart(2, "0");
+    const min = String(date.getMinutes()).padStart(2, "0");
+
+    return [`${yyyy}-${mm}-${dd}`, `${hh}:${min}`];
+  }
+
+  const handleCheckout = () => {
+    formatDateTime();
+    router.push('/screens/orders/checkout');
+  };
+
+
+  return (
+    <ResponsiveBackground>
+      {/* <View style={commonStyles.outerWrapper}>
+      <View style={commonStyles.contentWrapper}> */}
+      <SafeAreaView
+        style={{
+          flex: 1,
+          backgroundColor: '#fff'
+        }}
+        edges={['top', 'left', 'right']}
+      >
+        {/* Top Bar */}
+        <TopNavigation title="MENU" isBackButton={false} />
+
+        {/* Order Type Tabs */}
+        <View style={styles.orderTypeTabs}>
+          {orderTypes.map(type =>
+            type.key === activeOrderType ? (
+              <PolygonButton
+                key={type.key}
+                text={type.label}
+                width={90}
+                height={25}
+                color="#C2000E"
+                textColor="#fff"
+                textStyle={{ fontWeight: 'bold', fontSize: 16 }}
+                style={{ marginHorizontal: 6 }}
+              />
+            ) : (
+              <TouchableOpacity key={type.key} onPress={() => handleSetOrderType(type.key)}>
+                <Text style={styles.orderTypeInactive}>{type.label}</Text>
+              </TouchableOpacity>
+            )
+          )}
+        </View>
+        <View style={styles.rowContainer}>
+          {activeOrderType !== "dinein" ? <TouchableOpacity
+            style={styles.prominentTimeSelector}
+            onPress={() => setShowDateTimePicker(true)}
+          >
+
+            <Text style={styles.prominentOutletText}>{selectedDateTime ? selectedDateTime : "Please Select Time"}</Text>
+            {/* <Text style={styles.prominentOutletText}>{selectedDate}</Text> */}
+            <FontAwesome6 name="clock" size={18} color="#C2000E" />
+          </TouchableOpacity> : null}
+
+          <TouchableOpacity
+            style={[
+              styles.prominentOutletSelector,
+              activeOrderType === "dinein" && { width: '100%' }
+            ]}
+            onPress={() => router.push(activeOrderType === "delivery" ? { pathname: '/screens/home/address_select', params: { orderType: activeOrderType } } : { pathname: '/screens/home/outlet_select', params: { orderType: activeOrderType } })}
+          >
+            <View style={styles.outletBadge}>
+              {activeOrderType === "delivery" ? <FontAwesome6 name="location-dot" size={14} color="#fff" /> : <FontAwesome6 name="store" size={14} color="#fff" />}
+            </View>
+            {activeOrderType === "delivery" ?
+              selectedOutlet && selectedDeliveryAddress ? (<Text style={styles.prominentOutletText}>{(selectedDeliveryAddress.address?.length > 10 ? selectedDeliveryAddress.address.slice(0, 10) + '...' : selectedDeliveryAddress.address) ?? "Icon City"} | {selectedOutlet.distanceFromUserLocation ?? "0.00"}km</Text>) : null :
+              selectedOutlet ? (<Text style={styles.prominentOutletText}>{(selectedOutlet.outletTitle?.length > 10 && activeOrderType === "pickup" ? selectedOutlet.outletTitle.slice(0, 10) + '...' : selectedOutlet.outletTitle) ?? "US Pizza Malaysia"} | {selectedOutlet.distanceFromUserLocation ?? "0.00"}km</Text>) : null}
+            <FontAwesome6 name="chevron-right" size={14} color="#C2000E" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={[{ flex: 1, flexDirection: 'row', width: Math.min(width, 440), paddingBottom: totalPrice === 0 ? 80 : 0, alignSelf: 'center' }]}>
+          {/* Category Sidebar */}
+          <FlatList
+            ref={categoryListRef}
+            data={categories}
+            keyExtractor={categoryKeyExtractor}
+            getItemLayout={(data, index) => ({
+              length: 90, // height of category item from your styles
+              offset: 90 * index,
+              index,
+            })}
+            onScrollToIndexFailed={(info) => {
+              const wait = new Promise(resolve => setTimeout(resolve, 100));
+              wait.then(() => {
+                if (categoryListRef.current) {
+                  categoryListRef.current.scrollToOffset({
+                    offset: info.averageItemLength * info.index,
+                    animated: true
+                  });
+                }
+              });
+            }}
+            contentContainerStyle={styles.sidebar}
+            showsVerticalScrollIndicator={false}
+            renderItem={renderCategoryItem}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            initialNumToRender={10}
+            updateCellsBatchingPeriod={50}
+          />
+          {/* Menu List */}
+          <FlatList
+            ref={menuListRef}
+            data={menuItems}
+            // ⚠️ Optional: comment out getItemLayout if rows have variable heights
+            // getItemLayout={(data, index) => ({ length: 152, offset: 152 * index, index })}
+            keyExtractor={menuKeyExtractor}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.menuList}
+            onViewableItemsChanged={onViewRef.current}
+            viewabilityConfig={viewabilityConfig}
+            renderItem={renderMenuItem}
+            removeClippedSubviews
+            onContentSizeChange={() => {
+              if (menuItems.length > 0 && !listReady) {
+                setListReady(true);
+              }
+            }}
+            // keep defaults for performance
+            initialNumToRender={12}
+            windowSize={10}
+            maxToRenderPerBatch={10}
+            updateCellsBatchingPeriod={100}
+            onMomentumScrollEnd={() => {
+              setTimeout(() => {
+              categoryLockRef.current = false;
+                setCategoryLock(false);
+                isProgrammaticScroll.current = false; // ✅ re-enable `onViewRef`
+              }, 1800);
+            }}
+            onScrollToIndexFailed={(info) => {
+              // Smooth recovery when the target item hasn't been measured yet
+              const offset = Math.max(0, info.averageItemLength * info.index - info.averageItemLength);
+              menuListRef.current?.scrollToOffset({ offset, animated: false });
+              setTimeout(() => {
+                menuListRef.current?.scrollToIndex({
+                  index: info.index,
+                  animated: true,
+                  viewPosition: 0,
+                });
+              }, 120);
+            }}
+          />
+
+
+        </View>
+        {/* Bottom Bar */}
+        {totalPrice > 0 && (
+          <View style={[styles.bottomBar, commonStyles.containerStyle]}>
+            <PolygonButton
+              text="Total"
+              width={120}
+              height={25}
+              color="#C2000E"
+              textColor="#fff"
+              textStyle={{ fontWeight: 'bold', fontSize: 16 }}
+            />
+            <View style={styles.bottomPriceContainer}>
+              <Text style={styles.bottomPriceSmall}>RM </Text>
+              
+              <Text style={styles.bottomPrice}>{totalPrice.toFixed(2)}</Text>
+            </View>
+            <PolygonButton
+              text="Checkout"
+              width={80}
+              height={25}
+              color="#C2000E"
+              textColor="#fff"
+              textStyle={{ fontSize: 14 }}
+              onPress={handleCheckout}
+            />
+          </View>
+        )}
+
+        {selectedOutlet ? <CustomDateTimePickerModal
+          showDateTimePicker={showDateTimePicker}
+          setShowDateTimePicker={setShowDateTimePicker}
+          setSelectedDateTime={setSelectedDateTime}
+          outletId={selectedOutlet.outletId}
+        /> : null}
+
+      </SafeAreaView>
+      {/* </View>
+    </View> */}
+    </ResponsiveBackground>
+  );
+}
+
+const styles = StyleSheet.create({
+  sidebar: {
+    width: Math.min(width, 440) * 0.25,
+    backgroundColor: '#FCEEDB',
+    paddingVertical: 0,
+  },
+  categoryItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4, // Add horizontal padding
+    width: '100%',
+    backgroundColor: '#FCEEDB',
+    minHeight: 90, // Ensure consistent height
+  },
+  categoryItemActive: {
+    backgroundColor: '#C2000E',
+    width: '100%',
+  },
+  categoryIcon: {
+    width: 36,
+    height: 36,
+    marginBottom: 6,
+    // tintColor: '#C2000E',
+  },
+  categoryLabel: {
+    color: '#C2000E',
+    fontWeight: 'bold',
+    fontSize: 13, // Slightly smaller font
+    fontFamily: 'Route159-Bold',
+    textAlign: 'center', // Center text
+    paddingHorizontal: 4, // Add padding
+    flexWrap: 'wrap', // Allow text wrapping
+    width: '100%', // Take full width
+  },
+  categoryLabelActive: {
+    color: '#fff',
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  menuTitle: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 28,
+    fontFamily: 'Route159-HeavyItalic',
+    letterSpacing: 1,
+  },
+  orderTypeTabs: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 2,
+  },
+  orderTypeInactive: {
+    color: '#B0B0B0',
+    fontWeight: 'bold',
+    fontSize: 16,
+    fontFamily: 'Route159-HeavyItalic',
+    marginHorizontal: 30,
+  },
+  promoBanner: {
+    padding: 12,
+    paddingBottom: 10,
+    // ...(Platform.OS === 'web' && width > 440
+    //   ? { width: '100%', maxWidth: 425 }
+    //   : { width: '100%' }),
+    width: Math.min(width, 440),
+    alignSelf: "center",
+  },
+  promoImage: {
+    width: '100%',
+    height: 120,
+    borderRadius: 16,
+    resizeMode: 'cover',
+  },
+  // sidebar: {
+  //   width: Math.min(width, 440) * 0.25,
+  //   backgroundColor: '#FCEEDB',
+  //   paddingVertical: 0,
+  //   alignItems: 'center',
+  // },
+  // categoryItem: {
+  //   alignItems: 'center',
+  //   paddingVertical: 18,
+  //   width: width * 0.25,
+  //   backgroundColor: '#FCEEDB',
+  // },
+  // categoryItemActive: {
+  //   width: width * 0.25,
+  //   backgroundColor: '#C2000E'
+  // },
+  // categoryIcon: {
+  //   width: 36,
+  //   height: 36,
+  //   marginBottom: 6,
+  //   tintColor: '#C2000E',
+  // },
+  // categoryLabel: {
+  //   color: '#C2000E',
+  //   fontWeight: 'bold',
+  //   fontSize: 15,
+  //   fontFamily: 'Route159-Bold',
+  // },
+  // categoryLabelActive: {
+  //   color: '#fff',
+  // },
+  menuList: {
+    width: Math.min(width, 440) * 0.75,
+    backgroundColor: '#fff',
+    padding: 5,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    width: '100%',
+  },
+  menuImage: {
+    width: width <= 360 ? 110 : 120,
+    height: 120,
+    borderRadius: 12,
+    margin: 8,
+  },
+  menuImageContainer: {
+    position: 'relative',
+  },
+  notAvailableOverlay: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    right: 8,
+    bottom: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notAvailableTextContainer: {
+    transform: [{ rotate: '-45deg' }],
+  },
+  notAvailableText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    fontFamily: 'Route159-Bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  menuInfo: {
+    flex: 1,
+    padding: 8,
+    width: 50,
+    justifyContent: 'center',
+  },
+  menuName: {
+    color: '#C2000E',
+    fontWeight: 'bold',
+    fontSize: width <= 360 ? 16 : 18,
+    fontFamily: 'Route159-Heavy',
+    textAlign: 'right',
+  },
+  menuDesc: {
+    color: '#888',
+    fontSize: 10,
+    marginVertical: 4,
+    fontFamily: 'RobotoSlab-Regular',
+    textAlign: 'right',
+    width: '100%',
+  },
+  menuPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginTop: 8,
+    justifyContent: 'flex-end',
+  },
+  menuOldPrice: {
+    color: '#bbb',
+    textDecorationLine: 'line-through',
+    fontSize: width <= 390 ? 13 : 14,
+    fontFamily: 'RobotoSlab-Regular',
+  },
+  menuPrice: {
+    color: '#C2000E',
+    fontWeight: 'bold',
+    fontSize: width <= 390 ? (width <= 360 ? 16 : 17) : 18,
+    fontFamily: 'Route159-Bold',
+  },
+  choiceBadge: {
+    backgroundColor: '#C2000E',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  choiceText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+    fontFamily: 'Route159-Bold',
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    padding: width <= 440 ? (width <= 375 ? 6 : 8) : 10,
+    justifyContent: 'space-between',
+    paddingTop: width <= 440 ? (width <= 375 ? 14 : 10) : 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  bottomPrice: {
+    color: '#C2000E',
+    fontWeight: 'bold',
+    fontSize: 22,
+    fontFamily: 'Route159-HeavyItalic',
+  },
+  bottomPriceSmall: {
+    color: '#C2000E',
+    fontWeight: 'bold',
+    fontSize: 16,
+    fontFamily: 'Route159-HeavyItalic',
+  },
+  bottomPriceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    width: Math.min(width, 440) * 0.4,
+    paddingLeft: 15,
+  },
+  menuOldPriceContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    width: '65%',
+    padding: 3,
+  },
+  menuTagContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    width: '100%',
+  },
+  menuTag: {
+    width: 20,
+    height: 20,
+    marginLeft: 5
+  },
+  categoryDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    paddingBottom: 8,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    marginTop: 8,
+    marginBottom: 2,
+    paddingLeft: 12,
+  },
+  categoryDividerLineVertical: {
+    width: 3,
+    height: 16,
+    backgroundColor: '#C2000E',
+    marginRight: 8,
+  },
+  categoryDividerText: {
+    color: '#C2000E',
+    fontWeight: 'bold',
+    fontSize: 16,
+    fontFamily: 'Route159-Bold',
+  },
+  prominentTimeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 12,
+    // marginHorizontal: 16,
+    marginRight: '2%',
+    width: '38%',
+    marginTop: 8,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  prominentTimeText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#C2000E',
+    fontFamily: 'Route159-SemiBold',
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+  },
+  prominentOutletSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 12,
+    // marginHorizontal: 16,
+    width: '60%',
+    marginTop: 8,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  outletBadge: {
+    backgroundColor: '#C2000E',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  prominentOutletText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    fontFamily: 'Route159-SemiBold',
+  },
+});
