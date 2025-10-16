@@ -1,6 +1,8 @@
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
+import { Asset } from 'expo-asset';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, Text, Platform, Modal, TouchableOpacity, Dimensions, Image } from "react-native";
@@ -14,6 +16,7 @@ SplashScreen.preventAutoHideAsync();
 export const WebToastContext = createContext();
 
 export default function RootLayout() {
+  const faviconUri = Asset.fromModule(require('../assets/favicon.png')).uri;
 
   const setupWebToast = () => {
     if (Platform.OS === 'web') {
@@ -173,6 +176,12 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
+      <Head>
+        <title>US Pizza Malaysia | Weborder Online</title>
+        <meta name="description" content="US Pizza - Order delicious pizzas online" />
+        <link rel="icon" href={faviconUri} />
+      </Head>
+
       <ToastProvider
         duration={2000}
         placement="top"
