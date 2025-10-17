@@ -6,7 +6,7 @@ import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiUrl } from '../../constant/constants';
+import { apiUrl, imageUrl } from '../../constant/constants';
 import useAuthGuard from '../../auth/check_token_expiry';
 
 export default function ItemDetailsScreen() {
@@ -52,7 +52,7 @@ export default function ItemDetailsScreen() {
               source={{
                 uri: menuItem?.image?.[0]?.image_url
                   ? menuItem.image[0].image_url
-                  : 'https://icom.ipsgroup.com.my/backend/uploads/menu_images/1752202393_ce8781557e89e265c663.jpg',
+                  : require('../../../assets/images/menu_default.jpg'),
               }}
               style={styles.image}
             />

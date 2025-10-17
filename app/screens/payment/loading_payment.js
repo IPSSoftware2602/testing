@@ -10,6 +10,7 @@ import {
     Text,
     View,
     Animated,
+    Platform,
     // Dimensions,
 } from 'react-native';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
@@ -20,6 +21,7 @@ import { apiUrl } from '../../constant/constants';
 // const { width, height } = Dimensions.get('window');
 
 export default function LoadingPayment() {
+    const supportsNativeDriver = Platform.OS !== 'web';
     // useAuthGuard();
     const router = useRouter();
     const [loadingText, setLoadingText] = useState('Processing payment...');
@@ -172,14 +174,14 @@ export default function LoadingPayment() {
         Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 1000,
-            useNativeDriver: true,
+            useNativeDriver: supportsNativeDriver,
         }).start();
 
         // Scale animation
         Animated.timing(scaleAnim, {
             toValue: 1,
             duration: 800,
-            useNativeDriver: true,
+            useNativeDriver: supportsNativeDriver,
         }).start();
 
         // Continuous rotation
@@ -187,7 +189,7 @@ export default function LoadingPayment() {
             Animated.timing(rotateAnim, {
                 toValue: 1,
                 duration: 3000,
-                useNativeDriver: true,
+                useNativeDriver: supportsNativeDriver,
             })
         ).start();
 
@@ -197,12 +199,12 @@ export default function LoadingPayment() {
                 Animated.timing(pulseAnim, {
                     toValue: 1.1,
                     duration: 1000,
-                    useNativeDriver: true,
+                    useNativeDriver: supportsNativeDriver,
                 }),
                 Animated.timing(pulseAnim, {
                     toValue: 1,
                     duration: 1000,
-                    useNativeDriver: true,
+                    useNativeDriver: supportsNativeDriver,
                 }),
             ])
         ).start();

@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: width <= 440 ? (width <= 375 ? (width <= 360 ? 0 : 0) : 32) : 24,
     paddingVertical: width <= 440 ? (width <= 375 ? (width <= 360 ? 16 : 14) : 10) : 12,
     marginRight: width <= 440 ? (width <= 375 ? (width <= 360 ? 8 : 10) : 12) : 2,
-    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 14 : 16) : 18) : 20,
+    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 14 : 18) : 13) : 18,
     fontFamily: 'Route159-SemiBoldItalic',
     minHeight: 50, // Ensures enough height for the text
     textAlign: 'center', // Centers the text horizontally

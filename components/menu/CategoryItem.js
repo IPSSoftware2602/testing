@@ -6,9 +6,14 @@ const { width } = Dimensions.get('window');
 const CategoryItem = memo(({ 
   item, 
   isActive, 
-  onPress 
+  onPress,
+  disabled = false,
+  style
 }) => {
   const handlePress = () => {
+    if (disabled || !onPress) {
+      return;
+    }
     onPress(item.key);
   };
 
@@ -17,8 +22,11 @@ const CategoryItem = memo(({
       style={[
         styles.categoryItem,
         isActive && styles.categoryItemActive,
+        style,
       ]}
       onPress={handlePress}
+      activeOpacity={0.7}
+      disabled={disabled}
     >
       <Image
         source={item.icon}

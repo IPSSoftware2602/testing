@@ -1,7 +1,7 @@
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import PolygonButton from '../../../components/ui/PolygonButton';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import { commonStyles } from '../../../styles/common';
@@ -23,13 +23,15 @@ const orderTypes = [
   { key: 'delivery', label: 'Delivery' },
 ];
 
+const isWeb = Platform.OS === 'web';
+
 const getCategoryToIndexMap = (items) => {
   const map = {};
   items.forEach((item, idx) => {
     if (Array.isArray(item.categoryIds)) {
       item.categoryIds.forEach(catId => {
-        // Only map to first appearance for each category
-        if (map[catId] === undefined) map[catId] = idx;
+        const key = String(catId);
+        if (map[key] === undefined) map[key] = idx;
       });
     }
   });
@@ -56,6 +58,7 @@ export default function MenuScreen() {
   const categoryToIndex = useMemo(() => getCategoryToIndexMap(menuItems), [menuItems]);
   const categoryLockRef = useRef(categoryLock);
   const categoriesRef = useRef(categories);
+  const menuItemsRef = useRef(menuItems);
   const [selectedOutlet, setSelectedOutlet] = useState({});
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
   const [selectedDateTime, setSelectedDateTime] = useState(null);
@@ -64,6 +67,44 @@ export default function MenuScreen() {
   const [customer, setCustomer] = useState('');
   const isProgrammaticScroll = useRef(false);
   const [listReady, setListReady] = useState(false);
+
+  const categoryListPerfProps = useMemo(() => {
+    if (isWeb) {
+      const total = Math.max(1, categories.length);
+      return {
+        removeClippedSubviews: false,
+        initialNumToRender: total,
+        maxToRenderPerBatch: total,
+        windowSize: Math.max(10, total),
+      };
+    }
+    return {
+      removeClippedSubviews: true,
+      initialNumToRender: 10,
+      maxToRenderPerBatch: 10,
+      windowSize: 10,
+      updateCellsBatchingPeriod: 50,
+    };
+  }, [categories.length]);
+
+  const menuListPerfProps = useMemo(() => {
+    if (isWeb) {
+      const total = Math.max(12, menuItems.length || 0);
+      return {
+        removeClippedSubviews: false,
+        initialNumToRender: total,
+        maxToRenderPerBatch: total,
+        windowSize: total,
+      };
+    }
+    return {
+      removeClippedSubviews: true,
+      initialNumToRender: 12,
+      windowSize: 10,
+      maxToRenderPerBatch: 10,
+      updateCellsBatchingPeriod: 100,
+    };
+  }, [menuItems.length]);
 
   const handleSetOrderType = async (orderType) => {
     setActiveOrderType(orderType);
@@ -174,7 +215,17 @@ export default function MenuScreen() {
     categoriesRef.current = categories;
   }, [categories]);
 
-  const onViewRef = useRef(({ viewableItems }) => {
+  useEffect(() => {
+    menuItemsRef.current = menuItems;
+  }, [menuItems]);
+
+  const activeCategoryRef = useRef(activeCategory);
+  const viewabilityConfigRef = useRef({ itemVisiblePercentThreshold: 50 });
+  useEffect(() => {
+    activeCategoryRef.current = activeCategory != null ? String(activeCategory) : '';
+  }, [activeCategory]);
+
+  const handleViewableItemsChanged = useCallback(({ viewableItems }) => {
     if (categoryLockRef.current || isProgrammaticScroll.current) return; // 🔒 skip updates while lock is active
     // console.log(123)
     if (viewableItems.length > 0) {
@@ -182,8 +233,10 @@ export default function MenuScreen() {
         b.percentVisible - a.percentVisible
       )[0].item;
   
-      const firstCatId = mostVisibleItem.categoryIds?.[0];
-      if (firstCatId && firstCatId !== activeCategory) {
+      const firstCatIdRaw = mostVisibleItem.categoryIds?.[0];
+      const firstCatId = firstCatIdRaw != null ? String(firstCatIdRaw) : '';
+      if (firstCatId && firstCatId !== activeCategoryRef.current) {
+        activeCategoryRef.current = firstCatId;
         setActiveCategory(firstCatId);
   
         const catIdx = categoriesRef.current.findIndex(c => c.key === firstCatId);
@@ -196,7 +249,17 @@ export default function MenuScreen() {
         }
       }
     }
-  });  
+  }, []);
+
+  const viewabilityConfigCallbackPairs = useMemo(
+    () => [
+      {
+        viewabilityConfig: viewabilityConfigRef.current,
+        onViewableItemsChanged: handleViewableItemsChanged,
+      },
+    ],
+    [handleViewableItemsChanged]
+  );
 
   const isFirstInCategory = useCallback((items, index, activeCat) => {
     if (index === 0) return true;
@@ -215,19 +278,25 @@ export default function MenuScreen() {
 
   const APPROX_ITEM_HEIGHT = 152; // your normal row height (without extra header)
   const LOCK_RELEASE_MS = 1200;
-  
+  const releaseCategoryLock = useCallback(() => {
+    categoryLockRef.current = false;
+    setCategoryLock(false);
+    isProgrammaticScroll.current = false;
+  }, []);
+
   const handleCategoryPressCallback = useCallback((catKey) => {
+    const normalizedKey = String(catKey);
     // highlight the tapped category immediately
-    setActiveCategory(catKey);
+    activeCategoryRef.current = normalizedKey;
+    setActiveCategory(normalizedKey);
     setCategoryLock(true);
     isProgrammaticScroll.current = true;
     if (!listReady) {
-      console.log("FlatList not ready yet, ignoring tap");
       return;
     }
   
     // 1) Scroll the left category list to keep the tapped item centered
-    const catIdx = categoriesRef.current.findIndex(c => c.key === catKey);
+    const catIdx = categoriesRef.current.findIndex(c => c.key === normalizedKey);
     if (catIdx !== -1 && categoryListRef.current) {
       try {
         categoryListRef.current.scrollToIndex({
@@ -235,7 +304,7 @@ export default function MenuScreen() {
           viewPosition: 0.5,
           animated: true,
         });
-      } catch {
+      } catch (err) {
         // soft fallback
         categoryListRef.current.scrollToOffset({
           offset: Math.max(0, catIdx * 90 - 90),
@@ -245,13 +314,12 @@ export default function MenuScreen() {
     }
   
     // 2) Scroll the menu list to the first item for this category (the "title" lives with that row)
-    let index = categoryToIndex[catKey];
+    let index = categoryToIndex[normalizedKey];
     if (index == null || !menuListRef.current) {
-      setTimeout(() => setCategoryLock(false), LOCK_RELEASE_MS);
+      setTimeout(releaseCategoryLock, LOCK_RELEASE_MS);
       return;
     }
     index-=0.05;
-  
     // Let layout settle, then attempt precise jump
     requestAnimationFrame(() => {
       try {
@@ -261,7 +329,7 @@ export default function MenuScreen() {
           viewPosition: 0,      // align the category title at the top
           viewOffset: 0,
         });
-      } catch {
+      } catch (err) {
         // If not measured yet, do an approximate offset first…
         const roughOffset = Math.max(0, index * APPROX_ITEM_HEIGHT - APPROX_ITEM_HEIGHT);
         menuListRef.current.scrollToOffset({ offset: roughOffset, animated: false });
@@ -279,25 +347,38 @@ export default function MenuScreen() {
           }
         }, 120);
       } finally {
-        // setTimeout(() => setCategoryLock(false), LOCK_RELEASE_MS);
+        setTimeout(releaseCategoryLock, LOCK_RELEASE_MS);
       }
     });
-  }, [categoryToIndex, listReady]);
+  }, [categoryToIndex, listReady, releaseCategoryLock]);
 
   // Memoized key extractors
   const categoryKeyExtractor = useCallback((item, index) => `${item.key}_${index}`, []);
   const menuKeyExtractor = useCallback((item, index) => `${item.id}_${index}`, []);
-
   // Memoized render functions
+  const disabledCategoryStyle = useMemo(
+    () => (!listReady ? styles.categoryDisabled : undefined),
+    [listReady]
+  );
+
+  const categoriesWithActive = useMemo(
+    () =>
+      categories.map(cat => ({
+        ...cat,
+        isActive: String(activeCategory) === cat.key,
+      })),
+    [categories, activeCategory]
+  );
+
   const renderCategoryItem = useCallback(({ item }) => (
     <CategoryItem
-    item={item}
-    isActive={activeCategory === item.key}
-    onPress={listReady ? handleCategoryPressCallback : undefined} // 🔒 disable taps
-    disabled={!listReady}
-    style={!listReady ? { opacity: 0.4 } : {}}
-  />
-  ), [activeCategory, handleCategoryPressCallback, listReady]);
+      item={item}
+      isActive={item.isActive}
+      onPress={listReady ? handleCategoryPressCallback : undefined} // 🔒 disable taps
+      disabled={!listReady}
+      style={disabledCategoryStyle}
+    />
+  ), [disabledCategoryStyle, handleCategoryPressCallback, listReady]);
 
   const renderMenuItem = useCallback(({ item, index }) => {
     const isFirst = isFirstInCategory(menuItems, index, item.categoryIds?.[0]);
@@ -320,8 +401,6 @@ export default function MenuScreen() {
       return () => clearTimeout(timer);
     }
   }, [categoryLock]);
-
-  const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
 
   const checkoutClearStorage = async () => {
     const keysToRemove = [
@@ -361,36 +440,48 @@ export default function MenuScreen() {
     }
   };
 
-  useEffect(() => {
-    const fetchMenuData = async () => {
+  const fetchMenuData = useCallback(
+    async ({ resetList = false } = {}) => {
+      if (!selectedOutlet?.outletId) return;
+
       try {
+        if (resetList) {
+          categoryLockRef.current = false;
+          isProgrammaticScroll.current = false;
+          setCategoryLock(false);
+          setListReady(false);
+
+          requestAnimationFrame(() => {
+            categoryListRef.current?.scrollToOffset({ offset: 0, animated: false });
+            menuListRef.current?.scrollToOffset({ offset: 0, animated: false });
+          });
+        }
+
         const token = await AsyncStorage.getItem('authToken');
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const response = await axios.get(apiUrl + 'menu/all/' + selectedOutlet.outletId, { headers });
+        const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}`, { headers });
 
-        // Categories
         const fetchedCategories = (response.data.Categories || []).map(cat => ({
-          key: cat.id,
+          key: String(cat.id),
           label: cat.title,
           icon: cat.image_url
             ? { uri: imageUrl + "menu_categories/" + cat.image_url }
             : require('../../../assets/icons/burger.png'),
         }));
         setCategories(fetchedCategories);
-        if (fetchedCategories.length > 0) setActiveCategory(fetchedCategories[0].key);
 
-        // Menu Items
         const fetchedItems = (response.data.Items || []).map(item => {
-          const imageUrlFull = (item.images && item.images.length > 0 && item.images[0].image_url)
-            ? imageUrl + "menu_images/" + item.images[0].image_url
-            : null;
+          const imageUrlFull =
+            item.images && item.images.length > 0 && item.images[0].image_url
+              ? imageUrl + "menu_images/" + item.images[0].image_url
+              : null;
 
           const mappedTags = (item.tags || []).map(tag => ({
             id: tag.id,
             title: tag.title,
             icon: tag.icon_url
               ? { uri: imageUrl + "tags/" + tag.icon_url }
-              : require('../../../assets/icons/burger.png'), // fallback icon
+              : require('../../../assets/icons/burger.png'),
           }));
 
           return {
@@ -399,25 +490,45 @@ export default function MenuScreen() {
             description: item.short_description,
             price: item.price,
             image: imageUrlFull,
-            categoryIds: item.category_ids || [],
+            categoryIds: (item.category_ids || []).map(id => String(id)),
             tags: mappedTags,
             is_available: item.is_available,
             membership_tier: item.membership_tier,
           };
         });
-
         setMenuItems(fetchedItems);
+        setListReady(fetchedItems.length > 0);
 
-        if (fetchedCategories.length > 0) setActiveCategory(fetchedCategories[0].key);
-
+        if (fetchedCategories.length > 0) {
+          setActiveCategory(prev => {
+            const prevKey = prev != null ? String(prev) : '';
+            if (prevKey && fetchedCategories.some(cat => cat.key === prevKey)) {
+              return prevKey;
+            }
+            return fetchedCategories[0].key;
+          });
+        } else {
+          setActiveCategory('');
+        }
       } catch (err) {
         console.log('Error fetching menu data:', err.response?.data || err.message);
+        setListReady(menuItemsRef.current.length > 0);
       }
-    };
+    },
+    [selectedOutlet?.outletId]
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchMenuData({ resetList: true });
+    }, [fetchMenuData])
+  );
+
+  useEffect(() => {
     if (selectedOutlet?.outletId) {
-      fetchMenuData();
+      fetchMenuData({ resetList: true });
     }
-  }, [selectedOutlet]);
+  }, [selectedOutlet?.outletId, fetchMenuData]);
 
   function limitDecimals(value, maxDecimals = 7) {
     if (!value) return "";
@@ -622,9 +733,11 @@ export default function MenuScreen() {
         <View style={[{ flex: 1, flexDirection: 'row', width: Math.min(width, 440), paddingBottom: totalPrice === 0 ? 80 : 0, alignSelf: 'center' }]}>
           {/* Category Sidebar */}
           <FlatList
+            key={isWeb ? `category-list-${categories.length || 0}` : undefined}
             ref={categoryListRef}
-            data={categories}
+            data={categoriesWithActive}
             keyExtractor={categoryKeyExtractor}
+            extraData={listReady}
             getItemLayout={(data, index) => ({
               length: 90, // height of category item from your styles
               offset: 90 * index,
@@ -644,14 +757,11 @@ export default function MenuScreen() {
             contentContainerStyle={styles.sidebar}
             showsVerticalScrollIndicator={false}
             renderItem={renderCategoryItem}
-            removeClippedSubviews={true}
-            maxToRenderPerBatch={10}
-            windowSize={10}
-            initialNumToRender={10}
-            updateCellsBatchingPeriod={50}
+            {...categoryListPerfProps}
           />
           {/* Menu List */}
           <FlatList
+            key={isWeb ? `menu-list-${menuItems.length || 0}` : undefined}
             ref={menuListRef}
             data={menuItems}
             // ⚠️ Optional: comment out getItemLayout if rows have variable heights
@@ -659,26 +769,17 @@ export default function MenuScreen() {
             keyExtractor={menuKeyExtractor}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.menuList}
-            onViewableItemsChanged={onViewRef.current}
-            viewabilityConfig={viewabilityConfig}
+            viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs}
             renderItem={renderMenuItem}
-            removeClippedSubviews
             onContentSizeChange={() => {
               if (menuItems.length > 0 && !listReady) {
                 setListReady(true);
               }
             }}
             // keep defaults for performance
-            initialNumToRender={12}
-            windowSize={10}
-            maxToRenderPerBatch={10}
-            updateCellsBatchingPeriod={100}
+            {...menuListPerfProps}
             onMomentumScrollEnd={() => {
-              setTimeout(() => {
-              categoryLockRef.current = false;
-                setCategoryLock(false);
-                isProgrammaticScroll.current = false; // ✅ re-enable `onViewRef`
-              }, 1800);
+              setTimeout(releaseCategoryLock, 1800);
             }}
             onScrollToIndexFailed={(info) => {
               // Smooth recovery when the target item hasn't been measured yet
@@ -743,6 +844,9 @@ const styles = StyleSheet.create({
     width: Math.min(width, 440) * 0.25,
     backgroundColor: '#FCEEDB',
     paddingVertical: 0,
+  },
+  categoryDisabled: {
+    opacity: 0.4,
   },
   categoryItem: {
     alignItems: 'center',

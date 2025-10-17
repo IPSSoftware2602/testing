@@ -41,132 +41,122 @@ export default function GeneralReceipt() {
 
   // 🔹 HTML Receipt Template for PDF
   const generateReceiptHtml = (order) => `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            color: #333;
-            padding: 20px;
-            margin: 0;
-            line-height: 1.4;
-          }
-          .receipt-container {
-            max-width: 100%;
-          }
-          h2 {
-            text-align: center;
-            color: #C2000E;
-            margin-bottom: 15px;
-          }
-          hr {
-            border: 0;
-            border-top: 1px solid #ddd;
-            margin: 15px 0;
-          }
-          .footer {
-            text-align: center;
-            margin-top: 30px;
-            font-size: 12px;
-            color: #888;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 10px 0;
-          }
-          td {
-            padding: 6px 0;
-          }
-          .total {
-            font-weight: bold;
-            font-size: 16px;
-            border-top: 1px solid #ddd;
-            padding-top: 8px;
-          }
-          ul {
-            margin: 5px 0;
-            padding-left: 15px;
-          }
-          li {
-            margin: 2px 0;
-            font-size: 12px;
-            color: #666;
-          }
-          .item-row {
-            margin-bottom: 12px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="receipt-container">
-          <h2>US PIZZA - General Receipt</h2>
-          <p><b>Order No:</b> ${order.order_so || 'N/A'}</p>
-          <p><b>Date:</b> ${order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</p>
-          <p><b>Order Type:</b> ${order.order_type || 'N/A'}</p>
-          <hr />
-          
-          <h3>Items</h3>
-          ${order.items && order.items.map(
-            (item) => `
-            <div class="item-row">
-              <div><b>${item.title || 'Unknown Item'}</b> x${item.quantity || 1} - RM${item.unit_price ? parseFloat(item.unit_price).toFixed(2) : '0.00'}</div>
-              ${item.options && item.options.length > 0 ? `
-              <ul>
-                ${item.options.map((opt) => `<li>${opt.option_title || ''}</li>`).join('')}
-              </ul>
-              ` : ''}
-            </div>`
-          ).join('') || '<div>No items found</div>'}
-          
-          <hr/>
-          <table>
-            <tr><td>Subtotal</td><td align="right">RM ${order.subtotal_amount ? parseFloat(order.subtotal_amount).toFixed(2) : '0.00'}</td></tr>
-            <tr><td>Rounding</td><td align="right">RM ${order.rounding_amount ? parseFloat(order.rounding_amount).toFixed(2) : '0.00'}</td></tr>
-            <tr><td class="total">Total</td><td align="right" class="total">RM ${order.grand_total ? parseFloat(order.grand_total).toFixed(2) : '0.00'}</td></tr>
-          </table>
-          <hr/>
-          
-          <p><b>Payment Method:</b> ${order.payments?.[0]?.payment_method || 'N/A'}</p>
-          <p><b>Status:</b> ${order.payment_status || 'N/A'}</p>
-          <hr/>
-          <p><b>Notes:</b> ${order.notes || '-'}</p>
-          <div class="footer">Thank you for dining with US PIZZA!</div>
-        </div>
-      </body>
-    </html>
-  `;
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        color: #333;
+        padding: 20px;
+        margin: 0;
+        line-height: 1.4;
+      }
+      h2 {
+        text-align: center;
+        color: #C2000E;
+        margin-bottom: 15px;
+      }
+      hr {
+        border: 0;
+        border-top: 1px solid #ddd;
+        margin: 15px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      td {
+        padding: 4px 0;
+      }
+      .total {
+        font-weight: bold;
+        border-top: 1px solid #ddd;
+        padding-top: 8px;
+      }
+      ul {
+        margin: 4px 0 10px 15px;
+        padding: 0;
+      }
+      li {
+        font-size: 13px;
+        color: #666;
+      }
+      .footer {
+        text-align: center;
+        font-size: 12px;
+        color: #888;
+        margin-top: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>US PIZZA - Official Receipt</h2>
+    <p><b>Order No:</b> ${order.order_so || 'N/A'}</p>
+    <p><b>Date:</b> ${order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</p>
+    <p><b>Order Type:</b> ${order.order_type || 'N/A'}</p>
+    <hr/>
+
+    <h3>Items</h3>
+    ${order.items?.map(item => `
+      <div>
+        <div><b>${item.title}</b> x${item.quantity} - RM${parseFloat(item.unit_price).toFixed(2)}</div>
+        ${item.options?.length ? `<ul>${item.options.map(opt => `<li>${opt.option_title}</li>`).join('')}</ul>` : ''}
+      </div>
+    `).join('') || '<p>No items found</p>'}
+
+    <hr/>
+    <table>
+      <tr><td>Subtotal</td><td align="right">RM ${parseFloat(order.subtotal_amount).toFixed(2)}</td></tr>
+      ${order.discount_amount && parseFloat(order.discount_amount) > 0 ? `<tr><td>Total Discount</td><td align="right">-RM ${parseFloat(order.discount_amount).toFixed(2)}</td></tr>` : ''}
+      ${order.tax_amount && parseFloat(order.tax_amount) > 0 ? `<tr><td>Tax Charges (6% SST)</td><td align="right">RM ${parseFloat(order.tax_amount).toFixed(2)}</td></tr>` : ''}
+      ${order.delivery_fee && parseFloat(order.delivery_fee) > 0 ? `<tr><td>Delivery Fee</td><td align="right">RM ${parseFloat(order.delivery_fee).toFixed(2)}</td></tr>` : ''}
+      <tr><td>Rounding</td><td align="right">RM ${parseFloat(order.rounding_amount).toFixed(2)}</td></tr>
+      <tr><td class="total">Total</td><td align="right" class="total">RM ${parseFloat(order.grand_total).toFixed(2)}</td></tr>
+    </table>
+
+    <hr/>
+    <p><b>Payment Method:</b> ${order.payments?.[0]?.payment_method || 'N/A'}</p>
+    <p><b>Status:</b> ${order.payment_status || 'N/A'}</p>
+    <p><b>Notes:</b> ${order.notes || '-'}</p>
+
+    <div class="footer">Thank you for dining with US PIZZA!</div>
+  </body>
+</html>`;
+
 
   // 🔹 Handle Download PDF
   // 🔹 Handle Download PDF (Simpler version)
-const handleDownload = async () => {
+  const handleDownload = async () => {
   if (!order) return;
-  
+
   try {
     setDownloading(true);
-    
+
+    // ✅ always use the HTML-only version, not what's on screen
     const html = generateReceiptHtml(order);
-    
-    // Generate PDF
+
+    // generate the PDF from the HTML string (not from UI)
     const { uri } = await Print.printToFileAsync({
-      html,
+      html: html, // ✅ ensures it's using this clean version
       base64: false,
     });
 
-    // Create custom filename for sharing
     const orderNumber = order.order_so || 'receipt';
-    const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const date = new Date().toISOString().split('T')[0];
     const customFileName = `USPizza_Receipt_${orderNumber}_${date}.pdf`;
-    
-    // Share the PDF with custom filename
+
+    // ✅ ensure you're NOT using Print.printAsync(html) anywhere
+    // That one actually captures what's displayed on screen.
+
+    // Share the file
     const isSharingAvailable = await Sharing.isAvailableAsync();
     if (isSharingAvailable) {
       await Sharing.shareAsync(uri, {
         mimeType: 'application/pdf',
         dialogTitle: `Save ${customFileName}`,
-        UTI: 'com.adobe.pdf'
+        UTI: 'com.adobe.pdf',
       });
     } else {
       Alert.alert('Success', 'PDF generated successfully!');
@@ -178,6 +168,7 @@ const handleDownload = async () => {
     setDownloading(false);
   }
 };
+
 
   // Format currency
   const formatCurrency = (amount) => {
@@ -228,12 +219,13 @@ const handleDownload = async () => {
           navigatePage={() => router.back()}
         />
 
-        <ScrollView 
+        <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 16 }}
           showsVerticalScrollIndicator={false}
         >
           {/* Receipt Preview */}
+
           <View
             style={{
               backgroundColor: '#fff',
@@ -247,12 +239,12 @@ const handleDownload = async () => {
             }}
           >
             {/* Header */}
-            <Text style={{ 
-              fontSize: 20, 
-              fontWeight: 'bold', 
-              color: '#C2000E', 
-              textAlign: 'center', 
-              marginBottom: 16 
+            <Text style={{
+              fontSize: 20,
+              fontWeight: 'bold',
+              color: '#C2000E',
+              textAlign: 'center',
+              marginBottom: 16
             }}>
               US PIZZA - Official Receipt
             </Text>
@@ -274,7 +266,7 @@ const handleDownload = async () => {
             <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 12, color: '#C2000E' }}>
               Items
             </Text>
-            
+
             {order.items?.map((item, index) => (
               <View key={index} style={{ marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -283,7 +275,7 @@ const handleDownload = async () => {
                     x{item.quantity} - {formatCurrency(item.unit_price)}
                   </Text>
                 </View>
-                
+
                 {item.options?.map((opt, optIndex) => (
                   <Text key={optIndex} style={{ marginLeft: 8, fontSize: 14, color: '#666' }}>
                     • {opt.option_title}
@@ -296,19 +288,52 @@ const handleDownload = async () => {
 
             {/* Totals */}
             <View style={{ marginVertical: 8 }}>
+              {/* Subtotal */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
                 <Text>Subtotal</Text>
                 <Text>{formatCurrency(order.subtotal_amount)}</Text>
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text>Total Discount </Text>
+                <Text>-{formatCurrency(order.discount_amount)}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text>Tax Charges (6% SST)</Text>
+                <Text>{formatCurrency(order.tax_amount)}</Text>
+              </View>
+
+              {/* 🔹 Conditionally show Delivery Fee */}
+              {order.delivery_fee && parseFloat(order.delivery_fee) > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text>Delivery Fee</Text>
+                  <Text>{formatCurrency(order.delivery_fee)}</Text>
+                </View>
+              )}
+
+              {/* Rounding */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
                 <Text>Rounding</Text>
                 <Text>{formatCurrency(order.rounding_amount)}</Text>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#ddd' }}>
+
+              {/* Total */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  marginTop: 8,
+                  paddingTop: 8,
+                  borderTopWidth: 1,
+                  borderTopColor: '#ddd',
+                }}
+              >
                 <Text style={{ fontWeight: 'bold', fontSize: 16 }}>Total</Text>
-                <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{formatCurrency(order.grand_total)}</Text>
+                <Text style={{ fontWeight: 'bold', fontSize: 16 }}>
+                  {formatCurrency(order.grand_total)}
+                </Text>
               </View>
             </View>
+
 
             <View style={{ height: 1, backgroundColor: '#ddd', marginVertical: 8 }} />
 

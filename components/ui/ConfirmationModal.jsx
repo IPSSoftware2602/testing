@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { Text, TouchableOpacity, View, Modal, StyleSheet, Dimensions, Animated } from 'react-native';
+import { Text, TouchableOpacity, View, Modal, StyleSheet, Dimensions, Animated, Platform } from 'react-native';
 const { width } = Dimensions.get('window');
+const supportsNativeDriver = Platform.OS !== 'web';
 
 export default function ConfirmationModal({
     title,
@@ -19,7 +20,7 @@ export default function ConfirmationModal({
             Animated.spring(scaleValue, {
                 toValue: 1,
                 speed: 10,
-                useNativeDriver: true,
+                useNativeDriver: supportsNativeDriver,
             }).start();
         } else {
             scaleValue.setValue(0);

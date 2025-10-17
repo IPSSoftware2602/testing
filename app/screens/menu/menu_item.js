@@ -46,7 +46,7 @@ const OptionCard = React.memo(({
 
   const imageSource = item.image
     ? { uri: item.image }
-    : { uri: 'https://icom.ipsgroup.com.my/backend/uploads/menu_images/1752202393_ce8781557e89e265c663.jpg' };
+    : require('../../../assets/images/menu_default.jpg');
 
   const handlePress = () => {
     if (parents === 0) {
@@ -556,12 +556,13 @@ export default function MenuItemScreen() {
         }, 1000);
       }
       else if (response.data.status === 400) {
-        const message = response.data.message;
-        console.log(message);
-        toast.show(message, {
+        const backendMsg =
+          response.data?.messages?.error ||
+          response.data?.message ||
+          "Please select a pizza crust";
+        toast.show(backendMsg, {
           type: 'custom_toast',
-          data: { title: 'Failed to add to item', status: 'danger' }
-
+          data: { title: 'Cart Add Failed', status: 'danger' }
         });
       }
     } catch (err) {
@@ -580,7 +581,7 @@ export default function MenuItemScreen() {
               source={{
                 uri: menuItem?.image?.[0]?.image_url
                   ? menuItem.image[0].image_url
-                  : 'https://icom.ipsgroup.com.my/backend/uploads/menu_images/1752202393_ce8781557e89e265c663.jpg',
+                  : require('../../../assets/images/menu_default.jpg'),
               }}
               style={styles.mainImage}
             />

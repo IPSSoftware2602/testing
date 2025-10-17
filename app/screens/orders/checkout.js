@@ -1280,7 +1280,10 @@ export default function CheckoutScreen({ navigation }) {
               Object.keys(cartData?.order_summary?.store_discount).length !== 0 ? (
               Object.entries(cartData?.order_summary?.store_discount).map(([key, discount]) => (
                 <View key={key} style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>{discount.discount_name} Discount ({discount.discount_type === "percentage" ? `${discount.discount_value}%` : null})</Text>
+                  <Text style={styles.totalLabel}>
+                    {discount.discount_name} Discount
+                    {discount.discount_type === 'percentage' && ` (${parseFloat(discount.discount_value)}%)`}
+                  </Text>
                   <Text style={styles.totalValue}>
                     - RM {parseFloat(discount.discount_amount).toFixed(2)}
                   </Text>

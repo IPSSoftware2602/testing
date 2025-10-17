@@ -48,6 +48,7 @@ import { FontAwesome } from "@expo/vector-icons";
 
 
 const { width } = Dimensions.get('window');
+const supportsNativeDriver = Platform.OS !== 'web';
 
 const pointA = { latitude: 3.1390, longitude: 101.6869 };
 const pointB = { latitude: 3.1520, longitude: 101.7000 };
@@ -181,13 +182,13 @@ const AnimationImage = ({ image, containerStyle = styles.orderDetailsIconSection
             toValue: 0.7,
             duration: 300,
             easing: Easing.linear,
-            useNativeDriver: true,
+            useNativeDriver: supportsNativeDriver,
           }),
           Animated.timing(scaleValue, {
             toValue: 0.95,
             duration: 300,
             easing: Easing.linear,
-            useNativeDriver: true,
+            useNativeDriver: supportsNativeDriver,
           }),
         ]),
         // Brighten + scale up (stronger twinkle)
@@ -196,13 +197,13 @@ const AnimationImage = ({ image, containerStyle = styles.orderDetailsIconSection
             toValue: 1.2, // Slightly over-brighten for emphasis
             duration: 200,
             easing: Easing.linear,
-            useNativeDriver: true,
+            useNativeDriver: supportsNativeDriver,
           }),
           Animated.timing(scaleValue, {
             toValue: 1.1,
             duration: 200,
             easing: Easing.linear,
-            useNativeDriver: true,
+            useNativeDriver: supportsNativeDriver,
           }),
         ]),
         // Return to normal
@@ -211,13 +212,13 @@ const AnimationImage = ({ image, containerStyle = styles.orderDetailsIconSection
             toValue: 1,
             duration: 500,
             easing: Easing.linear,
-            useNativeDriver: true,
+            useNativeDriver: supportsNativeDriver,
           }),
           Animated.timing(scaleValue, {
             toValue: 1,
             duration: 500,
             easing: Easing.linear,
-            useNativeDriver: true,
+            useNativeDriver: supportsNativeDriver,
           }),
         ]),
         // Pause between twinkles
@@ -1519,12 +1520,12 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     flexDirection: 'column',
-    height: 90,
+    height: 120,
     paddingVertical: 3,
   },
   orderItemName: {
     fontFamily: 'Route159-Bold',
-    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 16 : 16) : 16) : 16,
+    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 15 : 16) : 16) : 16,
     color: '#C2000E',
     minHeight: 20,
     lineHeight: 16,
@@ -1563,12 +1564,12 @@ const styles = StyleSheet.create({
   },
   itemQuantity: {
     fontFamily: 'RobotoSlab-Regular',
-    fontSize: 12,
+    fontSize: 11,
     color: '#727171',
   },
   itemOption: {
     fontFamily: 'RobotoSlab-Regular',
-    fontSize: 12,
+    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 10 : 11) : 11) : 12,
     color: '#727171',
     alignSelf: 'flex-start',
   },

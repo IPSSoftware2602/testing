@@ -101,16 +101,16 @@ export default function OutletSelection() {
         try {
             // For Pickup and dinein (Location will be device location)
             // Ask for permission
-            let { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                toast.show('Please allow location access', {
-                    type: 'custom_toast',
-                    data: { title: 'Permission to access location was denied', status: 'danger' }
-                });
-                router.push('(tabs)')
-                // setDefaultLocation();
-                return;
-            }
+            await Location.requestForegroundPermissionsAsync();
+            // if (status !== 'granted') {
+            //     toast.show('Please allow location access', {
+            //         type: 'custom_toast',
+            //         data: { title: 'Permission to access location was denied', status: 'danger' }
+            //     });
+            //     router.push('(tabs)')
+            //     // setDefaultLocation();
+            //     return;
+            // }
 
             // Get current position
             let currentLocation = await Location.getCurrentPositionAsync({});

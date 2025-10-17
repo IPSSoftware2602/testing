@@ -76,7 +76,7 @@ export const textStyles = StyleSheet.create({
   // Button text styles
   buttonText: {
     fontFamily: fonts.bold,
-    fontSize: 14,
+    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 10 : 11) : 11) : 12,
     lineHeight: 24,
   },
   buttonTextSmall: {

@@ -114,7 +114,7 @@ export default function MapViewWeb({ driverPos, pointA, pointB, styles }) {
         //   strokeWeight: 3,
         // },
         icon: {
-          url: 'https://icom.ipsgroup.com.my/backend/uploads/map_pointers_icon/driver.png',
+          url: require('../../assets/images/driver.png'),
           scaledSize: new window.google.maps.Size(40, 40),
           anchor: new window.google.maps.Point(26, 12)
         },
@@ -130,7 +130,7 @@ export default function MapViewWeb({ driverPos, pointA, pointB, styles }) {
       map: map,
       title: 'Pizza Restaurant',
       icon: {
-        url: 'https://icom.ipsgroup.com.my/backend/uploads/map_pointers_icon/restaurant-icon.png',
+        url: require('../../assets/images/restaurant-icon.png'),
         scaledSize: new window.google.maps.Size(45, 45),
         anchor: new window.google.maps.Point(22, 24)
       },
@@ -156,7 +156,7 @@ export default function MapViewWeb({ driverPos, pointA, pointB, styles }) {
       map: map,
       title: 'Delivery Address',
       icon: {
-        url: 'https://icom.ipsgroup.com.my/backend/uploads/map_pointers_icon/house-icon.png',
+        url: require('../../assets/images/house-icon.png'),
         scaledSize: new window.google.maps.Size(45, 45),
         anchor: new window.google.maps.Point(25, 24)
       },
