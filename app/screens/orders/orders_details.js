@@ -100,12 +100,11 @@ const OrderItem = React.memo(({ item }) => {
     // console.log(item.options);
     setIsMoreThanOneOption(item?.options && item.options.length > 1);
   }, [item?.options]);
-
   return (
     <View style={styles.orderItem}>
       {item?.menu_image?.image_url ? (
         <Image
-          source={{ uri: `${imageUrl}/menu_images/${item.menu_image.image_url}` }}
+          source={{ uri: `${imageUrl}menu_images/${item.menu_image.image_url}` }}
           style={styles.orderItemImage}
         />
       ) : (
@@ -133,20 +132,20 @@ const OrderItem = React.memo(({ item }) => {
                 <>
                   {/* Display first 2 options */}
                   {item.options.slice(0, 1).map((option_item, idx) => (
-                    <Text key={idx} style={[styles.itemOption, { marginLeft: '2%', fontSize: 12, maxWidth: '90%' }]}>
+                    <Text key={idx} style={[styles.itemOption, { marginLeft: '2%', fontSize: 10, maxWidth: '100%' }]}>
                       {`+ ${option_item?.option_title} ${option_item?.price_adjustment ? `(${`RM ${option_item?.price_adjustment}`})` : ''}`}
                     </Text>
                   ))}
 
                   {/* Display "..." if there are more than 2 options */}
                   {item.options.length > 1 && (
-                    <Text style={[styles.itemOption, { marginLeft: '2%', fontSize: 12, maxWidth: '90%' }]}>
+                    <Text style={[styles.itemOption, { marginLeft: '2%', fontSize: 10, maxWidth: '90%' }]}>
                       {`+ ${item.options.length - 2} more option(s)`}
                     </Text>
                   )}
                 </>
               ) : item?.options && item?.options[0] ? (
-                <Text style={[styles.itemOption, { marginLeft: '2%', fontSize: 12, maxWidth: '90%' }]}>{item?.options[0]?.option_title}</Text>
+                <Text style={[styles.itemOption, { marginLeft: '2%', fontSize: 10, maxWidth: '90%' }]}>{item?.options[0]?.option_title}</Text>
               ) : null}
             </View>
           </View>
@@ -420,6 +419,7 @@ export default function OrderDetails({ navigation }) {
   const [paymentUrl, setPaymentUrl] = useState('');
   const [podModalVisible, setPodModalVisible] = useState(false);
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
+  const [customerId, setCustomerId] = useState(null);
 
   const handlePaymentModalClose = async () => {
     setShowPaymentScreen(false);
@@ -431,9 +431,10 @@ export default function OrderDetails({ navigation }) {
     const checkStoredData = async () => {
       try {
         const authToken = await AsyncStorage.getItem('authToken');
+        const customer_id = await AsyncStorage.getItem('customerData') ? JSON.parse(await AsyncStorage.getItem('customerData')).id : null;
 
         setAuthToken(authToken);
-
+        setCustomerId(customer_id);
       } catch (err) {
         console.log(err);
       }
@@ -449,14 +450,13 @@ export default function OrderDetails({ navigation }) {
     }
     try {
       const response = await axios.get(
-        `${apiUrl}order/${orderId}?`,
+        `${apiUrl}order/${orderId}/${customerId}`,
         {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authToken}`,
           }
         });
-
       const orderData = await response.data;
       const order_type = orderData.data?.order_type;
       setOrder(orderData.data);
@@ -821,6 +821,9 @@ export default function OrderDetails({ navigation }) {
           {/* Pickup Progress */}
           {isPickup && isPaid ? <OrderProgressBar mode='pickup' status={order.status} /> : null}
 
+          {/* Dinein Progress */}
+          {isDinein && isPaid ? <OrderProgressBar mode='dinein' status={order.status} /> : null}
+
           {/* ETA & Map */}
           {/* {isActive && isDelivery && isPaid ? <MapSection
             driverPos={driverPos}
@@ -983,12 +986,18 @@ export default function OrderDetails({ navigation }) {
               <Text style={styles.totalValue}>RM {order?.taxes[0] ? order?.taxes[0]?.tax_amount : "0.00"}</Text>
             </View> */}
 
-            {order?.taxes.length !== 0 ? (<View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Tax Charges ({parseInt(order?.taxes[0]?.tax_rate)}% {order?.taxes[0]?.tax_type})</Text>
-              <Text style={styles.totalValue}>
-                RM {parseFloat(order?.taxes[0]?.tax_amount || 0).toFixed(2)}
-              </Text>
-            </View>) : null}
+            {order?.taxes && order.taxes.length > 0 ? (
+              order.taxes.map((tax, index) => (
+                <View style={styles.totalRow} key={index}>
+                  <Text style={styles.totalLabel}>
+                    Tax Charges ({parseInt(tax.tax_rate)}% {tax.tax_type})
+                  </Text>
+                  <Text style={styles.totalValue}>
+                    RM {parseFloat(tax.tax_amount || 0).toFixed(2)}
+                  </Text>
+                </View>
+              ))
+            ) : null}
 
           </View>
 
@@ -1494,7 +1503,7 @@ const styles = StyleSheet.create({
   },
   orderItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
     // justifyContent: 'center',
   },
@@ -1520,7 +1529,8 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     flexDirection: 'column',
-    height: 120,
+    // minHeight: 115,
+    height: 115,
     paddingVertical: 3,
   },
   orderItemName: {
@@ -1539,8 +1549,10 @@ const styles = StyleSheet.create({
   },
   orderItemPriceContainer: {
     flexDirection: 'column',
-    alignItems: 'center',
-    // marginBottom: 6,
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    flexWrap: 'wrap',   
+    width: '110%', 
   },
   orderItemOriginalPrice: {
     fontFamily: 'Route159-Regular',

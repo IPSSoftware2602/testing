@@ -188,8 +188,7 @@ MapSection.displayName = 'MapSection';
 // Memoized order item component
 const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowDeleteModal, setDeleteItem, confirmDelete, vip }) => {
   const router = useRouter();
-  // console.log(item.variation);
-  // console.log(item);
+
   const handleEdit = (item) => {
     router.push({
       pathname: '/screens/menu/menu_item',
@@ -232,8 +231,9 @@ const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowD
     <View style={styles.orderItem}>
       <Image source={{ uri: item.image }} style={styles.orderItemImage} />
       <View style={styles.orderItemDetails}>
+        {/* Top Section: Name and EDIT button */}
         <View style={styles.orderItemTop}>
-          <View style={commonStyles.column}>
+          <View style={{ flex: 1, marginRight: 8 }}>
             <Text
               style={styles.orderItemName}
               numberOfLines={2}
@@ -244,9 +244,19 @@ const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowD
             {item.variation ? (
               <Text style={styles.itemOption}>{item.variation.title}</Text>
             ) : null}
-            {item.is_free_item === '1' ? (
-              <Text style={styles.itemOption}>Free Item</Text>
-            ) : 
+          </View>
+          {vip ? null : (
+            <TouchableOpacity onPress={() => handleEdit(item)}>
+              <Text style={styles.orderItemEdit}>EDIT</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Middle Section: Price */}
+        <View style={{ marginVertical: 4 }}>
+          {item.is_free_item === '1' ? (
+            <Text style={styles.itemOption}>Free Item</Text>
+          ) : (
             <View style={styles.orderItemPriceContainer}>
               {item.originalPrice ? (
                 <Text style={styles.orderItemOriginalPrice}>
@@ -256,27 +266,20 @@ const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowD
               <Text style={styles.orderItemPrice}>
                 RM {item.price.toFixed(2)}
               </Text>
-            </View>}            
-          </View>
-          {vip ? null : (
-            <View style={commonStyles.alignRight}>
-              <TouchableOpacity onPress={() => handleEdit(item)}>
-                <Text style={styles.orderItemEdit}>EDIT</Text>
-              </TouchableOpacity>
             </View>
           )}
         </View>
+
+        {/* Bottom Section: Quantity, Options, and Delete */}
         <View style={styles.orderItemBottom}>
-          <View style={commonStyles.alignLeft}>
+          <View style={{ flex: 1 }}>
             <Text style={styles.itemQuantity}>Qty : {item.quantity}</Text>
             {item.options && item.options.length > 0 ? (
               item.options.length === 1 ? (
-                // If there's only 1 option, display it
                 <Text key={0} style={styles.itemOption}>
                   + {item.options[0].option_title} {item.options[0].price_adjustment ? `RM ${item.options[0].price_adjustment}` : ''}
                 </Text>
               ) : (
-                // If there are multiple options, show count
                 <Text style={styles.itemOption}>
                   + {item.options.length} option(s)
                 </Text>
@@ -288,6 +291,7 @@ const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowD
               console.log('🗑 Trash icon clicked — calling delete');
               handleDelete(item);
             }}
+            style={{ padding: 4 }} // Added padding for better touch area
           >
             <Feather name="trash-2" size={20} color="#C2000E" />
           </TouchableOpacity>
@@ -1710,47 +1714,47 @@ const styles = StyleSheet.create({
     backgroundColor: '#C2000E',
     marginHorizontal: 16,
   },
-  orderItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: '7%',
-  },
-  orderItemTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    height: '50%',
-  },
-  orderItemBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    height: '55%',
-  },
-  orderItemImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    alignSelf: 'center',
-  },
-  orderItemDetails: {
-    flex: 1,
-    marginLeft: 12,
-    flexDirection: 'column',
-    height: 100,
-    paddingVertical: 3,
-  },
-  orderItemName: {
-    fontFamily: 'Route159-Bold',
-    fontSize: 16,
-    color: '#C2000E',
-    minHeight: 18,
-    lineHeight: 18,
-  },
-  orderItemPriceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  // orderItem: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   marginBottom: '7%',
+  // },
+  // orderItemTop: {
+  //   flexDirection: 'row',
+  //   justifyContent: 'space-between',
+  //   alignItems: 'flex-start',
+  //   height: '50%',
+  // },
+  // orderItemBottom: {
+  //   flexDirection: 'row',
+  //   justifyContent: 'space-between',
+  //   alignItems: 'flex-end',
+  //   height: '55%',
+  // },
+  // orderItemImage: {
+  //   width: 100,
+  //   height: 100,
+  //   borderRadius: 8,
+  //   alignSelf: 'center',
+  // },
+  // orderItemDetails: {
+  //   flex: 1,
+  //   marginLeft: 12,
+  //   flexDirection: 'column',
+  //   height: 100,
+  //   paddingVertical: 3,
+  // },
+  // orderItemName: {
+  //   fontFamily: 'Route159-Bold',
+  //   fontSize: 16,
+  //   color: '#C2000E',
+  //   minHeight: 18,
+  //   lineHeight: 18,
+  // },
+  // orderItemPriceContainer: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  // },
   orderItemOriginalPrice: {
     fontFamily: 'Route159-Regular',
     textDecorationLine: 'line-through',
@@ -1866,6 +1870,49 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#fff',
     marginBottom: 20,
+  },
+   orderItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start', // Changed from 'center' to 'flex-start'
+    marginBottom: '7%',
+    paddingHorizontal: 4, // Added padding to prevent edge issues
+  },
+  orderItemTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4, // Added spacing between top and bottom sections
+  },
+  orderItemBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: 4, // Added spacing
+  },
+  orderItemImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    alignSelf: 'flex-start', // Changed from 'center' to 'flex-start'
+  },
+  orderItemDetails: {
+    flex: 1,
+    marginLeft: 12,
+    flexDirection: 'column',
+    minHeight: 100, // Changed from fixed height to minHeight
+    paddingVertical: 3,
+  },
+  orderItemName: {
+    fontFamily: 'Route159-Bold',
+    fontSize: 16,
+    color: '#C2000E',
+    flex: 1, // Allow text to take available space
+    marginRight: 8, // Space before EDIT button
+  },
+  orderItemPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4, // Added spacing
   },
   map: { flex: 1, height: 250, borderRadius: 12 },
   driverIcon: { width: 50, height: 50 },

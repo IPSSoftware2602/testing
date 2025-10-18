@@ -24,7 +24,9 @@ export default function GeneralReceipt() {
     (async () => {
       try {
         const token = await AsyncStorage.getItem('authToken');
-        const res = await axios.get(`${apiUrl}order/${orderId}`, {
+        const customer_id = await AsyncStorage.getItem('customerData') ? JSON.parse(await AsyncStorage.getItem('customerData')).id : null;
+
+        const res = await axios.get(`${apiUrl}order/${orderId}/${customer_id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -130,36 +132,39 @@ export default function GeneralReceipt() {
   // 🔹 Handle Download PDF (Simpler version)
   const handleDownload = async () => {
   if (!order) return;
-
   try {
     setDownloading(true);
 
-    // ✅ always use the HTML-only version, not what's on screen
+    // 🔹 Create clean HTML (only receipt content)
     const html = generateReceiptHtml(order);
 
-    // generate the PDF from the HTML string (not from UI)
+    // ✅ Generate PDF from that HTML only
     const { uri } = await Print.printToFileAsync({
-      html: html, // ✅ ensures it's using this clean version
+      html,
       base64: false,
     });
 
+    // ✅ Move the generated PDF to your own filename
     const orderNumber = order.order_so || 'receipt';
     const date = new Date().toISOString().split('T')[0];
     const customFileName = `USPizza_Receipt_${orderNumber}_${date}.pdf`;
+    const newPath = `${FileSystem.documentDirectory}${customFileName}`;
 
-    // ✅ ensure you're NOT using Print.printAsync(html) anywhere
-    // That one actually captures what's displayed on screen.
+    await FileSystem.moveAsync({
+      from: uri,
+      to: newPath,
+    });
 
-    // Share the file
+    // ✅ Share the clean file
     const isSharingAvailable = await Sharing.isAvailableAsync();
     if (isSharingAvailable) {
-      await Sharing.shareAsync(uri, {
+      await Sharing.shareAsync(newPath, {
         mimeType: 'application/pdf',
         dialogTitle: `Save ${customFileName}`,
         UTI: 'com.adobe.pdf',
       });
     } else {
-      Alert.alert('Success', 'PDF generated successfully!');
+      Alert.alert('Saved', `PDF saved as ${customFileName}`);
     }
   } catch (err) {
     console.error('PDF generation failed:', err);
@@ -167,7 +172,9 @@ export default function GeneralReceipt() {
   } finally {
     setDownloading(false);
   }
-};
+  };
+
+
 
 
   // Format currency
