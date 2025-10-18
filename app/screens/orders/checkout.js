@@ -545,7 +545,6 @@ export default function CheckoutScreen({ navigation }) {
 
         if ((responseData.order_summary.voucher_discount_amount !== 0 || responseData.order_summary.promo_discount_amount !== 0) && (responseData.order_summary.promo_code || responseData.order_summary.voucher_code)) {
           setPromoDiscount(parseFloat(responseData.order_summary?.promo_discount_amount || responseData.order_summary?.voucher_discount_amount));
-          // setVoucherCode((responseData.order_summary.promo_code || responseData.order_summary.voucher_code));
           setVoucherToast(true);
         }
       }
@@ -576,10 +575,17 @@ export default function CheckoutScreen({ navigation }) {
             setVoucherToApply(null);
           }, 100);
         } else {
+          setVoucherToast(false);
           toast.show(message || 'Something went wrong. Please try again.', {
             type: 'custom_toast',
             data: { title: 'Error', status: 'danger' },
           });
+
+          // Then update state
+          setTimeout(() => {
+            setVoucherCode('');
+            setVoucherToApply(null);
+          }, 100);
         }
       } else {
         console.error('Unexpected error:', error);
@@ -655,6 +661,8 @@ export default function CheckoutScreen({ navigation }) {
               setVoucherToApply(null);
             }, 100);
           }
+
+          refreshCartData();
         }
       }
     };

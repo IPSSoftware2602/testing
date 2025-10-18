@@ -140,7 +140,7 @@ const OrderItem = React.memo(({ item }) => {
                   {/* Display "..." if there are more than 2 options */}
                   {item.options.length > 1 && (
                     <Text style={[styles.itemOption, { marginLeft: '2%', fontSize: 10, maxWidth: '90%' }]}>
-                      {`+ ${item.options.length - 2} more option(s)`}
+                      {`+ ${item.options.length - 1} more option(s)`}
                     </Text>
                   )}
                 </>
