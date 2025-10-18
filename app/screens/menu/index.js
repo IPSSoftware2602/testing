@@ -445,7 +445,8 @@ export default function MenuScreen() {
       if (!selectedOutlet?.outletId) return;
 
       try {
-        if (resetList) {
+        const shouldResetList = resetList && !isWeb;
+        if (shouldResetList) {
           categoryLockRef.current = false;
           isProgrammaticScroll.current = false;
           setCategoryLock(false);
@@ -520,13 +521,17 @@ export default function MenuScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchMenuData({ resetList: true });
+      if (isWeb) {
+        fetchMenuData({ resetList: false });
+      } else {
+        fetchMenuData({ resetList: true });
+      }
     }, [fetchMenuData])
   );
 
   useEffect(() => {
     if (selectedOutlet?.outletId) {
-      fetchMenuData({ resetList: true });
+      fetchMenuData({ resetList: !isWeb });
     }
   }, [selectedOutlet?.outletId, fetchMenuData]);
 
