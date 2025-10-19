@@ -61,8 +61,12 @@ export default function OutletSelection() {
     useEffect(() => {
         const fetchOutlet = async () => {
             try {
+                let requestOrderType = orderType;
+                if(!requestOrderType){
+                    requestOrderType = await AsyncStorage.getItem('orderType');
+                }
                 const response = await axios.get(
-                    `${apiUrl}outlets/nearest/${orderType}/${location.lat}/${location.lng}`,
+                    `${apiUrl}outlets/nearest/${requestOrderType}/${location.lat}/${location.lng}`,
                     {
                         headers: {
                             'Content-Type': 'application/json',
@@ -91,7 +95,7 @@ export default function OutletSelection() {
             }
         };
 
-        if (authToken && location.lng && location.lat) {
+        if (authToken) {
             fetchOutlet();
         }
     }, [authToken, location]);
