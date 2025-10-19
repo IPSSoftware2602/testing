@@ -459,6 +459,7 @@ export default function MenuScreen() {
         }
 
         const token = await AsyncStorage.getItem('authToken');
+        console.log('token', token);
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}`, { headers });
 
