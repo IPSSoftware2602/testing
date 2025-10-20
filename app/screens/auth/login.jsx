@@ -25,7 +25,6 @@ export default function Login() {
   // }, [])
 
   const handleSendOTP = async (sendVia) => {
-    console.log('OTP send:', phone);
     if (phone) {
       try {
         const response = await axios.post(
@@ -49,7 +48,6 @@ export default function Login() {
         }
 
       } catch (err) {
-        console.log(err.status);
         if (err.status === 404) {
           toast.show('Please try again later', {
             type: 'custom_toast',

@@ -119,6 +119,12 @@ const AddressCard = ({ orderType, address, timeEstimate, setShowDateTimePicker }
           {address ? address : "No.10, Pusat Teknologi Sinar Meranti, 3, Jalan IMP 1"}
         </Text>
       </View>
+      {orderType === 'dinein' ? 
+      <View style={styles.addressCardFooter}>
+        <View style={{ flexDirection: "row" }}>
+          <Text style={styles.changeAddressText}>{formatOrderTimeSlot(orderType, timeEstimate)}</Text>
+        </View>
+      </View> : 
       <View style={styles.addressCardFooter}>
         <TouchableOpacity
           style={styles.changeAddressButton}
@@ -135,7 +141,7 @@ const AddressCard = ({ orderType, address, timeEstimate, setShowDateTimePicker }
             />
           </View>
         </TouchableOpacity>
-      </View>
+      </View>}
       {/* Decorative elements
       <View style={styles.addressCardDecoration1} />
       <View style={styles.addressCardDecoration2} /> */}

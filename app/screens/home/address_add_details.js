@@ -98,7 +98,6 @@ export default function DeliveryAddressAddDetails() {
                 const addressData = await response.data;
 
                 if (addressData.status === 'success') {
-                    console.log(addressData);
                     setTimeout(() => {
                         router.replace('/screens/home/address_select');
                         handleClear();

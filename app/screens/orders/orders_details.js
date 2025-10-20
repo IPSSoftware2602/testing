@@ -243,7 +243,7 @@ const AnimationImage = ({ image, containerStyle = styles.orderDetailsIconSection
   );
 };
 
-const DeliveryStatus = ({ stage = "preparing", item }) => {
+const DeliveryStatus = ({ stage = "preparing", item, expected_ready_time }) => {
 
   if (stage.toLocaleLowerCase() === "pending") {
     stage = "preparing"
@@ -261,15 +261,15 @@ const DeliveryStatus = ({ stage = "preparing", item }) => {
   return (
     <View style={styles.pickupstatusContainer}>
       <Text style={styles.etaText}>
-        Expected to be ready at{' '}
+        Expected to be ready at { }
         <Text
           style={{
             color: '#C2000E',
             fontFamily: 'Route159-Heavy',
-            fontSize: 22,
+            fontSize: 18,
           }}
         >
-          12:50~1:20
+          {expected_ready_time}
         </Text>
       </Text>
 
@@ -832,7 +832,7 @@ export default function OrderDetails({ navigation }) {
             mapRef={mapRef}
             order={order}
           /> : null} */}
-          {isActive && isDelivery && isPaid ? <DeliveryStatus item={order} stage={order.status} /> : null}
+          {isActive && isDelivery && isPaid ? <DeliveryStatus item={order} stage={order.status} expected_ready_time={order.expected_ready_time} /> : null}
 
           {/* Pick up */}
           {isActive && isPickup && isPaid ? <PickupStatus item={order} stage={order.status} /> : null}

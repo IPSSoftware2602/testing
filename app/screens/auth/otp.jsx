@@ -24,7 +24,6 @@ export default function OTP() {
   const toast = useToast();
 
   const handleOTPComplete = async (completedOTP) => {
-    console.log('OTP completed:', completedOTP);
     try {
       const response = await axios.post(
         apiUrl + "verify-api",

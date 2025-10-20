@@ -136,7 +136,6 @@ export default function MenuScreen() {
       try {
         const outletDetails = await AsyncStorage.getItem('outletDetails');
         if (outletDetails) {
-          console.log('outletDetails', outletDetails);
           const parsedOutletDetails = JSON.parse(outletDetails);
           if(parsedOutletDetails.isHQ !== true) {
           // console.log(outletDetails.outletId); 
@@ -459,7 +458,6 @@ export default function MenuScreen() {
         }
 
         const token = await AsyncStorage.getItem('authToken');
-        console.log('token', token);
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}`, { headers });
 

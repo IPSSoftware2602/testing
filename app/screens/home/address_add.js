@@ -168,7 +168,6 @@ export default function DeliveryAddressAdd() {
                             <EditableDeliveryMapNative
                                 initialLatLng={initialLocation}
                                 onLocationChange={(locationData) => {
-                                    console.log("Location changed:", locationData);
                                     setCurrentAddress(locationData.address);
                                     setLongitude(locationData.longitude);
                                     setLatitude(locationData.latitude);

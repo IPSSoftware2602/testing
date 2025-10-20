@@ -62,12 +62,7 @@ export default function Register() {
     return new Blob([ab], { type: mimeString });
   }
 
-  useEffect(() => {
-    console.log(profileImage);
-  }, [profileImage]);
-
   const handleRegister = async () => {
-    console.log(birthday);
 
     const formData = new FormData();
     if (profileImage) {
@@ -87,8 +82,6 @@ export default function Register() {
     formData.append('email', email);
     formData.append('birthday', birthday);
     { referralId && formData.append('customer_referral_code', referralId); }
-
-    console.log(referralId);
 
     try {
       const response = await axios.post(
