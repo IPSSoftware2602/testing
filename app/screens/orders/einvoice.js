@@ -12,9 +12,11 @@ import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import { useRouter } from 'expo-router'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
+import useAuthGuard from '../../auth/check_token_expiry';
 
 
 export default function EInvoice() {
+  useAuthGuard();
   const router = useRouter();
   const pdfUrl = "https://example.com/path/to/irbm-einvoice.pdf";
 

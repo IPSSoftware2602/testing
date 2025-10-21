@@ -131,16 +131,16 @@ const OrderItem = React.memo(({ item }) => {
               {item?.options && item.options.length > 0 ? (
                 <>
                   {/* Display first 2 options */}
-                  {item.options.slice(0, 1).map((option_item, idx) => (
+                  {item.options.slice(0, 4).map((option_item, idx) => (
                     <Text key={idx} style={[styles.itemOption, { marginLeft: '2%', fontSize: 10, maxWidth: '100%' }]}>
                       {`+ ${option_item?.option_title} ${option_item?.price_adjustment ? `(${`RM ${option_item?.price_adjustment}`})` : ''}`}
                     </Text>
                   ))}
 
                   {/* Display "..." if there are more than 2 options */}
-                  {item.options.length > 1 && (
+                  {item.options.length > 4 && (
                     <Text style={[styles.itemOption, { marginLeft: '2%', fontSize: 10, maxWidth: '90%' }]}>
-                      {`+ ${item.options.length - 1} more option(s)`}
+                      {`+ ${item.options.length - 4} more option(s)`}
                     </Text>
                   )}
                 </>
@@ -973,7 +973,7 @@ export default function OrderDetails({ navigation }) {
             </View> : null}
             {order?.voucher_discount_amount !== "0.00" || order?.promo_discount_amount !== "0.00" || order?.discount_amount !== "0.00" ? (<><View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total Discount</Text>
-              <Text style={styles.totalValue}>- RM {order?.voucher_discount_amount !== "0.00" ? parseFloat(order?.voucher_discount_amount) + parseFloat(order?.discount_amount) : parseFloat(order?.promo_discount_amount) + parseFloat(order?.discount_amount)}</Text>
+              <Text style={styles.totalValue}>- RM {order?.voucher_discount_amount !== "0.00" ? (parseFloat(order?.voucher_discount_amount) + parseFloat(order?.discount_amount)).toFixed(2) : (parseFloat(order?.promo_discount_amount) + parseFloat(order?.discount_amount)).toFixed(2)}</Text>
             </View></>) : null}
             {order?.packaging_charge !== 0 ? (<View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Packaging Charges</Text>

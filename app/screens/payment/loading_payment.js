@@ -17,12 +17,12 @@ import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../../constant/constants';
-// import useAuthGuard from '../../auth/check_token_expiry';
+import useAuthGuard from '../../auth/check_token_expiry';
 // const { width, height } = Dimensions.get('window');
 
 export default function LoadingPayment() {
     const supportsNativeDriver = Platform.OS !== 'web';
-    // useAuthGuard();
+    useAuthGuard();
     const router = useRouter();
     const [loadingText, setLoadingText] = useState('Processing payment...');
     const [loadingDots, setLoadingDots] = useState('');

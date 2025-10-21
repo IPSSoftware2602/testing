@@ -472,7 +472,16 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                     // } else {
                     //     finalTimes.push(...times);
                     // }
-                    finalTimes = index === 0 && isToday ? [{ time: 'ASAP', isOperate: true }, ...finalTimes, ...times] : [...finalTimes, ...times];
+                    
+                    const currentTime = new Date();
+                    const [firstStartHour, firstStartMinute] = normalPeriods[0].start_time.split(':').map(Number);
+                    const firstStart = new Date(date);
+                    firstStart.setHours(firstStartHour, firstStartMinute, 0, 0);
+                    const isAfterFirstStart = currentTime >= firstStart;
+
+                    finalTimes = index === 0 && isToday && isAfterFirstStart
+                        ? [{ time: 'ASAP', isOperate: true }, ...finalTimes, ...times]
+                        : [...finalTimes, ...times];
                 }
                 // finalTimes = isToday ? ['ASAP', ...finalTimes] : finalTimes;
 
@@ -691,12 +700,12 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
 
                     {/* Action Buttons */}
                     <View style={styles.modalButtons}>
-                        <TouchableOpacity
+                        {/* <TouchableOpacity
                             style={styles.cancelButton}
                             onPress={() => setShowDateTimePicker(false)}
                         >
                             <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
                         <TouchableOpacity
                             style={styles.confirmButton}
                             onPress={() => {

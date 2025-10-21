@@ -1,13 +1,15 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { Platform } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { AppState, Platform } from 'react-native';
+
+let isRedirecting = false;
 
 export default function useAuthGuard() {
     const router = useRouter();
 
-    const clearAuthState = async () => {
+    const clearAuthState = useCallback(async () => {
         await AsyncStorage.multiRemove([
             'authToken',
             'customerData',
@@ -17,32 +19,56 @@ export default function useAuthGuard() {
             'estimatedTime',
             'paymentMethod',
         ]);
-    };
+    }, []);
+
+    const redirectToLogin = useCallback(async () => {
+        if (isRedirecting) {
+            return;
+        }
+        isRedirecting = true;
+        await clearAuthState();
+        router.replace('/screens/auth/login');
+        isRedirecting = false;
+    }, [clearAuthState, router]);
+
+    const checkToken = useCallback(async () => {
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token) {
+            await redirectToLogin();
+            return;
+        }
+
+        try {
+            const decoded = jwtDecode(token);
+            const now = Date.now() / 1000;
+
+            if (decoded.exp && decoded.exp < now) {
+                await redirectToLogin();
+            }
+        } catch {
+            await redirectToLogin();
+        }
+    }, [redirectToLogin]);
 
     useEffect(() => {
-        const checkToken = async () => {
-            const token = await AsyncStorage.getItem('authToken');
-            if (!token) {
-                router.replace('/screens/auth/login');
-                return;
-            }
-
-            try {
-                const segments = token.split('.');
-                if (Platform.OS !== 'web' && segments.length === 3) {
-                    const decoded = jwtDecode(token);
-                    const now = Date.now() / 1000;
-                    if (decoded.exp && decoded.exp < now) {
-                        await clearAuthState();
-                        router.replace('/screens/auth/login');
-                    }
-                }
-            } catch {
-                await clearAuthState();
-                router.replace('/screens/auth/login');
-            }
-        };
         checkToken();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        const subscription = Platform.OS === 'web'
+            ? null
+            : AppState.addEventListener('change', status => {
+                if (status === 'active') {
+                    checkToken();
+                }
+            }
+        );
+
+        return () => {
+            subscription?.remove?.();
+        };
+    }, [checkToken]);
+
+    useFocusEffect(
+        useCallback(() => {
+            checkToken();
+        }, [checkToken])
+    );
 }

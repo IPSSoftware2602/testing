@@ -135,13 +135,26 @@ export default function MenuScreen() {
     const fetchOutletData = async () => {
       try {
         const outletDetails = await AsyncStorage.getItem('outletDetails');
+        const estimatedTime = await AsyncStorage.getItem('estimatedTime');
+        console.log(!estimatedTime);
+        let is_over = false;
+        //check now over estimated time
+        if (estimatedTime) {
+          const parsedEstimatedTime = JSON.parse(estimatedTime);
+          const currentTime = new Date();
+          const estimatedTimeObj = new Date(`${parsedEstimatedTime.date} ${parsedEstimatedTime.time}`);
+          if (currentTime >= estimatedTimeObj && parsedEstimatedTime.estimatedTime !== "ASAP") {
+            is_over = true;
+          }
+        }
         if (outletDetails) {
           const parsedOutletDetails = JSON.parse(outletDetails);
-          if(parsedOutletDetails.isHQ !== true) {
+          console.log(parsedOutletDetails);
+          if(parsedOutletDetails.isHQ === undefined) {
           // console.log(outletDetails.outletId); 
             setSelectedOutlet(parsedOutletDetails);
-            if (parsedOutletDetails.isOperate === false && activeOrderType !== "dinein") {
-              setShowDateTimePicker(true);
+            if ((activeOrderType !== "dinein" && !estimatedTime) || is_over) {
+               setShowDateTimePicker(true);
             }
           }else{
             router.push('/');

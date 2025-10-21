@@ -10,8 +10,10 @@ import TopNavigation from '../../../components/ui/TopNavigation';
 import axios from 'axios';
 import { apiUrl } from '../../constant/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import useAuthGuard from '../../auth/check_token_expiry';
 
 export default function GeneralReceipt() {
+  useAuthGuard();
   const router = useRouter();
   const { orderId } = useLocalSearchParams();
   const [order, setOrder] = useState(null);
@@ -93,11 +95,12 @@ export default function GeneralReceipt() {
       }
     </style>
   </head>
+  $
   <body>
     <h2>US PIZZA - Official Receipt</h2>
     <p><b>Order No:</b> ${order.order_so || 'N/A'}</p>
     <p><b>Date:</b> ${order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</p>
-    <p><b>Order Type:</b> ${order.order_type || 'N/A'}</p>
+    <p><b>Order Type:</b> ${formatOrderType(order.order_type) || 'N/A'}</p>
     <hr/>
 
     <h3>Items</h3>
@@ -182,6 +185,16 @@ export default function GeneralReceipt() {
     return `RM ${parseFloat(amount || 0).toFixed(2)}`;
   };
 
+  const formatOrderType = (orderType) => {
+    if (orderType === 'dinein') {
+      return 'Dine-in';
+    } else if (orderType === 'pickup') {
+      return 'Pick up';
+    } else if (orderType === 'delivery') {
+      return 'Delivery';
+    }
+  };
+
   if (loading) {
     return (
       <ResponsiveBackground>
@@ -264,7 +277,7 @@ export default function GeneralReceipt() {
               <Text style={{ fontWeight: 'bold' }}>Date:</Text> {new Date(order.created_at).toLocaleDateString()}
             </Text>
             <Text style={{ marginBottom: 16 }}>
-              <Text style={{ fontWeight: 'bold' }}>Order Type:</Text> {order.order_type}
+              <Text style={{ fontWeight: 'bold' }}>Order Type:</Text> {formatOrderType(order.order_type)}
             </Text>
 
             <View style={{ height: 1, backgroundColor: '#ddd', marginVertical: 8 }} />
@@ -285,7 +298,7 @@ export default function GeneralReceipt() {
 
                 {item.options?.map((opt, optIndex) => (
                   <Text key={optIndex} style={{ marginLeft: 8, fontSize: 14, color: '#666' }}>
-                    • {opt.option_title}
+                    • {opt.option_title} (+{formatCurrency(opt.price_adjustment)})
                   </Text>
                 ))}
               </View>
@@ -304,10 +317,16 @@ export default function GeneralReceipt() {
                 <Text>Total Discount </Text>
                 <Text>-{formatCurrency(order.discount_amount)}</Text>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                <Text>Tax Charges (6% SST)</Text>
-                <Text>{formatCurrency(order.tax_amount)}</Text>
-              </View>
+             {
+              order.taxes && order.taxes.length > 0 ? (
+                order.taxes.map((tax, index) => (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }} key={index}>
+                    <Text>Tax Charges ({parseInt(tax.tax_rate)}% {tax.tax_type})</Text>
+                    <Text>{formatCurrency(tax.tax_amount)}</Text>
+                  </View>
+                ))
+              ) : null
+             }
 
               {/* 🔹 Conditionally show Delivery Fee */}
               {order.delivery_fee && parseFloat(order.delivery_fee) > 0 && (
@@ -346,13 +365,10 @@ export default function GeneralReceipt() {
 
             {/* Payment Info */}
             <Text style={{ marginBottom: 6 }}>
-              <Text style={{ fontWeight: 'bold' }}>Payment Method:</Text> {order.payments?.[0]?.payment_method || 'N/A'}
+              <Text style={{ fontWeight: 'bold' }}>Payment Method:</Text> <Text style={{ textTransform: 'capitalize' }}>{order.payments?.[0]?.payment_method || 'N/A'}</Text>
             </Text>
             <Text style={{ marginBottom: 6 }}>
-              <Text style={{ fontWeight: 'bold' }}>Status:</Text> {order.payment_status}
-            </Text>
-            <Text style={{ marginBottom: 6 }}>
-              <Text style={{ fontWeight: 'bold' }}>Notes:</Text> {order.notes || '-'}
+              <Text style={{ fontWeight: 'bold' }}>Status:</Text> <Text style={{ textTransform: 'capitalize' }}>{order.payment_status}</Text>
             </Text>
 
             {/* Footer */}

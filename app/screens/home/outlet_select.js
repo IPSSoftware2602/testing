@@ -1,5 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet, Text, View, Dimensions, TextInput, Image, FlatList, TouchableOpacity, Alert } from 'react-native';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
@@ -59,46 +60,68 @@ export default function OutletSelection() {
     }, [router])
 
     useEffect(() => {
-        const fetchOutlet = async () => {
+        const loadOutlets = async () => {
             try {
-                let requestOrderType = orderType;
-                if(!requestOrderType){
-                    requestOrderType = await AsyncStorage.getItem('orderType');
+                // Step 1: Load stored info
+                const token = await AsyncStorage.getItem('authToken');
+                const orderTypeStored = await AsyncStorage.getItem('orderType');
+                const address = await AsyncStorage.getItem('deliveryAddressDetails');
+                const parsedAddress = address ? JSON.parse(address) : null;
+
+                setAuthToken(token);
+                setOrderType(orderTypeStored);
+
+                let lat = null;
+                let lng = null;
+
+                // Step 2: Determine location source
+                if (orderTypeStored && orderTypeStored !== 'delivery') {
+                    try {
+                        const { status } = await Location.requestForegroundPermissionsAsync();
+                        if (status === 'granted') {
+                            const currentLocation = await Location.getCurrentPositionAsync({});
+                            lat = currentLocation.coords.latitude;
+                            lng = currentLocation.coords.longitude;
+                        } else {
+                            console.log('Location permission denied, using default location');
+                        }
+                    } catch (error) {
+                        console.warn('Error getting current location:', error);
+                    }
+                } else if (parsedAddress) {
+                    lat = parseFloat(parsedAddress.latitude);
+                    lng = parseFloat(parsedAddress.longitude);
                 }
+
+                // Step 4: Fetch outlet data
                 const response = await axios.get(
-                    `${apiUrl}outlets/nearest/${requestOrderType}/${location.lat}/${location.lng}`,
+                    `${apiUrl}outlets/nearest/${orderTypeStored}/${lat}/${lng}`,
                     {
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${authToken}`,
+                            'Authorization': `Bearer ${token}`,
                         },
-                    });
+                    }
+                );
 
-                const outlet = await response.data;
-                let outletData = outlet.result;
+                let outletList = response.data.result || [];
 
-                // Sort outlets - open ones first, closed ones last
-                outletData = outletData.sort((a, b) => {
+                // Sort open first
+                outletList = outletList.sort((a, b) => {
                     const aStatus = getOutletStatus(a.operating_schedule || {});
                     const bStatus = getOutletStatus(b.operating_schedule || {});
-
-                    const aIsOpen = aStatus.isOpen ?? false;
-                    const bIsOpen = bStatus.isOpen ?? false;
-
-                    // Open outlets come first (sort descending)
-                    return bIsOpen - aIsOpen;
+                    return (bStatus.isOpen ? 1 : 0) - (aStatus.isOpen ? 1 : 0);
                 });
 
-                setOutletData(outletData);
+                setOutletData(outletList);
             } catch (error) {
-                console.error('Error fetching addresses:', error.message);
+                console.error('Error loading outlets:', error.message);
             }
         };
 
-        if (authToken) {
-            fetchOutlet();
-        }
-    }, [authToken, location]);
+        loadOutlets();
+    }, [router]);
+
 
 
     const getCoordinates = async () => {
@@ -203,13 +226,14 @@ export default function OutletSelection() {
         };
     };
 
-    const setOutletDetials = async ({ outletId, distance, outletTitle, isOperate }) => {
+    const setOutletDetials = async ({ outletId, distance, outletTitle, isOperate, operatingHours }) => {
 
         let outletData = {
             outletId,
             distanceFromUserLocation: distance,
             outletTitle,
-            isOperate
+            isOperate,
+            operatingHours
         };
         try {
             await AsyncStorage.setItem('outletDetails', JSON.stringify(outletData));
@@ -252,7 +276,7 @@ export default function OutletSelection() {
         <>
             <TouchableOpacity
                 onPress={() => {
-                    setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen });
+                    setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen, operatingHours: item.operating_schedule });
                     if(getOutletStatus(item.operating_schedule).isOpen){
                         router.push('(tabs)/menu')
                     }
