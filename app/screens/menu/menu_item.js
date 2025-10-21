@@ -80,7 +80,6 @@ const OptionCard = React.memo(({
         setItemPrice(itemPrice - item.price);
       } else {
         if(maxQ === 1){
-          console.log(456);
           const existingOption = selectedOptions.find(option => option.parents === parents);
           if (existingOption) {
             console.log(selectedOptions);
@@ -90,6 +89,12 @@ const OptionCard = React.memo(({
                 : option
             ));
             setItemPrice(itemPrice + item.price);
+          }else{
+            setSelectedOptions([...selectedOptions, {
+              parents: parents,
+              options: [item.id],
+              group_id: group?.id
+            }]);
           }
           return;
         }
