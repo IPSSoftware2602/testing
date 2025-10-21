@@ -8,10 +8,10 @@ export default function PaymentScreen({ url, onClose }) {
     const [loading, setLoading] = useState(true);
     // const [webkey, setWebkey] = useState(0);
 
-    const RETURN_URL = "https://uspizza.ipsgroup.com.my/screens/payment/loading_payment";
-    const FIUU_RETURN_URL = "https://sandbox-payment.fiuu.com/MOLPay/return_merchant.php?";
-    const NO_TOKEN_URL = "https://uspizza.ipsgroup.com.my/screens/auth/login";
-    const CANCEL_URL = "https://uspizza.ipsgroup.com.my/screens/payment/cancel";
+    const RETURN_URL = "https://webordernew.uspizza.my/screens/payment/loading_payment";
+    const FIUU_RETURN_URL = "https://pay.fiuu.com/MOLPay/return_merchant.php?";
+    const NO_TOKEN_URL = "https://webordernew.uspizza.my/screens/auth/login";
+    const CANCEL_URL = "https://webordernew.uspizza.my/screens/payment/cancel";
     // If you use deep links instead:
     const RETURN_SCHEME = "uspizzanewapp://payment/loading_payment";
 

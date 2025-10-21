@@ -71,6 +71,7 @@ const OptionCard = React.memo(({
     } else {
       // Original logic for other options
       if (selected) {
+        console.log(123);
         setSelectedOptions(selectedOptions.map(option =>
           option.parents === parents
             ? { ...option, options: option.options.filter(id => id !== item.id) }
@@ -78,6 +79,20 @@ const OptionCard = React.memo(({
         ));
         setItemPrice(itemPrice - item.price);
       } else {
+        if(maxQ === 1){
+          console.log(456);
+          const existingOption = selectedOptions.find(option => option.parents === parents);
+          if (existingOption) {
+            console.log(selectedOptions);
+            setSelectedOptions(selectedOptions.map(option =>
+              option.parents === parents
+                ? { ...option,options: [item.id] }
+                : option
+            ));
+            setItemPrice(itemPrice + item.price);
+          }
+          return;
+        }
         if (selectedCount >= maxQ) {
           toast.show(`You can only select up to ${maxQ} options for ${group?.title ?? parents}`, {
             type: 'custom_toast',

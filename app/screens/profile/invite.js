@@ -73,7 +73,7 @@ export default function Invite() {
         console.log(customerData);
         if (!customerData) return;
       
-        const message = `Join US Pizza and get rewards! Register with my referral link: https://uspizza.ipsgroup.com.my/screens/splash?referral_id=${customerData.customer_referral_code}`;
+        const message = `Join US Pizza and get rewards! Register with my referral link: https://webordernew.uspizza.my/screens/splash?referral_id=${customerData.customer_referral_code}`;
         const encodedMessage = encodeURIComponent(message);
         const waDeepLink = `whatsapp://send?text=${encodedMessage}`;
         const waBusinessDeepLink = `whatsapp-business://send?text=${encodedMessage}`;

@@ -183,7 +183,7 @@ export default function Profile() {
                 >
                   {customerData && customerData.profile_picture ? (
                     <Image
-                      source={{ uri: `https://icom.ipsgroup.com.my/backend/${customerData.profile_picture}` }}
+                      source={{ uri: `${customerData.profile_picture_url}` }}
                       style={styles.avatar}
                     />
                   ) : (

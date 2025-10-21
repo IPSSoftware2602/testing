@@ -547,6 +547,10 @@ export default function CheckoutScreen({ navigation }) {
       if (res.data.status === 200) {
         // console.log("refresh cart");
         const responseData = res.data.data;
+        if(responseData.order_summary?.item_count === 0) {
+          router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
+        }
+
         setCartData(responseData);
 
         if ((responseData.order_summary.voucher_discount_amount !== 0 || responseData.order_summary.promo_discount_amount !== 0) && (responseData.order_summary.promo_code || responseData.order_summary.voucher_code)) {
@@ -631,6 +635,10 @@ export default function CheckoutScreen({ navigation }) {
           // console.log("fetch cart");
           const responseData = res.data.data;
           setCartData(responseData);
+
+          if(responseData.order_summary?.item_count === 0) {
+            router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
+          }
           if ((responseData.order_summary.voucher_discount_amount !== 0 || responseData.order_summary.promo_discount_amount !== 0) && (responseData.order_summary.promo_code || responseData.order_summary.voucher_code)) {
             setPromoDiscount(parseFloat(responseData.order_summary?.promo_discount_amount || responseData.order_summary?.voucher_discount_amount));
             setVoucherCode((responseData.order_summary.promo_code || responseData.order_summary.voucher_code));
