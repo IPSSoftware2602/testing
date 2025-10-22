@@ -71,6 +71,13 @@ const OptionCard = React.memo(({
     } else {
       // Original logic for other options
       if (selected) {
+        if(group?.is_required && maxQ === 1){
+          toast.show('This option is required', {
+            type: 'custom_toast',
+            data: { title: '', status: 'info' }
+          });
+          return;
+        }
         setSelectedOptions(selectedOptions.map(option =>
           option.parents === parents
             ? { ...option, options: option.options.filter(id => id !== item.id) }

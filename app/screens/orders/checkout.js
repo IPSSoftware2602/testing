@@ -251,7 +251,7 @@ const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowD
               <Text style={styles.itemOption}>{item.variation.title}</Text>
             ) : null}
           </View>
-          {vip ? null : (
+          {vip || item.is_free_item === '1' ? null : (
             <TouchableOpacity onPress={() => handleEdit(item)}>
               <Text style={styles.orderItemEdit}>EDIT</Text>
             </TouchableOpacity>
@@ -292,15 +292,17 @@ const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowD
               )
             ) : null}
           </View>
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🗑 Trash icon clicked — calling delete');
-              handleDelete(item);
-            }}
-            style={{ padding: 4 }} // Added padding for better touch area
-          >
-            <Feather name="trash-2" size={20} color="#C2000E" />
-          </TouchableOpacity>
+          {vip || item.is_free_item === '1' ? null : (
+            <TouchableOpacity
+              onPress={() => {
+                console.log('🗑 Trash icon clicked — calling delete');
+                handleDelete(item);
+              }}
+              style={{ padding: 4 }} // Added padding for better touch area
+            >
+              <Feather name="trash-2" size={20} color="#C2000E" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>
@@ -998,6 +1000,7 @@ export default function CheckoutScreen({ navigation }) {
           if (items.length > 0) {
             const normalized = items.map(it => ({
               id: String(it.id),
+              variation_id: String(it.variation_id),
               title: it.title,
               image:
                 Array.isArray(it.image_url) && it.image_url[0]?.image_url
@@ -1050,6 +1053,66 @@ export default function CheckoutScreen({ navigation }) {
 
   }
 
+  const handleAddFreeItemToCart = async (item) => {
+    // const customerData = await getCustomerData();
+    const outletDetails = await AsyncStorage.getItem('outletDetails');
+    // if (outletDetails) {
+    const token = await AsyncStorage.getItem('authToken');
+    const parsedOutletDetails = JSON.parse(outletDetails);
+    // }
+    if (!customerData || !customerData.id || !outletDetails) {
+      console.error("Customer data not found");
+      toast.show('Customer data not found', { type: 'error' });
+      return;
+    }
+
+    const payload = {
+      customer_id: Number(customerData.id),
+      // outlet_id: menuItem?.outlet_id || 1,
+      outlet_id: parsedOutletDetails.outletId,
+      menu_item_id: Number(item.id),
+      variation_id: Number(item.variation_id),
+      // variation_id: selectedCrustId ? Number(selectedCrustId) : null,
+      // option: optionPayload,
+      quantity: 1,
+      is_free_item: 1,
+    };
+    console.log('freeee', payload);
+
+    try {
+      const response = await axios.post(`${apiUrl}cart/add`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      console.log(response);
+
+      if (response.data.status === 200) {
+        toast.show('Item added to cart', {
+          type: 'custom_toast',
+          data: { title: '', status: 'success' }
+
+        });
+
+        router.replace('/screens/orders/checkout');
+
+        // setTimeout(() => {
+        //   router.push('/menu');
+        // }, 1000);
+      }
+      else if (response.data.status === 400) {
+        const message = response.data.message;
+        toast.show(message, {
+          type: 'custom_toast',
+          data: { title: 'Failed to add item.', status: 'danger' }
+
+        });
+      }
+    } catch (err) {
+      console.error('Failed to add to cart!');
+      console.error(err?.response?.data || err.message);
+      toast.show('Failed to add to cart', { type: 'error' });
+    }
+  };
+
   const renderFreeItemsModal = () => (
     <Modal
       visible={showFreeItemsModal}
@@ -1093,15 +1156,8 @@ export default function CheckoutScreen({ navigation }) {
                 }}
                 onPress={() => {
                   setShowFreeItemsModal(false);
-                  // console.log('123123', promoSettings?.amount);
-                  router.push({
-                    pathname: `/screens/menu/menu_item`,
-                    params: {
-                      id: item.id,
-                      is_free_item: 1,
-                      amount: promoSettings?.amount || 1,
-                    },
-                  });
+                  console.log(item);
+                  handleAddFreeItemToCart(item);
                 }}
               >
                 <Image
