@@ -71,7 +71,6 @@ const OptionCard = React.memo(({
     } else {
       // Original logic for other options
       if (selected) {
-        console.log(123);
         setSelectedOptions(selectedOptions.map(option =>
           option.parents === parents
             ? { ...option, options: option.options.filter(id => id !== item.id) }
@@ -212,6 +211,7 @@ export default function MenuItemScreen() {
   const [variationPrice, setVariationPrice] = useState(0);
   const [optionTotal, setOptionTotal] = useState(0);
   const [baseOptionGroupIds, setBaseOptionGroupIds] = useState([]);
+  const [note, setNote] = useState('');
 
   const isFree = String(is_free_item) === '1' || String(is_free_item).toLowerCase() === 'true';
   const maxQuantity = isFree ? Number(amount) || 1 : null;
@@ -357,7 +357,24 @@ export default function MenuItemScreen() {
 
     if (successfulResults.length > 0) {
       const groupsData = successfulResults.map(res => res.data.data);
-
+      const orderType = await AsyncStorage.getItem('orderType');
+      if (orderType === 'delivery' || orderType === 'pickup') {
+        if(groupsData.some(group => group.title === 'Takeaway Packaging')){
+          groupsData.forEach(group => {
+            if (group.title === 'Takeaway Packaging') {
+              group.is_required = 1;
+            }
+          });
+        }
+      }else{
+        if(groupsData.some(group => group.title === 'Takeaway Packaging')){
+          groupsData.forEach(group => {
+            if (group.title === 'Takeaway Packaging') {
+              group.is_required = 0;
+            }
+          });
+        }
+      }
       setOptionGroups(groupsData);
 
       // 👇 Auto-select logic for required groups
@@ -555,6 +572,7 @@ export default function MenuItemScreen() {
       option: optionPayload,
       quantity: safeQty,
       ...(isFree ? { is_free_item: 1 } : {}),
+      note: note,
     };
     // console.log('freeee', payload);
 
@@ -700,6 +718,8 @@ export default function MenuItemScreen() {
               style={styles.noteInput}
               placeholder="Add your request(subject to restaurant's discretion)"
               placeholderTextColor="#bbb"
+              value={note}
+              onChangeText={setNote}
             />
           </View>
           <View style={styles.separator} />

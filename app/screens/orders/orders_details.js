@@ -300,7 +300,7 @@ const DeliveryStatus = ({ stage = "preparing", item, expected_ready_time }) => {
   )
 }
 
-const PickupStatus = ({ stage = "preparing", item }) => {
+const PickupStatus = ({ stage = "preparing", item, expected_ready_time }) => {
 
   if (stage.toLocaleLowerCase() === "pending") {
     stage = "preparing"
@@ -325,7 +325,7 @@ const PickupStatus = ({ stage = "preparing", item }) => {
             fontSize: 22,
           }}
         >
-          12:50~1:20
+          {expected_ready_time}
         </Text>
       </Text>
 
@@ -835,7 +835,7 @@ export default function OrderDetails({ navigation }) {
           {isActive && isDelivery && isPaid ? <DeliveryStatus item={order} stage={order.status} expected_ready_time={order.expected_ready_time} /> : null}
 
           {/* Pick up */}
-          {isActive && isPickup && isPaid ? <PickupStatus item={order} stage={order.status} /> : null}
+          {isActive && isPickup && isPaid ? <PickupStatus item={order} stage={order.status} expected_ready_time={order.expected_ready_time} /> : null}
 
           {/* Prompt Payment */}
           {(isActive && !isPaid) ? <>
