@@ -275,6 +275,8 @@ export default function MenuItemScreen() {
         setItemPrice(item.line_subtotal);
         setQuantity(item.quantity);
         setVariationPrice(item?.variation?.price);
+        //set note
+        setNote(item?.note || '');
       }
     };
     fetchCartItem();
@@ -521,6 +523,7 @@ export default function MenuItemScreen() {
       variation_id: selectedCrustId ? Number(selectedCrustId) : null,
       option: optionPayload,
       quantity: quantity,
+      note: note,
       action: 2,
     };
 

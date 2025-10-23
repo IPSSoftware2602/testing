@@ -130,14 +130,31 @@ const OrderItem = React.memo(({ item }) => {
             <View style={styles.orderItemPriceContainer}>
               {item?.options && item.options.length > 0 ? (
                 <>
-                  {/* Display first 2 options */}
-                  {item.options.slice(0, 4).map((option_item, idx) => (
-                    <Text key={idx} style={[styles.itemOption, { marginLeft: '2%', fontSize: 10, maxWidth: '100%' }]}>
-                      {`+ ${option_item?.option_title} ${option_item?.price_adjustment ? `(${`RM ${option_item?.price_adjustment}`})` : ''}`}
-                    </Text>
-                  ))}
+                  {/* Display first 4 options */}
+                  {item.options.slice(0, 4).map((option_item, idx) => {
+                    const title = option_item?.option_title || '';
+                    const price = option_item?.price_adjustment
+                      ? ` (RM ${option_item?.price_adjustment})`
+                      : '';
 
-                  {/* Display "..." if there are more than 2 options */}
+                    return (
+                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text
+                        key={idx}
+                        numberOfLines={1}
+                        ellipsizeMode="head" // or "middle" depending on preference
+                        style={[styles.itemOption, {
+                          fontSize: 10,
+                          minWidth: '75%',
+                          maxWidth: '75%'
+                        }]}
+                      >
+                        {`+ ${title}`}
+                      </Text><Text style={[styles.itemOption, { minWidth: '35%' }]}>{price}</Text></View>
+                    );
+                  })}
+
+                  {/* Display "..." if there are more than 4 options */}
                   {item.options.length > 4 && (
                     <Text style={[styles.itemOption, { marginLeft: '2%', fontSize: 10, maxWidth: '90%' }]}>
                       {`+ ${item.options.length - 4} more option(s)`}
@@ -306,9 +323,18 @@ const PickupStatus = ({ stage = "preparing", item, expected_ready_time }) => {
     stage = "preparing"
   }
 
+  const now = new Date();
+  const [readyHour, readyMin] = expected_ready_time.split(':');
+  const readyDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(readyHour), parseInt(readyMin));
+  const msDiff = readyDate - now;
+  if (msDiff > 60 * 60 * 1000) {
+    stage = "pending"
+  }
+
   const status = [
     { stage: "completed", image: require('../../../assets/elements/home/recharge_gift.png'), title: "Order Completed", subtitle: "Your order has completed" },
     { stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle: "The pizzaiolo is baking your pizza." },
+    { stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Upcoming Order", subtitle: "We will be preparing your order when its the time." },
     { stage: "ready_to_pickup", image: require('../../../assets/elements/home/home_pickup.png'), title: "Order Ready", subtitle: "Your order is ready for pick up" },
   ]
 
@@ -1581,7 +1607,7 @@ const styles = StyleSheet.create({
   },
   itemOption: {
     fontFamily: 'RobotoSlab-Regular',
-    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 10 : 11) : 11) : 12,
+    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 8 : 9) : 9) : 10,
     color: '#727171',
     alignSelf: 'flex-start',
   },

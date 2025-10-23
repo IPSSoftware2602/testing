@@ -869,9 +869,7 @@ export default function CheckoutScreen({ navigation }) {
       }
 
     } catch (err) {
-      console.error('Checkout error:', err?.response?.data?.messages);
-      // console.log(error);
-      if (err?.response?.status === 400) {
+      if (err?.response?.data?.status === 400) {
         if (err?.response?.data?.status === 405) {
           router.push({ pathname: '(tabs)', params: { setErrorModal: true } });
           checkoutClearStorage();
@@ -882,6 +880,11 @@ export default function CheckoutScreen({ navigation }) {
             toast.show("Please top up your wallet balance or change a payment method.", {
               type: 'custom_toast',
               data: { title: 'Insufficient Wallet Balance', status: 'warning' }
+            });
+          }else{
+            toast.show(message, {
+              type: 'custom_toast',
+              data: { title: '', status: 'warning' }
             });
           }
 

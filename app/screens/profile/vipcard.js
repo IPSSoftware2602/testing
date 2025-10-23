@@ -198,11 +198,15 @@ export default function VipCard() {
           <View style={styles.btnWrapper} >
             {customerData?.customer_type ? <CustomPolygonButton
               width={Math.min(width, 440) * 0.35}
-              label={(customerData.customer_type).toLowerCase() === 'vip customer' ? "Subscribed" : "Subscribe"}
+              label={(customerData.customer_type).toLowerCase() === 'vip customer' ? "Subscribed" : ((customerData.customer_type).toLowerCase() === 'student' ? "Not available" : "Subscribe")}
               onPress={handleSubscribe}
-              disabled={(customerData.customer_type).toLowerCase() === 'vip customer'}
+              disabled={(customerData.customer_type).toLowerCase() === 'vip customer' || (customerData.customer_type).toLowerCase() === 'student'}
             ></CustomPolygonButton> : null}
           </View>
+          {customerData?.customer_type ? 
+            <View style={{ textAlign: 'center', alignItems: 'center' }}>
+              <Text style={styles.benefitText}>Note*: {((customerData.customer_type).toLowerCase() === 'student' ? "Not available for students" : "")}</Text>
+            </View> : null}
         </ScrollView>
         <QRCodeModal
           isVisible={isQRModalVisible}

@@ -300,11 +300,11 @@ export default function OutletSelection() {
                         >
                             {item.address}, {item.postal_code} {item.state}, {item.country}.
                         </Text>
-
-                        <View style={styles.distanceDetails}>
-                            <FontAwesome6 name="location-dot" style={styles.outletIcon} />
-                            <Text style={styles.distance}>{item.distance_km ? `${item.distance_km} km` : ""}</Text>
-                        </View>
+                        {item.distance_km && item.distance_km !== '0.00' ? 
+                            <View style={styles.distanceDetails}>
+                                <FontAwesome6 name="location-dot" style={styles.outletIcon} />
+                                <Text style={styles.distance}>{`${item.distance_km} km`}</Text>
+                            </View> : null}
                     </View>
                     <Image
                         source={
