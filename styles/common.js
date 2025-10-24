@@ -127,7 +127,7 @@ export const commonStyles = StyleSheet.create({
     : width > 440
     ? height * 0.14
     : height * 0.15,
-    width: Math.min(width, 460),
+    width: Math.min(width, 440),
     alignSelf: "center",
   },
   title: {
