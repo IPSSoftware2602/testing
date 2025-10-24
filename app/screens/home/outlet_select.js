@@ -277,7 +277,7 @@ export default function OutletSelection() {
             <TouchableOpacity
                 onPress={() => {
                     setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen, operatingHours: item.operating_schedule });
-                    if(getOutletStatus(item.operating_schedule).isOpen){
+                    if(getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')){
                         router.push('(tabs)/menu')
                     }
                 }}
@@ -319,7 +319,7 @@ export default function OutletSelection() {
                         resizeMode="cover"
                     />
                 </View>
-                {getOutletStatus(item.operating_schedule).isOpen ? 
+                {getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')  ? 
                     <View style={styles.btnContainer}>
                         <PolygonButton
                             text="Select"
@@ -331,7 +331,7 @@ export default function OutletSelection() {
                             onPress={() => {
                                 // setSelectedOutlet(item.id);
                                 setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen });
-                                if(getOutletStatus(item.operating_schedule).isOpen){
+                                if(getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')){
                                     router.push('(tabs)/menu')
                                 }
                             }}

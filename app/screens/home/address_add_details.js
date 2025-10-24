@@ -207,13 +207,14 @@ export default function DeliveryAddressAddDetails() {
                             />
                             <Text style={styles.formTitle}><Text style={{ color: '#C2000E' }}>* </Text>Address</Text>
                             <TextInput
-                                style={commonStyles.input}
+                                style={[commonStyles.input, { maxHeight: 80 }]}
                                 placeholder="Address"
                                 placeholderTextColor="#999"
                                 value={currentAddress}
                                 onChangeText={setCurrentAddress}
                                 multiline={true}
                                 numberOfLines={3}
+                                scrollEnabled={true}
                             />
                             <Text style={styles.formTitle}>Add Notes (Optional)</Text>
                             <TextInput

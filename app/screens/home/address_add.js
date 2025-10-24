@@ -1,6 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Dimensions, Alert, Platform, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, Alert, Platform, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import TopNavigation from '../../../components/ui/TopNavigation';
@@ -197,7 +197,16 @@ export default function DeliveryAddressAdd() {
                             solid
                         />
                     </View>
-                    <Text style={styles.locationText}>{currentAddress || "Location not specified"}</Text>
+                    <ScrollView
+                        style={styles.locationScroll}
+                        showsVerticalScrollIndicator={false}
+                        nestedScrollEnabled
+                        contentContainerStyle={styles.locationScrollContent}
+                    >
+                        <Text style={styles.locationText}>
+                            {currentAddress || "Location not specified"}
+                        </Text>
+                    </ScrollView>
                 </View>
 
                 {/* <View style={{ position: 'absolute', bottom: height * 0.05, width: '100%' }}>
@@ -280,6 +289,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingRight: '2%',
     },
+    locationScroll: {
+        flex: 1,
+        maxHeight: height * 0.12,
+    },
+    locationScrollContent: {
+        paddingRight: 12,
+    },
     card: {
         backgroundColor: colors.background,
         borderRadius: 12,
@@ -361,7 +377,7 @@ const styles = StyleSheet.create({
         fontSize: width < 440 ? 14 : 16,
         color: '#222',
         fontFamily: 'RobotoSlab-Regular',
-        width: '75%',
+        width: '100%',
         // marginRight: "3%"
     },
 

@@ -94,12 +94,15 @@ MapSection.displayName = 'MapSection';
 
 // Memoized order item component
 const OrderItem = React.memo(({ item }) => {
-  const [isMoreThanOneOption, setIsMoreThanOneOption] = useState(false);
+  const [showAllOptions, setShowAllOptions] = useState(false);
 
   useEffect(() => {
-    // console.log(item.options);
-    setIsMoreThanOneOption(item?.options && item.options.length > 1);
+    setShowAllOptions(false);
   }, [item?.options]);
+
+  const options = item?.options || [];
+  const extraOptionsCount = options.length > 4 ? options.length - 4 : 0;
+  const displayedOptions = showAllOptions ? options : options.slice(0, 4);
   return (
     <View style={styles.orderItem}>
       {item?.menu_image?.image_url ? (
@@ -128,41 +131,45 @@ const OrderItem = React.memo(({ item }) => {
             ) : null}
 
             <View style={styles.orderItemPriceContainer}>
-              {item?.options && item.options.length > 0 ? (
+              {options.length > 0 ? (
                 <>
-                  {/* Display first 4 options */}
-                  {item.options.slice(0, 4).map((option_item, idx) => {
-                    const title = option_item?.option_title || '';
-                    const price = option_item?.price_adjustment
-                      ? ` (RM ${option_item?.price_adjustment})`
+                  {displayedOptions.map((optionItem, idx) => {
+                    const title = optionItem?.option_title || '';
+                    const price = optionItem?.price_adjustment
+                      ? `(RM ${optionItem?.price_adjustment})`
                       : '';
+                    const keyBase = optionItem?.id || `${title}-${idx}`;
 
                     return (
-                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text
-                        key={idx}
-                        numberOfLines={1}
-                        ellipsizeMode="head" // or "middle" depending on preference
-                        style={[styles.itemOption, {
-                          fontSize: 10,
-                          minWidth: '75%',
-                          maxWidth: '75%'
-                        }]}
-                      >
-                        {`+ ${title}`}
-                      </Text><Text style={[styles.itemOption, { minWidth: '35%' }]}>{price}</Text></View>
+                      <View key={keyBase} style={styles.optionRow}>
+                        <Text
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                          style={[styles.itemOption, styles.optionTitle]}
+                        >
+                          {`+ ${title}`}
+                        </Text>
+                        {price ? (
+                          <Text style={[styles.itemOption, styles.optionPrice]}>
+                            {price}
+                          </Text>
+                        ) : null}
+                      </View>
                     );
                   })}
 
-                  {/* Display "..." if there are more than 4 options */}
-                  {item.options.length > 4 && (
-                    <Text style={[styles.itemOption, { marginLeft: '2%', fontSize: 10, maxWidth: '90%' }]}>
-                      {`+ ${item.options.length - 4} more option(s)`}
-                    </Text>
+                  {!showAllOptions && extraOptionsCount > 0 && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => setShowAllOptions(true)}
+                      style={styles.moreOptionsButton}
+                    >
+                      <Text style={[styles.itemOption, styles.moreOptionsText]}>
+                        {`+ ${extraOptionsCount} more option(s)`}
+                      </Text>
+                    </TouchableOpacity>
                   )}
                 </>
-              ) : item?.options && item?.options[0] ? (
-                <Text style={[styles.itemOption, { marginLeft: '2%', fontSize: 10, maxWidth: '90%' }]}>{item?.options[0]?.option_title}</Text>
               ) : null}
             </View>
           </View>
@@ -1610,6 +1617,32 @@ const styles = StyleSheet.create({
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 8 : 9) : 9) : 10,
     color: '#727171',
     alignSelf: 'flex-start',
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 2,
+  },
+  optionTitle: {
+    flex: 1,
+    marginRight: 6,
+  },
+  optionPrice: {
+    fontFamily: 'RobotoSlab-Regular',
+    fontSize: 10,
+    color: '#727171',
+    textAlign: 'right',
+  },
+  moreOptionsButton: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  moreOptionsText: {
+    fontSize: 10,
+    color: '#C2000E',
+    marginLeft: '2%',
+    flexWrap: 'nowrap',
   },
   addMoreButton: {
     flexDirection: 'row',
