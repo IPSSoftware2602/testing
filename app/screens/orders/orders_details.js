@@ -94,98 +94,152 @@ MapSection.displayName = 'MapSection';
 
 // Memoized order item component
 const OrderItem = React.memo(({ item }) => {
-  const [showAllOptions, setShowAllOptions] = useState(false);
-
-  useEffect(() => {
-    setShowAllOptions(false);
-  }, [item?.options]);
+  const [isOptionsModalVisible, setOptionsModalVisible] = useState(false);
 
   const options = item?.options || [];
-  const extraOptionsCount = options.length > 4 ? options.length - 4 : 0;
-  const displayedOptions = showAllOptions ? options : options.slice(0, 4);
+  const extraOptionsCount = options.length > 3 ? options.length - 3 : 0;
+  const displayedOptions = options.slice(0, 3);
+
+  const openOptionsModal = () => {
+    if (options.length > 4) {
+      setOptionsModalVisible(true);
+    }
+  };
+
+  const closeOptionsModal = () => {
+    setOptionsModalVisible(false);
+  };
   return (
-    <View style={styles.orderItem}>
-      {item?.menu_image?.image_url ? (
-        <Image
-          source={{ uri: `${imageUrl}menu_images/${item.menu_image.image_url}` }}
-          style={styles.orderItemImage}
-        />
-      ) : (
-        <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500' }}
-          style={styles.orderItemImage}
-        />
-      )}
-      <View style={styles.orderItemDetails}>
-        <View style={styles.orderItemTop}>
-          <View style={[commonStyles.column, styles.orderSummaryTitle]}>
-            <Text
-              style={styles.orderItemName}
-              numberOfLines={2}
-              ellipsizeMode="tail"
-            >
-              {item?.title}
-            </Text>
-            {item?.variation ? (
-              <Text style={styles.itemOption}>{item.variation.title}</Text>
-            ) : null}
+    <>
+      <View style={styles.orderItem}>
+        {item?.menu_image?.image_url ? (
+          <Image
+            source={{ uri: `${imageUrl}menu_images/${item.menu_image.image_url}` }}
+            style={styles.orderItemImage}
+          />
+        ) : (
+          <Image
+            source={{ uri: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500' }}
+            style={styles.orderItemImage}
+          />
+        )}
+        <View style={styles.orderItemDetails}>
+          <View style={styles.orderItemTop}>
+            <View style={[commonStyles.column, styles.orderSummaryTitle]}>
+              <Text
+                style={styles.orderItemName}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
+                {item?.title}
+              </Text>
+              {item?.variation ? (
+                <Text style={styles.itemOption}>{item.variation.title}</Text>
+              ) : null}
 
-            <View style={styles.orderItemPriceContainer}>
-              {options.length > 0 ? (
-                <>
-                  {displayedOptions.map((optionItem, idx) => {
-                    const title = optionItem?.option_title || '';
-                    const price = optionItem?.price_adjustment
-                      ? `(RM ${optionItem?.price_adjustment})`
-                      : '';
-                    const keyBase = optionItem?.id || `${title}-${idx}`;
+              <View style={styles.orderItemPriceContainer}>
+                {options.length > 0 ? (
+                  <>
+                    {displayedOptions.map((optionItem, idx) => {
+                      const title = optionItem?.option_title || '';
+                      const price = optionItem?.price_adjustment
+                        ? `(RM ${optionItem?.price_adjustment})`
+                        : '';
+                      const keyBase = optionItem?.id || `${title}-${idx}`;
 
-                    return (
-                      <View key={keyBase} style={styles.optionRow}>
+                      return (
+                        <View key={keyBase} style={styles.optionRow}>
+                          <Text
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                            style={[styles.itemOption, styles.optionTitle]}
+                          >
+                            {`+ ${title}`}
+                          </Text>
+                          {price ? (
+                            <Text style={[styles.itemOption, styles.optionPrice]}>
+                              {price}
+                            </Text>
+                          ) : null}
+                        </View>
+                      );
+                    })}
+
+                    {extraOptionsCount > 0 && (
+                      <TouchableOpacity
+                        onPress={openOptionsModal}
+                        style={styles.moreOptionsButton}
+                        activeOpacity={0.7}
+                      >
                         <Text
+                          style={[styles.itemOption, styles.moreOptionsText]}
                           numberOfLines={1}
                           ellipsizeMode="tail"
-                          style={[styles.itemOption, styles.optionTitle]}
                         >
-                          {`+ ${title}`}
+                          {`+ ${extraOptionsCount} more option(s)`}
                         </Text>
-                        {price ? (
-                          <Text style={[styles.itemOption, styles.optionPrice]}>
-                            {price}
-                          </Text>
-                        ) : null}
-                      </View>
-                    );
-                  })}
-
-                  {!showAllOptions && extraOptionsCount > 0 && (
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => setShowAllOptions(true)}
-                      style={styles.moreOptionsButton}
-                    >
-                      <Text style={[styles.itemOption, styles.moreOptionsText]}>
-                        {`+ ${extraOptionsCount} more option(s)`}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </>
-              ) : null}
+                      </TouchableOpacity>
+                    )}
+                  </>
+                ) : null}
+              </View>
+            </View>
+            <View style={commonStyles.alignRight}>
+              <Text style={styles.orderItemPrice}>
+                {item?.is_free_item === '1' ? 'Free Item' : `RM ${item?.line_subtotal}`}
+              </Text>
             </View>
           </View>
-          <View style={commonStyles.alignRight}>
-            <Text style={styles.orderItemPrice}>
-              {item?.is_free_item === '1' ? 'Free Item' : `RM ${item?.line_subtotal}`}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.orderItemBottom}>
-          <View style={commonStyles.alignLeft}>
-            <Text style={styles.itemQuantity}>Qty: {item?.quantity}</Text>
+          <View style={styles.orderItemBottom}>
+            <View style={commonStyles.alignLeft}>
+              <Text style={styles.itemQuantity}>Qty: {item?.quantity}</Text>
+            </View>
           </View>
         </View>
       </View>
-    </View>
+
+      <Modal
+        visible={isOptionsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeOptionsModal}
+      >
+        <View style={styles.optionsModalBackdrop}>
+          <View style={styles.optionsModalContent}>
+            <Text style={styles.optionsModalTitle}>Item Options</Text>
+            <ScrollView
+              style={styles.optionsModalList}
+              contentContainerStyle={styles.optionsModalListContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {options.map((optionItem, idx) => {
+                const title = optionItem?.option_title || '';
+                const price = optionItem?.price_adjustment
+                  ? `(RM ${optionItem?.price_adjustment})`
+                  : '';
+                const keyBase = optionItem?.id || `${title}-${idx}`;
+
+                return (
+                  <View key={keyBase} style={styles.optionsModalRow}>
+                    <Text style={styles.optionsModalOption}>{title}</Text>
+                    {price ? (
+                      <Text style={styles.optionsModalPrice}>{price}</Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity
+              onPress={closeOptionsModal}
+              style={styles.optionsModalCloseButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.optionsModalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 });
 OrderItem.displayName = 'OrderItem';
@@ -1544,13 +1598,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    height: '50%',
   },
   orderItemBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    height: '55%',
+    marginTop: 8,
   },
   orderItemImage: {
     width: 85,
@@ -1562,8 +1615,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     flexDirection: 'column',
-    // minHeight: 115,
-    height: 115,
+    minHeight: 115,
     paddingVertical: 3,
   },
   orderItemName: {
@@ -1637,12 +1689,75 @@ const styles = StyleSheet.create({
   moreOptionsButton: {
     marginTop: 4,
     alignSelf: 'flex-start',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
   },
   moreOptionsText: {
     fontSize: 10,
     color: '#C2000E',
     marginLeft: '2%',
-    flexWrap: 'nowrap',
+    flexShrink: 1,
+  },
+  optionsModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  optionsModalContent: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+  },
+  optionsModalTitle: {
+    fontFamily: 'Route159-Bold',
+    fontSize: 18,
+    color: '#C2000E',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  optionsModalList: {
+    maxHeight: 240,
+  },
+  optionsModalListContent: {
+    paddingBottom: 12,
+  },
+  optionsModalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#eee',
+  },
+  optionsModalOption: {
+    flex: 1,
+    marginRight: 12,
+    fontFamily: 'RobotoSlab-Regular',
+    fontSize: 13,
+    color: '#333',
+  },
+  optionsModalPrice: {
+    fontFamily: 'Route159-Bold',
+    fontSize: 12,
+    color: '#C2000E',
+  },
+  optionsModalCloseButton: {
+    marginTop: 16,
+    alignSelf: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 10,
+    borderRadius: 24,
+    backgroundColor: '#C2000E',
+  },
+  optionsModalCloseText: {
+    fontFamily: 'Route159-Bold',
+    fontSize: 14,
+    color: '#fff',
   },
   addMoreButton: {
     flexDirection: 'row',
