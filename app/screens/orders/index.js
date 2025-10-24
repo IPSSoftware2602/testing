@@ -185,11 +185,11 @@ export default function Orders() {
     <TouchableOpacity style={styles.orderCard} onPress={() => router.push({ pathname: '/screens/orders/orders_details', params: { orderId: item.id } })}>
       {/* Status Bar */}
       <View style={styles.statusBar}>
-        {item.status === 'pending' ? (
-          <Text style={styles.statusText}>Preparing your order</Text>
-        ) : (
-          <Text style={styles.statusText}>Order has completed</Text>
-        )}
+        {item.status === 'pending' ? (<Text style={styles.statusText}>Preparing your order</Text>) : null}
+        {item.status !== 'pending' && item.status !== 'completed' ? (<Text style={styles.statusText}>Order is processing</Text>) : null}
+        {item.status === 'completed' ? (<Text style={styles.statusText}>Order has completed</Text>) : null}
+
+
 
         {/* Payment Status */}
         <View style={styles.paymentStatusContainer}>

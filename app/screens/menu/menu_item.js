@@ -36,7 +36,6 @@ const OptionCard = React.memo(({
   const tags = item.tags || [];
   const selected = selectedOptions.find(option => option.parents === parents)?.options.includes(item.id);
   const group = optionGroups.find(g => g.id === parents);
-
   const minQ = Number(group?.min_quantity || 0);
   const rawMaxQ = Number(group?.max_quantity || 0);
   const maxQ = (minQ === 0 && rawMaxQ === 0) ? Infinity : (rawMaxQ || 99);
@@ -86,6 +85,7 @@ const OptionCard = React.memo(({
         ));
         setItemPrice(itemPrice - item.price);
       } else {
+        console.log(maxQ);
         if(maxQ === 1){
           const existingOption = selectedOptions.find(option => option.parents === parents);
           if (existingOption) {
@@ -448,7 +448,7 @@ export default function MenuItemScreen() {
       successful.forEach(group => {
         if (group.title === 'Takeaway Packaging' && orderType === 'dinein') {
           group.is_required = 0;
-        }else{
+        }else if (group.title === 'Takeaway Packaging' && orderType !== 'dinein'){
           group.is_required = 1;
         }
       });
