@@ -71,7 +71,8 @@ const OptionCard = React.memo(({
     } else {
       // Original logic for other options
       if (selected) {
-        if(group?.is_required && maxQ === 1){
+        const isRequired = Number(group?.is_required) === 1;
+        if(isRequired && maxQ === 1 && minQ === 1 || (group?.title === 'Takeaway Packaging' && isRequired)){
           toast.show('This option is required', {
             type: 'custom_toast',
             data: { title: '', status: 'info' }
@@ -88,7 +89,6 @@ const OptionCard = React.memo(({
         if(maxQ === 1){
           const existingOption = selectedOptions.find(option => option.parents === parents);
           if (existingOption) {
-            console.log(selectedOptions);
             setSelectedOptions(selectedOptions.map(option =>
               option.parents === parents
                 ? { ...option,options: [item.id] }
@@ -232,7 +232,6 @@ export default function MenuItemScreen() {
   //get item details for edit
   useEffect(() => {
     if (!cart_item_id || !token) return;
-    console.log('cart_item_id', cart_item_id);
     const fetchCartItem = async () => {
       const res = await axios.get(`${apiUrl}cart/items/${cart_item_id}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.data.data) {
@@ -384,6 +383,8 @@ export default function MenuItemScreen() {
           });
         }
       }
+
+      // console.log(groupsData);
       setOptionGroups(groupsData);
 
       // 👇 Auto-select logic for required groups
@@ -441,8 +442,16 @@ export default function MenuItemScreen() {
           }).catch(() => null)
         )
       );
-
+      const orderType = await AsyncStorage.getItem('orderType');
       const successful = results.filter(Boolean).map(r => r.data.data);
+      // loop through successful groups and set is_required to 0 if title is 'Takeaway Packaging'
+      successful.forEach(group => {
+        if (group.title === 'Takeaway Packaging' && orderType === 'dinein') {
+          group.is_required = 0;
+        }else{
+          group.is_required = 1;
+        }
+      });
       setOptionGroups(successful);
     } catch (err) {
       console.error("Failed to load option groups:", err);
@@ -508,7 +517,6 @@ export default function MenuItemScreen() {
       return;
     }
 
-    console.log(optionGroups);
     const optionPayload = selectedOptions
       .filter(opt => opt.parents !== 0 && opt.options?.length > 0)
       .map(opt => ({
