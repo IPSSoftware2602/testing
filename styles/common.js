@@ -119,15 +119,15 @@ export const commonStyles = StyleSheet.create({
   },
   containerStyle: {
   paddingBottom: width === 390 && height === 844
-    ? height * 0.16
+    ? height * 0.18
     : width <= 425
     ? Platform.OS === 'android'
       ? height * 0.18
-      : height * 0.16
+      : height * 0.18
     : width > 440
-    ? height * 0.11
+    ? height * 0.14
     : height * 0.15,
-    width: Math.min(width, 440),
+    width: Math.min(width, 460),
     alignSelf: "center",
   },
   title: {

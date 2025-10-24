@@ -410,7 +410,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
     }
 
     const generateTimesForDate = (date) => {
-
+        console.log(date)
         const dateStringToFind = new Date(date).toISOString().split('T')[0];
         const dayObj = availableDates.find(d => d.dateString === dateStringToFind);
 
@@ -420,8 +420,9 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                 const formattedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1).toLowerCase();
                 const operatingDay = outlet.operating_schedule?.[formattedDayName];
                 const normalPeriods = operatingDay.operating_hours || [];
-
-                // console.log(normalPeriods);
+                console.log(formattedDayName);
+                console.log(outlet);
+                console.log(operatingDay);
                 let finalTimes = [];
                 for (const [index, period] of normalPeriods.entries()) {
                     const times = [];
@@ -483,6 +484,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                         ? [{ time: 'ASAP', isOperate: true }, ...finalTimes, ...times]
                         : [...finalTimes, ...times];
                 }
+                console.log(finalTimes);
                 // finalTimes = isToday ? ['ASAP', ...finalTimes] : finalTimes;
 
                 setAvailableTimes(finalTimes);
