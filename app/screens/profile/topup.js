@@ -50,19 +50,10 @@ const PaymentMethodButton = () => {
   }, []);
 
   const paymentMethodMap = {
-    // wallet: {
-    //   name: `US Pizza Balance (RM ${customerWallet})`,
-    //   icon: 'wallet',
-    // },
     razerpay: {
       name: 'Online Payment',
       icon: 'card',
     },
-    // fiuu: {
-    //   name: 'Fiuu',
-    //   icon: 'card',
-    // },
-
   };
 
   let displayName = 'Select Payment Method';
@@ -114,6 +105,28 @@ export default function TopupWalletScreen() {
   const [selectedId, setSelectedId] = useState(null);
   const [topupPackages, setTopupPackages] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Avoid programmatic focus on mobile web; it can cause horizontal shift/zoom
+    if (Platform.OS === 'web') return;
+
+    if (!selectedId) {
+      manualAmountInputRef.current?.focus?.();
+    } else {
+      manualAmountInputRef.current?.blur?.();
+    }
+  }, [selectedId]);
+
+  // Lock horizontal overflow on web to prevent page shift
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const prev = document.body.style.overflowX;
+      document.body.style.overflowX = 'hidden';
+      return () => {
+        document.body.style.overflowX = prev;
+      };
+    }
+  }, []);
 
   const handleManualAmountChange = (value) => {
     const sanitized = value.replace(/[^0-9.]/g, '');
@@ -278,7 +291,11 @@ export default function TopupWalletScreen() {
           navigatePage={() => router.push('(tabs)/profile')}
         />
 
-        <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={{ overflow: 'hidden' }} // prevent accidental horizontal scroll on web
+          contentContainerStyle={{ paddingBottom: 120, minWidth: '100%' }}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Topup Amount</Text>
             <View style={styles.amountInputRow}>

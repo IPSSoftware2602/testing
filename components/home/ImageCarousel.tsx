@@ -3,15 +3,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, ImageSourcePropType, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedScrollHandler,
-  useAnimatedStyle,
   useSharedValue,
-  withSpring
 } from 'react-native-reanimated';
 import axios from 'axios';
 import { apiUrl } from '../../app/constant/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-
 
 const { width: WINDOW_WIDTH } = Dimensions.get('window');
 const SLIDE_INTERVAL = 3000; // 3 seconds per slide
@@ -25,19 +21,19 @@ interface ImageCarouselProps {
 }
 
 const useDotAnimation = (currentIndex: Animated.SharedValue<number>, dotIndex: number) => {
-  return useAnimatedStyle(() => ({
-    backgroundColor: withSpring(
+  const AnimatedRe = require('react-native-reanimated'); // ensure hook context
+  return AnimatedRe.useAnimatedStyle(() => ({
+    backgroundColor: AnimatedRe.withSpring(
       currentIndex.value === dotIndex ? '#C2000E' : '#D9D9D9'
     ),
     transform: [
       {
-        scale: withSpring(
-          currentIndex.value === dotIndex ? 1.2 : 1
-        ),
+        scale: AnimatedRe.withSpring(currentIndex.value === dotIndex ? 1.2 : 1),
       },
     ],
   }));
 };
+
 interface SlideshowItem {
   id: string;
   type: string;
@@ -52,76 +48,82 @@ interface SlideshowItem {
   deleted_at: string | null;
 }
 
-export default function ImageCarousel({ height = 240, autoPlay = false, autoPlayInterval = SLIDE_INTERVAL, dotBottom = 16 }: ImageCarouselProps) {
+export default function ImageCarousel({
+  height = 240,
+  autoPlay = false,
+  autoPlayInterval = SLIDE_INTERVAL,
+  dotBottom = 16,
+}: ImageCarouselProps) {
   const scrollViewRef = useRef<Animated.ScrollView>(null);
-  const scrollX = useSharedValue(0);
   const currentIndex = useSharedValue(0);
-  const [images, setImages] = useState<ImageSourcePropType[]>([]);
 
+  // Track the actual container width instead of global window width
+  const [containerWidth, setContainerWidth] = useState(WINDOW_WIDTH);
+  const slideWidth = useSharedValue(WINDOW_WIDTH);
+
+  const [images, setImages] = useState<ImageSourcePropType[]>([]);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      scrollX.value = event.contentOffset.x;
-      currentIndex.value = Math.round(event.contentOffset.x / WINDOW_WIDTH);
+      const x = event.contentOffset.x;
+      // Use the measured slide width to compute index
+      const w = slideWidth.value || 1;
+      currentIndex.value = Math.round(x / w);
     },
   });
 
-  // Auto-sliding animation
+  // Auto-sliding
   useEffect(() => {
-    if (!autoPlay) return;
+    if (!autoPlay || images.length <= 1) return;
 
-    const autoSlide = () => {
+    const interval = setInterval(() => {
       const nextIndex = (currentIndex.value + 1) % images.length;
+      // Scroll using the measured container width
       scrollViewRef.current?.scrollTo({
-        x: nextIndex * WINDOW_WIDTH,
+        x: nextIndex * containerWidth,
         animated: true,
       });
-    };
+    }, autoPlayInterval);
 
-    const interval = setInterval(autoSlide, autoPlayInterval);
     return () => clearInterval(interval);
-  }, [images.length, autoPlay, autoPlayInterval, currentIndex.value]);
+  }, [autoPlay, autoPlayInterval, images.length, containerWidth]);
 
   const PaginationDot = ({ index }: { index: number }) => {
     const dotStyle = useDotAnimation(currentIndex, index);
-    return (
-      <Animated.View
-        style={[styles.paginationDot, dotStyle]}
-      />
-    );
+    return <Animated.View style={[styles.paginationDot, dotStyle]} />;
   };
 
   useEffect(() => {
-  const fetchImages = async () => {
-    try {
-      const token = await AsyncStorage.getItem('authToken');
-      // const token = await localStorage.getItem('authToken');
-      const headers = token
-        ? { Authorization: `Bearer ${token}` }
-        : {};
-
-      const response = await axios.get<{ result: SlideshowItem[] }>(
-        apiUrl + 'slideshow',
-        { headers }
-      );
-      const result = response.data?.result || [];
-      const imageUrls = result.map(item => ({ uri: item.url }));
-      setImages(imageUrls);
-    } catch (err: any) {
-      console.log('Error fetching slideshow:', err.response?.data || err.message);
-
-      if (err.response?.status === 401) {
-        console.timeLog('expired token');
+    const fetchImages = async () => {
+      try {
+        const token = await AsyncStorage.getItem('authToken');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await axios.get<{ result: SlideshowItem[] }>(
+          apiUrl + 'slideshow',
+          { headers }
+        );
+        const result = response.data?.result || [];
+        const imageUrls = result.map((item) => ({ uri: item.url }));
+        setImages(imageUrls);
+      } catch (err: any) {
+        console.log('Error fetching slideshow:', err.response?.data || err.message);
+        if (err.response?.status === 401) {
+          console.timeLog('expired token');
+        }
       }
-    }
-  };
-
-  fetchImages();
-}, []);
-
+    };
+    fetchImages();
+  }, []);
 
   return (
-    <View style={[styles.container, { height }]}>
+    <View
+      style={[styles.container, { height }]}
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width || WINDOW_WIDTH;
+        setContainerWidth(w);
+        slideWidth.value = w;
+      }}
+    >
       <Animated.ScrollView
         ref={scrollViewRef}
         horizontal
@@ -129,10 +131,9 @@ export default function ImageCarousel({ height = 240, autoPlay = false, autoPlay
         showsHorizontalScrollIndicator={false}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
-        
       >
         {images.map((image, index) => (
-          <View key={index} style={[styles.slide, { width: WINDOW_WIDTH }]}>
+          <View key={index} style={[styles.slide, { width: containerWidth }]}>
             <Image
               source={image}
               style={styles.image}
@@ -143,7 +144,6 @@ export default function ImageCarousel({ height = 240, autoPlay = false, autoPlay
         ))}
       </Animated.ScrollView>
 
-      {/* Pagination dots */}
       <View style={[styles.pagination, { bottom: dotBottom }]}>
         {images.map((_, index) => (
           <PaginationDot key={index} index={index} />
@@ -176,4 +176,4 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginHorizontal: 4,
   },
-}); 
+});

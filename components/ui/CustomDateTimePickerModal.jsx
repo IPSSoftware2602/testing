@@ -19,6 +19,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
     const [exceptionTimes, setExceptionTimes] = useState([]);
     const [partialOpenDate, setPartialOpenDate] = useState(null);
     const [estimatedTime, setEstimatedtime] = useState({});
+    const [selectedTimeIndex, setSelectedTimeIndex] = useState(null);
 
     useEffect(() => {
         const checkStoredData = async () => {
@@ -520,12 +521,16 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
             const estTimeObj = availableTimes.find(time => time.time === estimatedTime.time);
             // setSelectedDateTime(estTimeObj.time);
             // console.log(estTimeObj);
-            try {
-                setSelectedTime(estTimeObj.time);
-            } catch {
-                setSelectedTime(availableTimes[0]?.time ? availableTimes[0]?.time : null);
+            if (estTimeObj) {
+                const estIndex = availableTimes.findIndex(t => t.time === estimatedTime.time);
+                if (estIndex !== -1) {
+                    setSelectedTime(estimatedTime.time);
+                    setSelectedTimeIndex(estIndex);
+                }
+            } else {
+                setSelectedTime(availableTimes[0]?.time ?? null);
+                setSelectedTimeIndex(0);
             }
-
         }
         // else {
         //     setSelectedTime(availableTimes[0].time);
@@ -638,7 +643,12 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
 
                     {/* Date Picker */}
                     <Text style={styles.sectionTitle}>Date</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} onWheel={(e) => {
+                        if (e.deltaY !== 0) {
+                        e.preventDefault(); // prevent page scroll
+                        e.currentTarget.scrollLeft += e.deltaY; // make vertical scroll move horizontally
+                        }
+                    }}>
                         {availableDates.map((dateObj, index) => {
 
                             const actualDate = dateObj.date;
@@ -680,14 +690,15 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                         {availableTimes.length === 0 ? renderEmptyTime() : availableTimes.map((timeObj, index) => {
                             const time = timeObj.time;
                             const isOperating = timeObj.isOperate;
-                            const isSelected = time === selectedTime;
+                            const isSelected = index === selectedTimeIndex;
                             return (
                                 <TouchableOpacity
                                     key={index}
                                     style={[styles.timeOption, isSelected && styles.selectedOption]}
                                     onPress={() => {
                                         if (isOperating) {
-                                            setSelectedTime(time)
+                                            setSelectedTime(time);
+                                            setSelectedTimeIndex(index);
                                         }
                                     }}
                                     nestedScrollEnabled={true}

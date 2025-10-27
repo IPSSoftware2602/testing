@@ -1,4 +1,5 @@
-import { Image, SafeAreaView, ScrollView, StyleSheet, Text, View, Dimensions, TextInput } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View, Dimensions, TextInput, Platform } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import { useRouter } from 'expo-router';
 import { commonStyles, fonts, colors } from '../../../styles/common';
@@ -15,12 +16,12 @@ import axios from 'axios';
 import { apiUrl } from '../../constant/constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import useAuthGuard from '../../auth/check_token_expiry';
-import { Platform } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
 export default function StudentCardActivation() {
     useAuthGuard();
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const [studentName, setStudentName] = useState("");
     const [studentId, setStudentId] = useState("");
@@ -102,9 +103,6 @@ export default function StudentCardActivation() {
         formData.append("institution", institution);
         formData.append("graduationDate", graduationDate);
 
-        // ⚠️ Remove this, backend doesn’t need it
-        // formData.append("checkedTnC", checkedTnC);
-
         for (let pair of formData.entries()) {
             console.log(pair[0], pair[1]);
         }
@@ -145,7 +143,13 @@ export default function StudentCardActivation() {
 
     return (
         <ResponsiveBackground>
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF' }}>
+            <SafeAreaView
+                style={{
+                    flex: 1,
+                    backgroundColor: '#FFF',
+                    paddingTop: Platform.OS === 'android' ? insets.top / 0 : 0,
+                }}
+            >
                 <TopNavigation title="STUDENT CARD" isBackButton={true} navigatePage={() => router.push('/screens/profile/student-card')} />
                 <ScrollView contentContainerStyle={[commonStyles.containerStyle]} showsVerticalScrollIndicator={false}>
                     <View style={styles.studentCardWrapper}>

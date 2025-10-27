@@ -10,10 +10,8 @@ import TopNavigation from '../../../components/ui/TopNavigation';
 import axios from 'axios';
 import { apiUrl } from '../../constant/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import useAuthGuard from '../../auth/check_token_expiry';
 
 export default function GeneralReceipt() {
-  useAuthGuard();
   const router = useRouter();
   const { orderId } = useLocalSearchParams();
   const [order, setOrder] = useState(null);
@@ -95,12 +93,11 @@ export default function GeneralReceipt() {
       }
     </style>
   </head>
-  $
   <body>
     <h2>US PIZZA - Official Receipt</h2>
     <p><b>Order No:</b> ${order.order_so || 'N/A'}</p>
     <p><b>Date:</b> ${order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</p>
-    <p><b>Order Type:</b> ${formatOrderType(order.order_type) || 'N/A'}</p>
+    <p><b>Order Type:</b> ${order.order_type || 'N/A'}</p>
     <hr/>
 
     <h3>Items</h3>
@@ -185,14 +182,41 @@ export default function GeneralReceipt() {
     return `RM ${parseFloat(amount || 0).toFixed(2)}`;
   };
 
-  const formatOrderType = (orderType) => {
-    if (orderType === 'dinein') {
-      return 'Dine-in';
-    } else if (orderType === 'pickup') {
-      return 'Pick up';
-    } else if (orderType === 'delivery') {
-      return 'Delivery';
+  const formatOrderType = (type) => {
+    if (type === "dinein") return "Dine zIn";
+    if (type === "pickup") return "Pickup";
+    if (type === "delivery") return "Delivery";
+    return type;
+  };
+
+  const formatPaymentType = (type) => {
+    if (type === "wallet") return "Wallet";
+    if (type === "razerpay") return "Fiuu";
+    return type;
+  };
+
+  const formatPaymentStatus = (type) => {
+    let color = '#000';
+    let label = '';
+
+    switch (type) {
+      case 'paid':
+        label = 'Paid';
+        color = 'green';
+        break;
+      case 'unpaid':
+        label = 'Unpaid';
+        color = 'red';
+        break;
+      case 'partially_paid':
+        label = 'Partially Paid';
+        color = 'orange';
+        break;
+      default:
+        label = type;
     }
+
+    return <Text style={{ color, fontWeight: '600' }}>{label}</Text>;
   };
 
   if (loading) {
@@ -284,7 +308,7 @@ export default function GeneralReceipt() {
 
             {/* Items */}
             <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 12, color: '#C2000E' }}>
-              Items
+              Ordered Items
             </Text>
 
             {order.items?.map((item, index) => (
@@ -298,7 +322,7 @@ export default function GeneralReceipt() {
 
                 {item.options?.map((opt, optIndex) => (
                   <Text key={optIndex} style={{ marginLeft: 8, fontSize: 14, color: '#666' }}>
-                    • {opt.option_title} (+{formatCurrency(opt.price_adjustment)})
+                    • {opt.option_title}
                   </Text>
                 ))}
               </View>
@@ -317,16 +341,25 @@ export default function GeneralReceipt() {
                 <Text>Total Discount </Text>
                 <Text>-{formatCurrency(order.discount_amount)}</Text>
               </View>
-             {
-              order.taxes && order.taxes.length > 0 ? (
-                order.taxes.map((tax, index) => (
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }} key={index}>
-                    <Text>Tax Charges ({parseInt(tax.tax_rate)}% {tax.tax_type})</Text>
-                    <Text>{formatCurrency(tax.tax_amount)}</Text>
-                  </View>
-                ))
-              ) : null
-             }
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text>SST (6%)</Text>
+                <Text>
+                  {formatCurrency(
+                    order.taxes?.find(tax => tax.tax_type === 'SST')?.tax_amount || 0
+                  )}
+                </Text>
+              </View>
+
+              {order.order_type === 'dinein' &&  (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text>Service Tax (10%)</Text>
+                <Text>
+                  {formatCurrency(
+                    order.taxes?.find(tax => tax.tax_type === 'Service Tax')?.tax_amount || 0
+                  )}
+                </Text>
+              </View>
+              )}
 
               {/* 🔹 Conditionally show Delivery Fee */}
               {order.delivery_fee && parseFloat(order.delivery_fee) > 0 && (
@@ -365,10 +398,13 @@ export default function GeneralReceipt() {
 
             {/* Payment Info */}
             <Text style={{ marginBottom: 6 }}>
-              <Text style={{ fontWeight: 'bold' }}>Payment Method:</Text> <Text style={{ textTransform: 'capitalize' }}>{order.payments?.[0]?.payment_method || 'N/A'}</Text>
+              <Text style={{ fontWeight: 'bold' }}>Payment Method:</Text> {formatPaymentType(order.payments?.[0]?.payment_method) || 'N/A'}
             </Text>
             <Text style={{ marginBottom: 6 }}>
-              <Text style={{ fontWeight: 'bold' }}>Status:</Text> <Text style={{ textTransform: 'capitalize' }}>{order.payment_status}</Text>
+              <Text style={{ fontWeight: 'bold' }}>Status:</Text> {formatPaymentStatus(order.payment_status)}
+            </Text>
+            <Text style={{ marginBottom: 6 }}>
+              <Text style={{ fontWeight: 'bold' }}>Notes:</Text>
             </Text>
 
             {/* Footer */}

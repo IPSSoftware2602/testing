@@ -41,18 +41,6 @@ export default function VoucherSelectScreen() {
     const [authToken, setAuthToken] = useState("");
     const [customerData, setCustomerData] = useState(null);
 
-    const handleApplyManualVoucher = () => {
-
-        if (voucherCode.trim()) {
-            const foundVoucher = vouchers.find(v => v.code === voucherCode.trim());
-            const voucher = foundVoucher
-                ? foundVoucher
-                : { voucher_code: voucherCode.trim() };
-            setSelectedVoucher(voucher);
-            handleConfirm(voucher); // Pass the voucher directly
-        }
-    };
-
     useEffect(() => {
         const checkStoredData = async () => {
             try {
@@ -73,7 +61,6 @@ export default function VoucherSelectScreen() {
     }, [])
 
     useEffect(() => {
-
         const fetchCustomerVoucher = async () => {
             try {
 
@@ -102,55 +89,16 @@ export default function VoucherSelectScreen() {
 
     }, [authToken, customerData])
 
-    const handleConfirm = (voucherParam) => {
-        const voucher = voucherParam ?? selectedVoucher;
-        if (voucher) {
-            router.push({
-                pathname: '/screens/orders/checkout',
-                params: {
-                    selectedVoucher: JSON.stringify(voucher)
-                }
-            });
-        }
-    };
-
-
     const renderEmptyVoucher = () => (
         <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No vouchers available.</Text>
-            <Text style={styles.emptySubText}>You may proceed to Market to exchange Voucher or enter Promo Code.</Text>
         </View>
     );
 
     return (
         <ResponsiveBackground>
             <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-                <TopNavigation title="Voucher Wallet" isBackButton={true} navigatePage={() => router.push('/screens/orders/checkout')} />
-
-                <View style={styles.voucherInputSection}>
-                    <Text style={styles.sectionTitle}>Add Voucher</Text>
-                    <View style={styles.voucherInputContainer}>
-                        <Ionicons name="ticket-outline" size={24} color="#999" style={styles.voucherIcon} />
-                        <TextInput
-                            style={styles.voucherInput}
-                            placeholder="E.g. : Sedap Points"
-                            placeholderTextColor="#999"
-                            value={voucherCode}
-                            onChangeText={setVoucherCode}
-                        />
-                        <PolygonButton
-                            text="APPLY"
-                            width={120}
-                            height={25}
-                            color="#C2000E"
-                            textColor="#fff"
-                            textStyle={{ fontWeight: 'bold', fontSize: 16 }}
-                            onPress={handleApplyManualVoucher}
-                        // onPress={handleConfirm}
-                        />
-                    </View>
-                </View>
-
+                <TopNavigation title="My Vouchers" isBackButton={true} navigatePage={() => router.push('(tabs)/profile')} />
                 <ScrollView
                     contentContainerStyle={[styles.container, { paddingHorizontal: 24 }]}
                     showsVerticalScrollIndicator={false}
@@ -161,14 +109,13 @@ export default function VoucherSelectScreen() {
                                 key={voucher.id}
                                 style={styles.voucherCard}
                             >
-
                                 {/* Top 70% Image Section */}
                                 <TouchableOpacity
                                     activeOpacity={0.8}
                                     onPress={() =>
                                         router.push({
                                             pathname: '/screens/voucher/voucher_details',
-                                            params: { voucher: JSON.stringify(voucher), from: 'select' },
+                                            params: { voucher: JSON.stringify(voucher), from: 'profile' },
                                         })
                                     }
                                 >
@@ -192,84 +139,32 @@ export default function VoucherSelectScreen() {
                                         }
                                     }}
                                 >
-
                                     <View style={styles.voucherInfo}>
-                                        <View style={styles.infoItem}>
+                                        <View style={styles.infoColumn}>
+                                            {/* Icon beside label */}
                                             <View style={styles.infoHeaderRow}>
                                                 <Ionicons name="time-outline" size={16} color="#aaa" style={styles.infoIcon} />
-                                                <Text
-                                                    style={styles.infoLabel}
-                                                    numberOfLines={1}
-                                                    ellipsizeMode="tail"
-                                                >
-                                                    Validity
-                                                </Text>
+                                                <Text style={styles.infoLabel}>Validity</Text>
                                             </View>
-                                            <Text
-                                                style={[styles.infoValue, { color: '#C2000E' }]}
-                                                numberOfLines={1}
-                                                ellipsizeMode="tail"
-                                            >
-                                                {voucher.voucher_expiry_date || 'No validity period'}
-                                            </Text>
+                                            <Text style={styles.infoValue}>{voucher.voucher_expiry_date || 'No validity period'}</Text>
                                         </View>
 
-                                        <View style={styles.divider} />
-
-                                        <View style={styles.infoItem}>
+                                        <View style={styles.infoColumn}>
+                                            {/* Icon beside label */}
                                             <View style={styles.infoHeaderRow}>
                                                 <Ionicons name="cash-outline" size={16} color="#aaa" style={styles.infoIcon} />
-                                                <Text
-                                                    style={styles.infoLabel}
-                                                    numberOfLines={1}
-                                                    ellipsizeMode="tail"
-                                                >
-                                                    Title
-                                                </Text>
+                                                <Text style={styles.infoLabel}>Title</Text>
                                             </View>
-                                            <Text
-                                                style={[styles.infoValue, { color: '#C2000E' }]}
-                                                numberOfLines={1}
-                                                ellipsizeMode="tail"
-                                            >
-                                                {voucher.title || 'No title provided.'}
-                                            </Text>
-                                        </View>
-
-                                        <View style={styles.divider} />
-
-                                        <View style={styles.tickButton}>
-                                            <Ionicons
-                                                name={selectedVoucher?.voucher_code === voucher.voucher_code ? "checkmark-circle" : "ellipse-outline"}
-                                                size={22}
-                                                color={selectedVoucher?.voucher_code === voucher.voucher_code ? "#C2000E" : "#ccc"}
-                                            />
+                                            <Text style={styles.infoValue}>{voucher.title || 'No title provided.'}</Text>
                                         </View>
                                     </View>
+
                                 </TouchableOpacity>
+
                             </View>
                         ))
                     )}
                 </ScrollView>
-                <View style={styles.bottomBar}>
-                    <TouchableOpacity
-                        style={{
-                            width: '100%',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}
-                        onPress={() => handleConfirm()}
-                        disabled={!selectedVoucher}
-                    >
-                        <CustomTabBarBackground />
-                        <Text style={[
-                            styles.confirmButtonText,
-                            !selectedVoucher && styles.disabledButtonText
-                        ]}>
-                            REDEEM VOUCHER
-                        </Text>
-                    </TouchableOpacity>
-                </View>
             </SafeAreaView>
         </ResponsiveBackground>
     );
@@ -375,7 +270,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     disabledButtonText: {
-        color: '#ffffffff',
+        color: '#fff',
     },
     emptyContainer: {
         flex: 1,
@@ -450,31 +345,37 @@ const styles = StyleSheet.create({
 
     voucherInfo: {
         flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'space-evenly',
         backgroundColor: '#fff',
         paddingVertical: 12,
-        paddingHorizontal: 16,
         borderTopWidth: 1,
         borderTopColor: '#eee',
-        borderBottomLeftRadius: 12,
-        borderBottomRightRadius: 12,
     },
 
     infoRow: {
         alignItems: 'center',
     },
 
-    infoItem: {
-        flex: 1,
-        minWidth: 0,              // allow Text to shrink and truncate
-        alignItems: 'center',     // center within each block
-        justifyContent: 'center',
-        gap: 4,
-        height: 40,
+    infoLabel: {
+        fontSize: 12,
+        color: '#999',
+        fontFamily: 'Route159-Regular',
+        textAlign: 'center',
     },
 
-    
+    infoValue: {
+        fontSize: 14,
+        color: '#C2000E',
+        fontFamily: 'Route159-Bold',
+        textAlign: 'center',
+    },
+
+    infoItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 6,
+        height: 40,
+    },
 
     infoIcon: {
         marginRight: 4,
@@ -493,26 +394,15 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
 
+    infoColumn: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+    },
     infoHeaderRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
     },
-
-    infoLabel: {
-        fontSize: 12,
-        color: '#999',
-        fontFamily: 'Route159-Regular',
-        textAlign: 'center',
-        maxWidth: '100%',
-    },
-
-    infoValue: {
-        fontSize: 14,
-        fontFamily: 'Route159-Bold',
-        textAlign: 'center',
-        maxWidth: '100%',
-    },
-
-
 });

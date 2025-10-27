@@ -152,7 +152,7 @@ export default function WalletBalanceHistory() {
             <View style={styles.profileRow}>
               {customerData && customerData.profile_picture ? (
                 <Image
-                  source={{ uri: `https://icom.ipsgroup.com.my/backend/${customerData.profile_picture}` }}
+                  source={{ uri: `${customerData.profile_picture}` }}
                   style={styles.avatar}
                 />
               ) : (
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   name: {
     color: '#C2000E',
     fontWeight: 'bold',
-    fontSize: 24,
+    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 14 : 16) : 18) : 24,
     fontFamily: 'Route159-SemiBoldItalic',
     marginBottom: 2,
   },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   },
   pointsLabel: {
     color: '#C2000E',
-    fontSize: 28,
+    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 20 : 20) : 20) : 24,
     fontFamily: 'Route159-HeavyItalic',
     marginTop: 2,
   },

@@ -35,7 +35,7 @@ export default function DeliveryAddressEditDetails() {
         longitude: "",
         latitude: "",
     });
-    const { lat, lng, addressId } = useLocalSearchParams();
+    const { lat, lng, addressId, origin } = useLocalSearchParams();
     const [currentAddress, setCurrentAddress] = useState("");
     const [longitude, setLongitude] = useState("");
     const [latitude, setLatitude] = useState("");
@@ -137,10 +137,20 @@ export default function DeliveryAddressEditDetails() {
         updateLocation();
     }
 
+    const handleBack = () => {
+    router.replace({
+        pathname: "/screens/home/address_edit",
+        params: {
+        addressId,
+        origin
+        }
+    });
+    };
+
     return (
         <ResponsiveBackground>
             <SafeAreaView style={{ flex: 1, backgroundColor: '#FEF2E2' }}>
-                <TopNavigation title="Edit Delivery Address" isBackButton={true} navigatePage={() => router.push('/screens/home/address_edit')} />
+                <TopNavigation title="Edit Delivery Address" isBackButton={true} navigatePage={handleBack} />
 
                 {isWeb ? (
                     <View >

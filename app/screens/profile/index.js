@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import ConfirmationModal from '../../../components/ui/ConfirmationModal';
 import axios from 'axios'
-import { apiUrl } from '../../constant/constants';
+import { imageUrl, apiUrl } from '../../constant/constants';
 import useAuthGuard from '../../auth/check_token_expiry';
 import useCheckValidOrderType from '../home/check_valid_order_type';
 
@@ -139,7 +139,7 @@ export default function Profile() {
     { label: 'Invite', icon: require('../../../assets/elements/profile/invite.png'), route: '/screens/profile/invite' },
     { label: 'Student Card', icon: require('../../../assets/elements/profile/student_card.png'), route: '/screens/profile/student-card' },
     { label: 'Address', icon: require('../../../assets/elements/profile/address.png'), route: '/screens/profile/addresses' },
-    { label: 'Invoice', icon: require('../../../assets/elements/profile/invoice.png'), route: '(tabs)/orders' },
+    { label: 'Voucher', icon: require('../../../assets/elements/profile/invoice.png'), route: '/screens/profile/voucher' },
     { label: 'Service', icon: require('../../../assets/elements/profile/service.png'), route: '/service' },
     { label: 'Suggestion', icon: require('../../../assets/elements/profile/suggestion.png'), route: '/suggestion' },
   ]

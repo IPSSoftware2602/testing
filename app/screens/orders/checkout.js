@@ -1394,7 +1394,7 @@ export default function CheckoutScreen({ navigation }) {
                 {cartData.tax_detail.map((tax, index) => (
                   <View key={index} style={styles.totalRow}>
                     <Text style={styles.totalLabel}>
-                      {tax.tax_type} ({parseFloat(tax.tax_rate).toFixed(2)}%)
+                      {tax.tax_type} ({parseInt(tax.tax_rate)}%)
                     </Text>
                     <Text style={styles.totalValue}>
                       RM {parseFloat(tax.tax_amount).toFixed(2)}

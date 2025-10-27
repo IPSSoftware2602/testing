@@ -21,7 +21,7 @@ const { width, height } = Dimensions.get('window');
 export default function DeliveryAddressEdit() {
     useAuthGuard();
     const router = useRouter();
-    const params = useLocalSearchParams();
+    // const params = useLocalSearchParams();
     const { addressId, origin } = useLocalSearchParams();
     const [addressData, setAddressData] = useState({
         id: "",
@@ -169,11 +169,11 @@ export default function DeliveryAddressEdit() {
     }
 
     const handleNavigateBack = () => {
-        if (params?.origin === 'profile') {
-            router.replace('screens/profile/addresses');
-        } else if (params?.origin === 'address_select') {
-            router.replace('/screens/home/address_select');
-        }
+    if (origin === "profile") {
+        router.replace("/screens/profile/addresses");
+    } else {
+        router.replace("/screens/home/address_select");
+    }
     };
 
     return (
