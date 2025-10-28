@@ -455,7 +455,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
 
                         // Ensure it's not earlier than 10:00 AM
                         const startOperation = new Date(date);
-                        startOperation.setHours(startHour, 0, 0, 0);
+                        startOperation.setHours(startHour, startMinute, 0, 0);
                         if (start < startOperation) start = startOperation;
                         // console.log(startOperation);
                     }
@@ -596,7 +596,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
 
                     // Ensure it's not earlier than 10:00 AM
                     const startOperation = new Date(date);
-                    startOperation.setHours(startHour, 0, 0, 0);
+                    startOperation.setHours(startHour, startMinute, 0, 0);
                     if (start < startOperation) start = startOperation;
                     // console.log(startOperation);
                 }
