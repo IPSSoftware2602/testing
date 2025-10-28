@@ -2,7 +2,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet, Text, View, Dimensions, TextInput, Image, FlatList, TouchableOpacity, Alert, Linking } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, TextInput, Image, FlatList, TouchableOpacity, Alert, Linking, Platform } from 'react-native';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import { fonts, colors } from '../../../styles/common';
@@ -398,10 +398,17 @@ export default function OutletSelection() {
 
                         <TouchableOpacity
                             onPress={() => {
-                                Linking.openSettings(); // iOS + Android settings
+                                if (Platform.OS === 'android') {
+                                    Linking.openSettings(); 
+                                    // Or better: take them to location service directly:
+                                    Linking.openURL('app-settings:');
+                                    Linking.openURL('android.settings.LOCATION_SOURCE_SETTINGS');
+                                } else {
+                                    // iOS
+                                    Linking.openURL('app-settings:');
+                                }
                             }}
-                            style={styles.enableLocationBtn}
-                        >
+                            >
                             <Text style={styles.enableLocationText}>
                                 Turn on your location now
                             </Text>

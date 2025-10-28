@@ -121,7 +121,7 @@ export default function VoucherSelectScreen() {
                                 >
                                     <View style={styles.imageContainer}>
                                         <Image
-                                            source={{ uri: voucher.image_url || 'https://icom.ipsgroup.com.my/backend/uploads/menu_images/6_1760066613_0.jpg' }}
+                                            source={{ uri: voucher.voucher_image_url || 'https://icom.ipsgroup.com.my/backend/uploads/menu_images/6_1760066613_0.jpg' }}
                                             style={styles.voucherImage}
                                             resizeMode="cover"
                                         />

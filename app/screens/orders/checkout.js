@@ -1525,14 +1525,11 @@ const styles = StyleSheet.create({
     borderColor: '#FFD1D1',
     alignSelf: 'flex-start',
     marginTop: 4,
-    maxWidth: '100%',
   },
   noteText: {
     fontFamily: 'Route159-Regular',
     fontSize: 11,
     color: '#C2000E',
-    // Ensure text can shrink and wrap within its container
-    flexShrink: 1,
   },
   voucherButton: {
     marginTop: 10,
