@@ -12,7 +12,8 @@ import {
     TextInput,
     View,
     Dimensions,
-    Image
+    Image,
+    Platform
 } from 'react-native';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
@@ -125,8 +126,29 @@ export default function VoucherSelectScreen() {
     return (
         <ResponsiveBackground>
             <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-                <TopNavigation title="Voucher Wallet" isBackButton={true} navigatePage={() => router.push('/screens/orders/checkout')} />
+                <TopNavigation
+                    title={
+                        <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Text style={{ fontFamily: "Route159-Bold", fontSize: 18, color: "#C2000E" }}>
+                            Voucher Wallet
+                        </Text>
 
+                        <TouchableOpacity
+                            onPress={() =>
+                            router.push({
+                                pathname: '(tabs)/market',
+                                params: { from: 'voucher-select' }
+                            })
+                            }
+                            style={{ marginLeft: 12 }}
+                        >
+                            <Ionicons name="storefront-outline" size={22} color="#C2000E" />
+                        </TouchableOpacity>
+                        </View>
+                    }
+                    isBackButton={true}
+                    navigatePage={() => router.push('/screens/orders/checkout')}
+                />
                 <View style={styles.voucherInputSection}>
                     <Text style={styles.sectionTitle}>Add Voucher</Text>
                     <View style={styles.voucherInputContainer}>
@@ -174,9 +196,9 @@ export default function VoucherSelectScreen() {
                                 >
                                     <View style={styles.imageContainer}>
                                         <Image
-                                            source={{ uri: voucher.image_url || 'https://icom.ipsgroup.com.my/backend/uploads/menu_images/6_1760066613_0.jpg' }}
+                                            source={{ uri: voucher.voucher_image_url || 'https://icom.ipsgroup.com.my/backend/uploads/menu_images/6_1760066613_0.jpg' }}
                                             style={styles.voucherImage}
-                                            resizeMode="cover"
+                                        // resizeMode="cover"
                                         />
                                     </View>
                                 </TouchableOpacity>
@@ -412,15 +434,18 @@ const styles = StyleSheet.create({
         lineHeight: width <= 360 ? 14 : 16,
     },
     imageContainer: {
-        height: 160,
-        position: 'relative',
+        width: '100%',
+        aspectRatio: 16 / 9,
+        backgroundColor: '#fff',
+        overflow: 'hidden',
+        height: Platform.OS === 'web' ? 200 : undefined,
     },
-
     voucherImage: {
         width: '100%',
         height: '100%',
+        resizeMode: 'cover',
+        transform: [{ scale: 1 }], // zoom out a bit
     },
-
     imageOverlay: {
         position: 'absolute',
         top: 0,
@@ -474,7 +499,7 @@ const styles = StyleSheet.create({
         height: 40,
     },
 
-    
+
 
     infoIcon: {
         marginRight: 4,
