@@ -19,31 +19,37 @@ const { width } = Dimensions.get('window');
 
 const benefitList = [
   {
-    title: 'US Pizza Points',
-    description: 'Earn points with every order',
-    iconName: 'star',
+    title: 'Welcome Gift',
+    description: 'Mystery surprise when you join',
+    iconName: 'gift',
   },
   {
-    title: 'Free Pizzas and Rewards',
-    description: 'Redeem points for free pizzas and rewards',
+    title: '50% OFF Pizzas',
+    description: '⁠50% OFF all pizzas for 1 year + 20% OFF snacks & drinks',
+    iconName: 'percent',
+  },
+  {
+    title: 'Double Points',
+    description: '⁠Double points on all purchases during your birthday window (1 week before & after)',
+    iconName: 'cake-candles',
+  },
+  {
+    title: 'Free Pizzas',
+    description: '4 regular pizzas yearly (March, June, Sept & your birthday month!)',
     iconName: 'pizza-slice',
   },
   {
-    title: 'Exclusive Discounts',
-    description: 'Enjoy special VIP-only discounts and promotions',
-    iconName: 'crown',
+    title: 'Birthday Treat',
+    description: 'Free lava cake during birthday month',
+    iconName: 'cake-candles',
   },
   {
-    title: 'Free Delivery',
-    description: ' Free delivery on selected orders',
-    iconName: 'truck',
-  },
-  {
-    title: 'Early Privileges',
-    description: 'Early access to new menu items and deals',
+    title: 'Early Access',
+    description: 'Be the first to try new menu launches (1 week exclusive preview)',
     iconName: 'bolt',
   },
-]
+];
+
 
 export default function VipCard() {
   useAuthGuard();
@@ -163,8 +169,8 @@ export default function VipCard() {
 
           {/* Card Benefit */}
           <View style={styles.cardBenefit}>
-            <Text style={styles.benefitTitle}>MEMBERSHIP PERKS</Text>
-            <Text style={styles.benefitText}>Unlock exclusive benefits with your US Pizza VIP Card:</Text>
+            <Text style={styles.benefitTitle}>VIP Plan – Only RM55 / year</Text>
+            <Text style={styles.benefitText}>Unlock exclusive perks worth over RM200+!</Text>
             <View style={{ marginVertical: '1%' }}>
               {benefitList.map((item, index) => (
                 <View key={index} style={styles.cardBenefitList}>
@@ -191,7 +197,9 @@ export default function VipCard() {
               </View> */}
             </View>
             <View style={{ marginTop: '2%' }}>
-              <Text style={styles.benefitText}>Don’t miss out — tap  <Text style={styles.benefitTitle}>“Subscribe”</Text> to enjoy all these perks!</Text>
+              {/* <Text style={styles.benefitText}>Don’t miss out — tap  <Text style={styles.benefitTitle}>“Subscribe”</Text> to enjoy all these perks!</Text> */}
+                            <Text style={styles.benefitTextPerk}>All these exclusive perks for just RM55. Don’t miss out!</Text>
+
             </View>
           </View>
 
@@ -323,6 +331,7 @@ const styles = StyleSheet.create({
     color: '#333333',
     marginBottom: '2%',
     textAlign: 'flex-start',
+    marginLeft: '1%',
     // width: '80%',
   },
   benefitText: {
@@ -331,6 +340,14 @@ const styles = StyleSheet.create({
     color: '#333333',
     // marginBottom: '2%',
     textAlign: 'flex-start',
+    marginLeft: '1%',
+  },
+  benefitTextPerk: {
+    fontSize: 15,
+    fontFamily: 'Route159-Bold',
+    color: '#333333',
+    // marginBottom: '2%',
+    textAlign: 'center',
   },
   benefit: {
     width: '75%',

@@ -2,7 +2,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet, Text, View, Dimensions, TextInput, Image, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, TextInput, Image, FlatList, TouchableOpacity, Alert, Linking } from 'react-native';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import { fonts, colors } from '../../../styles/common';
@@ -28,12 +28,14 @@ export default function OutletSelection() {
     const [outletData, setOutletData] = useState([]);
     const [authToken, setAuthToken] = useState("");
     const [orderType, setOrderType] = useState("");
+    const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+
 
 
     const renderEmptyOutlet = () => (
         <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No outlets found.</Text>
-            <Text style={styles.emptySubText}>Please pick other order methods.</Text>
+            <Text style={styles.emptyText}>Loading outlets…</Text>
+            <Text style={styles.emptySubText}>Just a moment… locating your nearest outlet</Text>
         </View>
     );
 
@@ -78,6 +80,10 @@ export default function OutletSelection() {
                 if (orderTypeStored && orderTypeStored !== 'delivery') {
                     try {
                         const { status } = await Location.requestForegroundPermissionsAsync();
+                        if (orderTypeStored !== 'delivery' && status !== 'granted') {
+                            setLocationPermissionDenied(true);
+                            return;
+                        }
                         if (status === 'granted') {
                             const currentLocation = await Location.getCurrentPositionAsync({});
                             lat = currentLocation.coords.latitude;
@@ -126,30 +132,26 @@ export default function OutletSelection() {
 
     const getCoordinates = async () => {
         try {
-            // For Pickup and dinein (Location will be device location)
-            // Ask for permission
-            await Location.requestForegroundPermissionsAsync();
-            // if (status !== 'granted') {
-            //     toast.show('Please allow location access', {
-            //         type: 'custom_toast',
-            //         data: { title: 'Permission to access location was denied', status: 'danger' }
-            //     });
-            //     router.push('(tabs)')
-            //     // setDefaultLocation();
-            //     return;
-            // }
+            const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
 
-            // Get current position
+            if (status !== 'granted') {
+                // User rejected
+                setLocation(null); // no location
+                setLocationPermissionDenied(true); // show fallback UI
+                return;
+            }
+
             let currentLocation = await Location.getCurrentPositionAsync({});
-            setLocation({ lat: currentLocation.coords.latitude, lng: currentLocation.coords.longitude });
-            // console.log('Latitude:', currentLocation.coords.latitude);
-            // console.log('Longitude:', currentLocation.coords.longitude);
+            setLocation({
+                lat: currentLocation.coords.latitude,
+                lng: currentLocation.coords.longitude
+            });
+            setLocationPermissionDenied(false);
         } catch (error) {
             console.error('Error getting location:', error);
-            // Alert.alert('Error getting location');
-            // setDefaultLocation();
         }
     };
+
 
 
     useEffect(() => {
@@ -157,6 +159,14 @@ export default function OutletSelection() {
             getCoordinates();
         }
     }, [orderType]);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            if (locationPermissionDenied) {
+                getCoordinates();
+            }
+        }, [locationPermissionDenied])
+    );
 
     const getOutletStatus = (operatingSchedule) => {
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -276,8 +286,20 @@ export default function OutletSelection() {
         <>
             <TouchableOpacity
                 onPress={() => {
+                    if (!getOutletStatus(item.operating_schedule).isOpen && orderType === 'dinein') {
+                        toast.show('This outlet currently is closed', {
+                            type: 'custom_toast',
+                            data: {
+                                title: 'Outlet Closed',
+                                message: getOutletStatus(item.operating_schedule).statusText,
+                                status: 'danger'
+                            }
+                        });
+                        return; // Don't proceed
+                    }
+
                     setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen, operatingHours: item.operating_schedule });
-                    if(getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')){
+                    if (getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')) {
                         router.push('(tabs)/menu')
                     }
                 }}
@@ -300,7 +322,7 @@ export default function OutletSelection() {
                         >
                             {item.address}, {item.postal_code} {item.state}, {item.country}.
                         </Text>
-                        {item.distance_km && item.distance_km !== '0.00' ? 
+                        {item.distance_km && item.distance_km !== '0.00' ?
                             <View style={styles.distanceDetails}>
                                 <FontAwesome6 name="location-dot" style={styles.outletIcon} />
                                 <Text style={styles.distance}>{`${item.distance_km} km`}</Text>
@@ -319,7 +341,7 @@ export default function OutletSelection() {
                         resizeMode="cover"
                     />
                 </View>
-                {getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')  ? 
+                {getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein') ?
                     <View style={styles.btnContainer}>
                         <PolygonButton
                             text="Select"
@@ -331,13 +353,13 @@ export default function OutletSelection() {
                             onPress={() => {
                                 // setSelectedOutlet(item.id);
                                 setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen });
-                                if(getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')){
+                                if (getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')) {
                                     router.push('(tabs)/menu')
                                 }
                             }}
                         />
                     </View>
-                    :null}
+                    : null}
 
             </TouchableOpacity>
         </>
@@ -365,16 +387,38 @@ export default function OutletSelection() {
                     />
                 </View>
 
-                <FlatList
-                    // ref={outletListRef}
-                    data={filteredOutlets}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={styles.outletList}
-                    renderItem={renderOutlet}
-                    keyboardDismissMode="on-drag"
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={renderEmptyOutlet}
-                />
+                {locationPermissionDenied ? (
+                    <View style={styles.permissionWarning}>
+                        <Text style={styles.permissionTitle}>
+                            We can&apos;t seem to find you.
+                        </Text>
+                        <Text style={styles.permissionSubtitle}>
+                            Turn on the location on your mobile phone to let us serve you at the nearest location.
+                        </Text>
+
+                        <TouchableOpacity
+                            onPress={() => {
+                                Linking.openSettings(); // iOS + Android settings
+                            }}
+                            style={styles.enableLocationBtn}
+                        >
+                            <Text style={styles.enableLocationText}>
+                                Turn on your location now
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <FlatList
+                        data={filteredOutlets}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={styles.outletList}
+                        renderItem={renderOutlet}
+                        keyboardDismissMode="on-drag"
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={renderEmptyOutlet}
+                    />
+                )}
+
             </SafeAreaView>
         </ResponsiveBackground>
     )
@@ -572,4 +616,36 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         textAlign: 'center',
     },
+    permissionWarning: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    permissionTitle: {
+        fontSize: 18,
+        color: '#C2000E',
+        fontFamily: 'Route159-Bold',
+        textAlign: 'center'
+    },
+    permissionSubtitle: {
+        fontSize: 14,
+        color: '#444',
+        fontFamily: 'Route159-Regular',
+        marginVertical: 10,
+        textAlign: 'center'
+    },
+    enableLocationBtn: {
+        marginTop: 15,
+        backgroundColor: '#C2000E',
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+        borderRadius: 8
+    },
+    enableLocationText: {
+        color: '#FFF',
+        fontSize: 15,
+        fontFamily: 'Route159-Bold'
+    }
+
 });

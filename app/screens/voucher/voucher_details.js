@@ -83,7 +83,7 @@ export default function VoucherDetails() {
             <Image
               source={{
                 uri:
-                  voucherData.image_url ||
+                  voucherData.voucher_image_url ||
                   'https://icom.ipsgroup.com.my/backend/uploads/menu_images/6_1760066613_0.jpg',
               }}
               style={styles.image}

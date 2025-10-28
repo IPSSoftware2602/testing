@@ -1,22 +1,35 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import axios from 'axios';
 import { apiUrl } from '../../constant/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import useAuthGuard from '../../auth/check_token_expiry';
+import { useToast } from '../../../hooks/useToast';
 
 export default function GeneralReceipt() {
+  useAuthGuard();
   const router = useRouter();
   const { orderId } = useLocalSearchParams();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+    const toast = useToast();
+
+
+  const calculateItemTotalPrice = (item) => {
+    const basePrice = parseFloat(item.unit_price) || 0;
+    const optionsTotal = item.options?.reduce((sum, opt) => {
+      return sum + parseFloat(opt.price_adjustment || 0);
+    }, 0) || 0;
+
+    return (basePrice + optionsTotal) * item.quantity;
+  };
 
   // 🔹 Fetch order details
   useEffect(() => {
@@ -41,182 +54,147 @@ export default function GeneralReceipt() {
     })();
   }, [orderId]);
 
-  // 🔹 HTML Receipt Template for PDF
-  const generateReceiptHtml = (order) => `
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        color: #333;
-        padding: 20px;
-        margin: 0;
-        line-height: 1.4;
-      }
-      h2 {
-        text-align: center;
-        color: #C2000E;
-        margin-bottom: 15px;
-      }
-      hr {
-        border: 0;
-        border-top: 1px solid #ddd;
-        margin: 15px 0;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      td {
-        padding: 4px 0;
-      }
-      .total {
-        font-weight: bold;
-        border-top: 1px solid #ddd;
-        padding-top: 8px;
-      }
-      ul {
-        margin: 4px 0 10px 15px;
-        padding: 0;
-      }
-      li {
-        font-size: 13px;
-        color: #666;
-      }
-      .footer {
-        text-align: center;
-        font-size: 12px;
-        color: #888;
-        margin-top: 30px;
-      }
-    </style>
-  </head>
-  <body>
-    <h2>US PIZZA - Official Receipt</h2>
-    <p><b>Order No:</b> ${order.order_so || 'N/A'}</p>
-    <p><b>Date:</b> ${order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</p>
-    <p><b>Order Type:</b> ${order.order_type || 'N/A'}</p>
-    <hr/>
-
-    <h3>Items</h3>
-    ${order.items?.map(item => `
-      <div>
-        <div><b>${item.title}</b> x${item.quantity} - RM${parseFloat(item.unit_price).toFixed(2)}</div>
-        ${item.options?.length ? `<ul>${item.options.map(opt => `<li>${opt.option_title}</li>`).join('')}</ul>` : ''}
-      </div>
-    `).join('') || '<p>No items found</p>'}
-
-    <hr/>
-    <table>
-      <tr><td>Subtotal</td><td align="right">RM ${parseFloat(order.subtotal_amount).toFixed(2)}</td></tr>
-      ${order.discount_amount && parseFloat(order.discount_amount) > 0 ? `<tr><td>Total Discount</td><td align="right">-RM ${parseFloat(order.discount_amount).toFixed(2)}</td></tr>` : ''}
-      ${order.tax_amount && parseFloat(order.tax_amount) > 0 ? `<tr><td>Tax Charges (6% SST)</td><td align="right">RM ${parseFloat(order.tax_amount).toFixed(2)}</td></tr>` : ''}
-      ${order.delivery_fee && parseFloat(order.delivery_fee) > 0 ? `<tr><td>Delivery Fee</td><td align="right">RM ${parseFloat(order.delivery_fee).toFixed(2)}</td></tr>` : ''}
-      <tr><td>Rounding</td><td align="right">RM ${parseFloat(order.rounding_amount).toFixed(2)}</td></tr>
-      <tr><td class="total">Total</td><td align="right" class="total">RM ${parseFloat(order.grand_total).toFixed(2)}</td></tr>
-    </table>
-
-    <hr/>
-    <p><b>Payment Method:</b> ${order.payments?.[0]?.payment_method || 'N/A'}</p>
-    <p><b>Status:</b> ${order.payment_status || 'N/A'}</p>
-    <p><b>Notes:</b> ${order.notes || '-'}</p>
-
-    <div class="footer">Thank you for dining with US PIZZA!</div>
-  </body>
-</html>`;
-
-
-  // 🔹 Handle Download PDF
-  // 🔹 Handle Download PDF (Simpler version)
+  // 🔹 Handle Download PDF - Works on both web and mobile
   const handleDownload = async () => {
-  if (!order) return;
-  try {
-    setDownloading(true);
+    if (!order) return;
 
-    // 🔹 Create clean HTML (only receipt content)
-    const html = generateReceiptHtml(order);
-
-    // ✅ Generate PDF from that HTML only
-    const { uri } = await Print.printToFileAsync({
-      html,
-      base64: false,
+    toast.show('Downloading your receipt...', {
+      type: 'custom_toast',
+      data: { title: '', status: 'success' }
     });
 
-    // ✅ Move the generated PDF to your own filename
-    const orderNumber = order.order_so || 'receipt';
-    const date = new Date().toISOString().split('T')[0];
-    const customFileName = `USPizza_Receipt_${orderNumber}_${date}.pdf`;
-    const newPath = `${FileSystem.documentDirectory}${customFileName}`;
+    try {
+      setDownloading(true);
 
-    await FileSystem.moveAsync({
-      from: uri,
-      to: newPath,
-    });
+      const token = await AsyncStorage.getItem('authToken');
+      const customer_id = await AsyncStorage.getItem('customerData') ? 
+        JSON.parse(await AsyncStorage.getItem('customerData')).id : null;
 
-    // ✅ Share the clean file
-    const isSharingAvailable = await Sharing.isAvailableAsync();
-    if (isSharingAvailable) {
-      await Sharing.shareAsync(newPath, {
-        mimeType: 'application/pdf',
-        dialogTitle: `Save ${customFileName}`,
-        UTI: 'com.adobe.pdf',
-      });
-    } else {
-      Alert.alert('Saved', `PDF saved as ${customFileName}`);
+      console.log('Starting PDF download...');
+
+      // For web platform - use browser download
+      if (Platform.OS === 'web') {
+        // Method 1: Create a temporary link and trigger download
+        const downloadUrl = `${apiUrl}order/pdf/${orderId}/${customer_id}`;
+        
+        // Create a temporary anchor element
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.setAttribute('download', `USPizza_Receipt_${order.order_so}.pdf`);
+        
+        // Add authorization header via query parameter or use fetch + blob approach
+        // Since we can't set headers on direct link, we'll use fetch + blob for web
+        const response = await fetch(downloadUrl, {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+          }
+        });
+
+        if (!response.ok) throw new Error('Download failed');
+
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        link.href = blobUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the blob URL
+        window.URL.revokeObjectURL(blobUrl);
+
+        Alert.alert(
+          'PDF Download Started', 
+          'Your receipt PDF download has started in the browser.',
+          [{ text: 'OK' }]
+        );
+
+      } else {
+        // For mobile platforms - use FileSystem
+        const response = await fetch(
+          `${apiUrl}order/pdf/${orderId}/${customer_id}`,
+          {
+            method: 'GET',
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Get the PDF as blob
+        const blob = await response.blob();
+
+        if (blob.size === 0) {
+          throw new Error('Received empty PDF blob');
+        }
+
+        // Convert blob to base64
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
+        // Save file
+        const orderNumber = order.order_so || 'receipt';
+        const fileName = `USPizza_Receipt_${orderNumber}.pdf`;
+        const filePath = `${FileSystem.documentDirectory}${fileName}`;
+
+        await FileSystem.writeAsStringAsync(
+          filePath, 
+          base64.split(',')[1],
+          { encoding: FileSystem.EncodingType.Base64 }
+        );
+
+        // Verify file was saved
+        const fileInfo = await FileSystem.getInfoAsync(filePath);
+
+        if (!fileInfo.exists) {
+          throw new Error('File was not saved successfully');
+        }
+
+        // Offer to share the file on mobile
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(filePath, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Save Receipt PDF',
+          });
+        } else {
+          Alert.alert(
+            'PDF Downloaded Successfully!', 
+            `Receipt saved as: ${fileName}`,
+            [{ text: 'OK' }]
+          );
+        }
+      }
+
+    } catch (err) {
+      console.error('PDF download failed:', err);
+      Alert.alert('Error', `Failed to download PDF: ${err.message}`);
+    } finally {
+      setDownloading(false);
     }
-  } catch (err) {
-    console.error('PDF generation failed:', err);
-    Alert.alert('Error', 'Failed to generate PDF');
-  } finally {
-    setDownloading(false);
-  }
   };
-
-
-
 
   // Format currency
   const formatCurrency = (amount) => {
     return `RM ${parseFloat(amount || 0).toFixed(2)}`;
   };
 
-  const formatOrderType = (type) => {
-    if (type === "dinein") return "Dine zIn";
-    if (type === "pickup") return "Pickup";
-    if (type === "delivery") return "Delivery";
-    return type;
-  };
-
-  const formatPaymentType = (type) => {
-    if (type === "wallet") return "Wallet";
-    if (type === "razerpay") return "Fiuu";
-    return type;
-  };
-
-  const formatPaymentStatus = (type) => {
-    let color = '#000';
-    let label = '';
-
-    switch (type) {
-      case 'paid':
-        label = 'Paid';
-        color = 'green';
-        break;
-      case 'unpaid':
-        label = 'Unpaid';
-        color = 'red';
-        break;
-      case 'partially_paid':
-        label = 'Partially Paid';
-        color = 'orange';
-        break;
-      default:
-        label = type;
+  const formatOrderType = (orderType) => {
+    if (orderType === 'dinein') {
+      return 'Dine-in';
+    } else if (orderType === 'pickup') {
+      return 'Pick up';
+    } else if (orderType === 'delivery') {
+      return 'Delivery';
     }
-
-    return <Text style={{ color, fontWeight: '600' }}>{label}</Text>;
   };
 
   if (loading) {
@@ -282,7 +260,6 @@ export default function GeneralReceipt() {
               marginBottom: 20,
             }}
           >
-            {/* Header */}
             <Text style={{
               fontSize: 20,
               fontWeight: 'bold',
@@ -300,7 +277,7 @@ export default function GeneralReceipt() {
             <Text style={{ marginBottom: 4 }}>
               <Text style={{ fontWeight: 'bold' }}>Date:</Text> {new Date(order.created_at).toLocaleDateString()}
             </Text>
-            <Text style={{ marginBottom: 16 }}>
+            <Text style={{ marginBottom: 4 }}>
               <Text style={{ fontWeight: 'bold' }}>Order Type:</Text> {formatOrderType(order.order_type)}
             </Text>
 
@@ -308,7 +285,7 @@ export default function GeneralReceipt() {
 
             {/* Items */}
             <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 12, color: '#C2000E' }}>
-              Ordered Items
+              Items
             </Text>
 
             {order.items?.map((item, index) => (
@@ -316,15 +293,20 @@ export default function GeneralReceipt() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
                   <Text style={{ fontWeight: 'bold', flex: 1 }}>{item.title}</Text>
                   <Text style={{ fontWeight: 'bold' }}>
-                    x{item.quantity} - {formatCurrency(item.unit_price)}
+                    x{item.quantity} - {formatCurrency(calculateItemTotalPrice(item))}
                   </Text>
                 </View>
 
                 {item.options?.map((opt, optIndex) => (
                   <Text key={optIndex} style={{ marginLeft: 8, fontSize: 14, color: '#666' }}>
-                    • {opt.option_title}
+                    • {opt.option_title} ({formatCurrency(opt.price_adjustment)})
                   </Text>
                 ))}
+                {item.note && (
+                  <Text style={{ marginLeft: 8, fontSize: 12, color: '#666', fontStyle: 'italic', marginTop: 4 }}>
+                    Note: {item.note}
+                  </Text>
+                )}
               </View>
             ))}
 
@@ -337,29 +319,23 @@ export default function GeneralReceipt() {
                 <Text>Subtotal</Text>
                 <Text>{formatCurrency(order.subtotal_amount)}</Text>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                <Text>Total Discount </Text>
-                <Text>-{formatCurrency(order.discount_amount)}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                <Text>SST (6%)</Text>
-                <Text>
-                  {formatCurrency(
-                    order.taxes?.find(tax => tax.tax_type === 'SST')?.tax_amount || 0
-                  )}
-                </Text>
-              </View>
-
-              {order.order_type === 'dinein' &&  (
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                <Text>Service Tax (10%)</Text>
-                <Text>
-                  {formatCurrency(
-                    order.taxes?.find(tax => tax.tax_type === 'Service Tax')?.tax_amount || 0
-                  )}
-                </Text>
-              </View>
+              {/* dont display if amount is > 0 */}
+              {order.discount_amount > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text>Total Discount </Text>
+                  <Text>-{formatCurrency(order.discount_amount)}</Text>
+                </View>
               )}
+              {
+                order.taxes && order.taxes.length > 0 ? (
+                  order.taxes.map((tax, index) => (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }} key={index}>
+                      <Text>Tax Charges ({parseInt(tax.tax_rate)}% {tax.tax_type})</Text>
+                      <Text>{formatCurrency(tax.tax_amount)}</Text>
+                    </View>
+                  ))
+                ) : null
+              }
 
               {/* 🔹 Conditionally show Delivery Fee */}
               {order.delivery_fee && parseFloat(order.delivery_fee) > 0 && (
@@ -393,18 +369,14 @@ export default function GeneralReceipt() {
               </View>
             </View>
 
-
             <View style={{ height: 1, backgroundColor: '#ddd', marginVertical: 8 }} />
 
             {/* Payment Info */}
             <Text style={{ marginBottom: 6 }}>
-              <Text style={{ fontWeight: 'bold' }}>Payment Method:</Text> {formatPaymentType(order.payments?.[0]?.payment_method) || 'N/A'}
+              <Text style={{ fontWeight: 'bold' }}>Payment Method:</Text> <Text style={{ textTransform: 'capitalize' }}>{order.payments?.[0]?.payment_method || 'N/A'}</Text>
             </Text>
             <Text style={{ marginBottom: 6 }}>
-              <Text style={{ fontWeight: 'bold' }}>Status:</Text> {formatPaymentStatus(order.payment_status)}
-            </Text>
-            <Text style={{ marginBottom: 6 }}>
-              <Text style={{ fontWeight: 'bold' }}>Notes:</Text>
+              <Text style={{ fontWeight: 'bold' }}>Status:</Text> <Text style={{ textTransform: 'capitalize' }}>{order.payment_status}</Text>
             </Text>
 
             {/* Footer */}
@@ -440,7 +412,7 @@ export default function GeneralReceipt() {
             }}
           >
             <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-              {downloading ? 'Generating PDF...' : 'Download PDF'}
+              {downloading ? 'Downloading PDF...' : 'Download PDF'}
             </Text>
           </TouchableOpacity>
         </View>

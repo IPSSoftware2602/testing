@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '../../../styles/common';
 import TopNavigation from '../../../components/ui/TopNavigation';
@@ -15,6 +15,9 @@ import { apiUrl } from '../../constant/constants';
 import { useToast } from '../../../hooks/useToast';
 import useAuthGuard from '../../auth/check_token_expiry';
 import { Platform } from "react-native";
+
+const { width } = Dimensions.get('window');
+
 
 export default function UpdateProfile() {
   useAuthGuard();
@@ -206,75 +209,85 @@ export default function UpdateProfile() {
         </View>
 
         <View style={styles.form}>
-          {customerData && <><TextInput
-            style={commonStyles.input}
-            placeholder="Name"
-            placeholderTextColor="#999"
-            // value={name}
-            // onChangeText={setName}
-            value={customerData.name}
-            onChangeText={(value) => handleInputChange("name", value)}
-          />
+        {customerData && (
+          <>
 
+            {/* Name */}
+            <Text style={styles.inputLabel}>Name</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder="Email"
+              placeholder="Enter your name"
               placeholderTextColor="#999"
-              // value={email}
-              // onChangeText={setEmail}
+              value={customerData.name}
+              onChangeText={(value) => handleInputChange("name", value)}
+            />
+
+            {/* Email */}
+            <Text style={styles.inputLabel}>Email Address</Text>
+            <TextInput
+              style={commonStyles.input}
+              placeholder="Enter your email"
+              placeholderTextColor="#999"
               value={customerData.email}
               onChangeText={(value) => handleInputChange("email", value)}
               keyboardType="email-address"
               autoCapitalize="none"
             />
 
+            {/* Birthday */}
+            <Text style={styles.inputLabel}>Birthday</Text>
             <DateSelector
               value={customerData.birthday}
-              // onDateChange={setBirthday}
-              placeholder="Select Birthday"
+              placeholder="Select your birthday"
               style={commonStyles.input}
               isDisabled={true}
             />
 
+            {/* Phone */}
+            <Text style={styles.inputLabel}>Phone No</Text>
             <TextInput
               style={[commonStyles.input, { backgroundColor: '#ddd', color: '#999', cursor: 'default' }]}
-              placeholder="Phone Number"
+              placeholder="Phone number"
               placeholderTextColor="#999"
               value={customerData.phone}
               editable={false}
               selectTextOnFocus={false}
-            /></>}
+            />
 
-            {Platform.OS === 'web' ? (
-              <div data-testid="update-profile-button" style={{ display: 'flex', justifyContent: 'center' }}>
-                <PolygonButton
-                  text="Update Profile"
-                  width={180}
-                  height={40}
-                  onPress={handleUpdateProfile}
-                  color="#C2000E"
-                  textColor="#fff"
-                  textStyle={{ fontSize: 22, fontWeight: 'bold' }}
-                  style={{ marginTop: 20, alignSelf: 'center' }}
-                />
-              </div>
-            ) : (
-              <PolygonButton
-                text="Update Profile"
-                width={180}
-                height={40}
-                onPress={handleUpdateProfile}
-                color="#C2000E"
-                textColor="#fff"
-                textStyle={{ fontSize: 22, fontWeight: 'bold' }}
-                style={{ marginTop: 20, alignSelf: 'center' }}
-              />
-            )}
+          </>
+        )}
 
-          <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>Please complete your profile to proceed. </Text>
-          </View>
+        {/* Update Button remains untouched */}
+        {Platform.OS === 'web' ? (
+          <div data-testid="update-profile-button" style={{ display: 'flex', justifyContent: 'center' }}>
+            <PolygonButton
+              text="Update Profile"
+              width={180}
+              height={40}
+              onPress={handleUpdateProfile}
+              color="#C2000E"
+              textColor="#fff"
+              textStyle={{ fontSize: 22, fontWeight: 'bold' }}
+              style={{ marginTop: 20, alignSelf: 'center' }}
+            />
+          </div>
+        ) : (
+          <PolygonButton
+            text="Update Profile"
+            width={180}
+            height={40}
+            onPress={handleUpdateProfile}
+            color="#C2000E"
+            textColor="#fff"
+            textStyle={{ fontSize: 22, fontWeight: 'bold' }}
+            style={{ marginTop: 20, alignSelf: 'center' }}
+          />
+        )}
+
+        <View style={styles.loginContainer}>
+          <Text style={styles.loginText}>Please complete your profile to proceed. </Text>
         </View>
+      </View>
       </SafeAreaView>
     </ResponsiveBackground>
   );
@@ -324,4 +337,11 @@ const styles = {
     fontSize: 14,
     fontWeight: 'bold',
   },
+  inputLabel: {
+    fontFamily: 'Route159-Bold',
+    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 12 : 12) : 14) : 14,
+    color: '#C2000E',
+    marginBottom: 4,
+    marginTop: 10,
+  }
 }; 

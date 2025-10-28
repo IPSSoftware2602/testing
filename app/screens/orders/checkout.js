@@ -291,6 +291,11 @@ const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowD
                 </Text>
               )
             ) : null}
+            {item.note && (item.note != '' || item.note != null) ? (
+              <View style={styles.noteBadge}>
+                <Text style={styles.noteText}>Note: {item.note}</Text>
+              </View>
+            ) : null}
           </View>
           {vip || item.is_free_item === '1' ? null : (
             <TouchableOpacity
@@ -805,7 +810,7 @@ export default function CheckoutScreen({ navigation }) {
         placed_at: '',
         selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
         selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
-        notes: '123123'
+        notes: ''
       };
 
       // console.log('Sending checkout payload:', payload);
@@ -1238,6 +1243,7 @@ export default function CheckoutScreen({ navigation }) {
                   options: item.options,
                   variation: item.variation,
                   image: item?.variation?.images ? item?.variation?.images : (item?.image ? item?.image : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500'),
+                  note: item.note || '',
                 }}
                 // toast={toast}
                 // onItemDeleted={refreshCartData}
@@ -1376,13 +1382,15 @@ export default function CheckoutScreen({ navigation }) {
               ))
             ) : null}
 
-            {cartData?.order_summary?.voucher_discount_amount !== 0 || cartData?.order_summary?.promo_discount_amount !== 0 ? <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Discount</Text>
-              <Text style={styles.totalValue}>
-                - RM {parseFloat(cartData?.order_summary?.promo_discount_amount || cartData?.order_summary?.voucher_discount_amount).toFixed(2)}
-              </Text>
-            </View> : null}
-
+            {(parseFloat(cartData?.order_summary?.promo_discount_amount) > 0 ||
+              parseFloat(cartData?.order_summary?.voucher_discount_amount) > 0) ? (
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Discount</Text>
+                  <Text style={styles.totalValue}>
+                    - RM {parseFloat(cartData?.order_summary?.promo_discount_amount || cartData?.order_summary?.voucher_discount_amount).toFixed(2)}
+                  </Text>
+                </View>
+            ) : null}
             {/* {cartData?.tax_detail.length !== 0 ? (<View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Tax Charges ({parseInt(cartData?.tax_detail[0]?.tax_rate)}% {cartData?.tax_detail[0]?.tax_type})</Text>
               <Text style={styles.totalValue}>
@@ -1500,7 +1508,32 @@ export default function CheckoutScreen({ navigation }) {
   );
 }
 
+// Inserts zero-width spaces into long unbroken sequences so Text can wrap
+const formatLongNote = (note) => {
+  if (!note || typeof note !== 'string') return '';
+  // Insert \u200B after every 12 non-separator characters to allow wrapping
+  return note.replace(/([^\s\-_/\\.,;:]{12})(?=[^\s\-_/\\.,;:])/g, '$1\u200B');
+};
+
 const styles = StyleSheet.create({
+  noteBadge: {
+    backgroundColor: '#FFF0F0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FFD1D1',
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    maxWidth: '100%',
+  },
+  noteText: {
+    fontFamily: 'Route159-Regular',
+    fontSize: 11,
+    color: '#C2000E',
+    // Ensure text can shrink and wrap within its container
+    flexShrink: 1,
+  },
   voucherButton: {
     marginTop: 10,
     marginHorizontal: 4,
