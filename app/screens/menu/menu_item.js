@@ -448,7 +448,7 @@ export default function MenuItemScreen() {
       successful.forEach(group => {
         if (group.title === 'Takeaway Packaging' && orderType === 'dinein') {
           group.is_required = 0;
-        }else if (group.title === 'Takeaway Packaging' && orderType !== 'dinein'){
+        }else if (group.title === 'Takeaway Packaging' && orderType === 'dinein'){
           group.is_required = 1;
         }
       });
@@ -630,7 +630,7 @@ export default function MenuItemScreen() {
   return (
     <ResponsiveBackground>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-        <TopNavigation title="MENU" isBackButton={true} navigatePage={() => router.push('(tabs)/menu')} />
+        <TopNavigation title="MENU" isBackButton={true} />
         <ScrollView contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
           <View style={styles.imageContainer}>
             <Image
