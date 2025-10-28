@@ -59,50 +59,73 @@ export default function GeneralReceipt() {
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        color: #333;
-        padding: 20px;
-        margin: 0;
-        line-height: 1.4;
-      }
-      h2 {
-        text-align: center;
-        color: #C2000E;
-        margin-bottom: 15px;
-      }
-      hr {
-        border: 0;
-        border-top: 1px solid #ddd;
-        margin: 15px 0;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      td {
-        padding: 4px 0;
-      }
-      .total {
-        font-weight: bold;
-        border-top: 1px solid #ddd;
-        padding-top: 8px;
-      }
-      ul {
-        margin: 4px 0 10px 15px;
-        padding: 0;
-      }
-      li {
-        font-size: 13px;
-        color: #666;
-      }
-      .footer {
-        text-align: center;
-        font-size: 12px;
-        color: #888;
-        margin-top: 30px;
-      }
-    </style>
+  @page {
+    size: auto;
+    margin: 10px;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body {
+    font-family: Arial, sans-serif;
+    color: #333;
+    padding: 20px;
+    line-height: 1.4;
+    box-sizing: border-box;
+  }
+
+  h2 {
+    text-align: center;
+    color: #C2000E;
+    margin-bottom: 15px;
+  }
+
+  hr {
+    border: 0;
+    border-top: 1px solid #ddd;
+    margin: 15px 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  td {
+    padding: 4px 0;
+  }
+
+  .total {
+    font-weight: bold;
+    border-top: 1px solid #ddd;
+    padding-top: 8px;
+  }
+
+  ul {
+    margin: 4px 0 10px 15px;
+    padding: 0;
+  }
+
+  li {
+    font-size: 13px;
+    color: #666;
+  }
+
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+    margin-top: 30px;
+  }
+</style>
+
   </head>
   <body>
     <h2>US PIZZA - Official Receipt</h2>
@@ -170,8 +193,9 @@ ${order.taxes && order.taxes.length > 0
       // ✅ Generate PDF from that HTML only
       const { uri } = await Print.printToFileAsync({
         html,
-        base64: false,
+        base64: false
       });
+
 
       // ✅ Move the generated PDF to your own filename
       const orderNumber = order.order_so || 'receipt';
