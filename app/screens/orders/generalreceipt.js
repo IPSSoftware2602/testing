@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,183 +51,127 @@ export default function GeneralReceipt() {
     })();
   }, [orderId]);
 
-  // 🔹 HTML Receipt Template for PDF
-  const generateReceiptHtml = (order) => `
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-  @page {
-    size: auto;
-    margin: 10px;
-  }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    overflow: visible !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  body {
-    font-family: Arial, sans-serif;
-    color: #333;
-    padding: 20px;
-    line-height: 1.4;
-    box-sizing: border-box;
-  }
-
-  h2 {
-    text-align: center;
-    color: #C2000E;
-    margin-bottom: 15px;
-  }
-
-  hr {
-    border: 0;
-    border-top: 1px solid #ddd;
-    margin: 15px 0;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  td {
-    padding: 4px 0;
-  }
-
-  .total {
-    font-weight: bold;
-    border-top: 1px solid #ddd;
-    padding-top: 8px;
-  }
-
-  ul {
-    margin: 4px 0 10px 15px;
-    padding: 0;
-  }
-
-  li {
-    font-size: 13px;
-    color: #666;
-  }
-
-  .footer {
-    text-align: center;
-    font-size: 12px;
-    color: #888;
-    margin-top: 30px;
-  }
-</style>
-
-  </head>
-  <body>
-    <h2>US PIZZA - Official Receipt</h2>
-    <p><b>Order No:</b> ${order.order_so || 'N/A'}</p>
-    <p><b>Date:</b> ${order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</p>
-    <p><b>Order Type:</b> ${formatOrderType(order.order_type) || 'N/A'}</p>
-    <hr/>
-
-    <h3>Items</h3>
-    ${order.items?.map(item => `
-      <div>
-<div><b>${item.title}</b> x${item.quantity} - RM${calculateItemTotalPrice(item).toFixed(2)}</div>
-        ${item.options?.length ? `<ul>${item.options.map(opt => `<li>
-  ${opt.option_title}
-  ${parseFloat(opt.price_adjustment) > 0
-      ? `(RM${parseFloat(opt.price_adjustment).toFixed(2)})`
-      : ''}
-</li>`).join('')}</ul>` : ''}
-      </div>
-    `).join('') || '<p>No items found</p>'}
-
-    <hr/>
-    <table>
-      <tr><td>Subtotal</td><td align="right">RM ${parseFloat(order.subtotal_amount).toFixed(2)}</td></tr>
-      ${order.discount_amount && parseFloat(order.discount_amount) > 0 ? `<tr><td>Total Discount</td><td align="right">-RM ${parseFloat(order.discount_amount).toFixed(2)}</td></tr>` : ''}
-${order.taxes && order.taxes.length > 0
-      ? order.taxes.map(tax => `
-      <tr>
-        <td>Tax Charges (${parseInt(tax.tax_rate)}% ${tax.tax_type})</td>
-        <td align="right">RM ${parseFloat(tax.tax_amount).toFixed(2)}</td>
-      </tr>
-    `).join('')
-      : ''
-    }
-      ${order.delivery_fee && parseFloat(order.delivery_fee) > 0 ? `<tr><td>Delivery Fee</td><td align="right">RM ${parseFloat(order.delivery_fee).toFixed(2)}</td></tr>` : ''}
-      <tr><td>Rounding</td><td align="right">RM ${parseFloat(order.rounding_amount).toFixed(2)}</td></tr>
-      <tr><td class="total">Total</td><td align="right" class="total">RM ${parseFloat(order.grand_total).toFixed(2)}</td></tr>
-    </table>
-
-    <hr/>
-    <p><b>Payment Method:</b> ${order.payments?.[0]?.payment_method?.charAt(0).toUpperCase() +
-    order.payments?.[0]?.payment_method?.slice(1) || 'N/A'
-    }</p>
-
-<p><b>Status:</b> ${order.payment_status?.charAt(0).toUpperCase() +
-    order.payment_status?.slice(1) || 'N/A'
-    }</p>
-    <p><b>Notes:</b> ${order.notes || '-'}</p>
-
-    <div class="footer">Thank you for dining with US PIZZA!</div>
-  </body>
-</html>`;
-
-
-  // 🔹 Handle Download PDF
-  // 🔹 Handle Download PDF (Simpler version)
+  // 🔹 Handle Download PDF - Works on both web and mobile
   const handleDownload = async () => {
     if (!order) return;
     try {
       setDownloading(true);
 
-      // 🔹 Create clean HTML (only receipt content)
-      const html = generateReceiptHtml(order);
+      const token = await AsyncStorage.getItem('authToken');
+      const customer_id = await AsyncStorage.getItem('customerData') ? 
+        JSON.parse(await AsyncStorage.getItem('customerData')).id : null;
 
-      // ✅ Generate PDF from that HTML only
-      const { uri } = await Print.printToFileAsync({
-        html,
-        base64: false
-      });
+      console.log('Starting PDF download...');
 
-
-      // ✅ Move the generated PDF to your own filename
-      const orderNumber = order.order_so || 'receipt';
-      const date = new Date().toISOString().split('T')[0];
-      const customFileName = `USPizza_Receipt_${orderNumber}_${date}.pdf`;
-      const newPath = `${FileSystem.documentDirectory}${customFileName}`;
-
-      await FileSystem.moveAsync({
-        from: uri,
-        to: newPath,
-      });
-
-      // ✅ Share the clean file
-      const isSharingAvailable = await Sharing.isAvailableAsync();
-      if (isSharingAvailable) {
-        await Sharing.shareAsync(newPath, {
-          mimeType: 'application/pdf',
-          dialogTitle: `Save ${customFileName}`,
-          UTI: 'com.adobe.pdf',
+      // For web platform - use browser download
+      if (Platform.OS === 'web') {
+        // Method 1: Create a temporary link and trigger download
+        const downloadUrl = `${apiUrl}order/pdf/${orderId}/${customer_id}`;
+        
+        // Create a temporary anchor element
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.setAttribute('download', `USPizza_Receipt_${order.order_so}.pdf`);
+        
+        // Add authorization header via query parameter or use fetch + blob approach
+        // Since we can't set headers on direct link, we'll use fetch + blob for web
+        const response = await fetch(downloadUrl, {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+          }
         });
+
+        if (!response.ok) throw new Error('Download failed');
+
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        link.href = blobUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the blob URL
+        window.URL.revokeObjectURL(blobUrl);
+
+        Alert.alert(
+          'PDF Download Started', 
+          'Your receipt PDF download has started in the browser.',
+          [{ text: 'OK' }]
+        );
+
       } else {
-        Alert.alert('Saved', `PDF saved as ${customFileName}`);
+        // For mobile platforms - use FileSystem
+        const response = await fetch(
+          `${apiUrl}order/pdf/${orderId}/${customer_id}`,
+          {
+            method: 'GET',
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Get the PDF as blob
+        const blob = await response.blob();
+
+        if (blob.size === 0) {
+          throw new Error('Received empty PDF blob');
+        }
+
+        // Convert blob to base64
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
+        // Save file
+        const orderNumber = order.order_so || 'receipt';
+        const fileName = `USPizza_Receipt_${orderNumber}.pdf`;
+        const filePath = `${FileSystem.documentDirectory}${fileName}`;
+
+        await FileSystem.writeAsStringAsync(
+          filePath, 
+          base64.split(',')[1],
+          { encoding: FileSystem.EncodingType.Base64 }
+        );
+
+        // Verify file was saved
+        const fileInfo = await FileSystem.getInfoAsync(filePath);
+
+        if (!fileInfo.exists) {
+          throw new Error('File was not saved successfully');
+        }
+
+        // Offer to share the file on mobile
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(filePath, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Save Receipt PDF',
+          });
+        } else {
+          Alert.alert(
+            'PDF Downloaded Successfully!', 
+            `Receipt saved as: ${fileName}`,
+            [{ text: 'OK' }]
+          );
+        }
       }
+
     } catch (err) {
-      console.error('PDF generation failed:', err);
-      Alert.alert('Error', 'Failed to generate PDF');
+      console.error('PDF download failed:', err);
+      Alert.alert('Error', `Failed to download PDF: ${err.message}`);
     } finally {
       setDownloading(false);
     }
   };
-
-
-
 
   // Format currency
   const formatCurrency = (amount) => {
@@ -322,9 +265,6 @@ ${order.taxes && order.taxes.length > 0
             <Text style={{ marginBottom: 4 }}>
               <Text style={{ fontWeight: 'bold' }}>Order No:</Text> {order.order_so}
             </Text>
-            {/* <Text style={{ marginBottom: 4 }}>
-              <Text style={{ fontWeight: 'bold' }}>Date:</Text> {new Date(order.created_at).toLocaleDateString()}
-            </Text> */}
             <Text style={{ marginBottom: 4 }}>
               <Text style={{ fontWeight: 'bold' }}>Date:</Text> {new Date(order.created_at).toLocaleDateString()}
             </Text>
@@ -415,13 +355,9 @@ ${order.taxes && order.taxes.length > 0
               </View>
             </View>
 
-
             <View style={{ height: 1, backgroundColor: '#ddd', marginVertical: 8 }} />
 
             {/* Payment Info */}
-            {/* <Text style={{ marginBottom: 6 }}>
-              <Text style={{ fontWeight: 'bold' }}>Payment Method:</Text> {order.payments?.[0]?.payment_method || 'N/A'}
-            </Text> */}
             <Text style={{ marginBottom: 6 }}>
               <Text style={{ fontWeight: 'bold' }}>Payment Method:</Text> <Text style={{ textTransform: 'capitalize' }}>{order.payments?.[0]?.payment_method || 'N/A'}</Text>
             </Text>
@@ -462,7 +398,7 @@ ${order.taxes && order.taxes.length > 0
             }}
           >
             <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-              {downloading ? 'Generating PDF...' : 'Download PDF'}
+              {downloading ? 'Downloading PDF...' : 'Download PDF'}
             </Text>
           </TouchableOpacity>
         </View>
