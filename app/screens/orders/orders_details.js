@@ -606,7 +606,7 @@ export default function OrderDetails({ navigation }) {
     const fetchOutlets = async () => {
       try {
         const response = await axios.get(
-          `${apiUrl}outlets/${order.outlet_id}`,
+          `${apiUrl}outlets2/${order.outlet_id}`,
           {
             headers: {
               'Content-Type': 'application/json',

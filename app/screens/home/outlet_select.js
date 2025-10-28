@@ -276,6 +276,18 @@ export default function OutletSelection() {
         <>
             <TouchableOpacity
                 onPress={() => {
+                    if (!getOutletStatus(item.operating_schedule).isOpen && orderType === 'dinein') {
+                        toast.show('This outlet currently is closed', {
+                            type: 'custom_toast',
+                            data: { 
+                                title: 'Outlet Closed', 
+                                message: getOutletStatus(item.operating_schedule).statusText,
+                                status: 'danger' 
+                            }
+                        });
+                        return; // Don't proceed
+                    }
+
                     setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen, operatingHours: item.operating_schedule });
                     if(getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')){
                         router.push('(tabs)/menu')
