@@ -291,6 +291,11 @@ const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowD
                 </Text>
               )
             ) : null}
+            {item.note && (item.note != '' || item.note != null) ? (
+              <View style={styles.noteBadge}>
+                <Text style={styles.noteText}>Note: {item.note}</Text>
+              </View>
+            ) : null}
           </View>
           {vip || item.is_free_item === '1' ? null : (
             <TouchableOpacity
@@ -805,7 +810,7 @@ export default function CheckoutScreen({ navigation }) {
         placed_at: '',
         selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
         selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
-        notes: '123123'
+        notes: ''
       };
 
       // console.log('Sending checkout payload:', payload);
@@ -1238,6 +1243,7 @@ export default function CheckoutScreen({ navigation }) {
                   options: item.options,
                   variation: item.variation,
                   image: item?.variation?.images ? item?.variation?.images : (item?.image ? item?.image : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500'),
+                  note: item.note || '',
                 }}
                 // toast={toast}
                 // onItemDeleted={refreshCartData}
@@ -1501,6 +1507,21 @@ export default function CheckoutScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  noteBadge: {
+    backgroundColor: '#FFF0F0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FFD1D1',
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  noteText: {
+    fontFamily: 'Route159-Regular',
+    fontSize: 11,
+    color: '#C2000E',
+  },
   voucherButton: {
     marginTop: 10,
     marginHorizontal: 4,

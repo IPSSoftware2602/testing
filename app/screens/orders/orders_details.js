@@ -101,7 +101,7 @@ const OrderItem = React.memo(({ item }) => {
   const displayedOptions = options.slice(0, 3);
 
   const openOptionsModal = () => {
-    if (options.length > 4) {
+    if (options.length >= 4) {
       setOptionsModalVisible(true);
     }
   };
@@ -191,8 +191,15 @@ const OrderItem = React.memo(({ item }) => {
             </View>
           </View>
           <View style={styles.orderItemBottom}>
-            <View style={commonStyles.alignLeft}>
-              <Text style={styles.itemQuantity}>Qty: {item?.quantity}</Text>
+            <View style={{ flex: 1 }}>
+              <View style={commonStyles.alignLeft}>
+                <Text style={styles.itemQuantity}>Qty: {item?.quantity}</Text>
+                {item.note && (item.note != '' || item.note != null) ? (
+                  <View style={styles.noteBadge}>
+                    <Text style={styles.noteText}>Note: {item.note}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
           </View>
         </View>
@@ -1381,6 +1388,21 @@ export default function OrderDetails({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  noteBadge: {
+    backgroundColor: '#FFF0F0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FFD1D1',
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  noteText: {
+    fontFamily: 'Route159-Regular',
+    fontSize: 11,
+    color: '#C2000E',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

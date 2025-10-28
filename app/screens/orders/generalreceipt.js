@@ -293,6 +293,11 @@ export default function GeneralReceipt() {
                     • {opt.option_title} ({formatCurrency(opt.price_adjustment)})
                   </Text>
                 ))}
+                {item.note && (
+                  <Text style={{ marginLeft: 8, fontSize: 12, color: '#666', fontStyle: 'italic', marginTop: 4 }}>
+                    Note: {item.note}
+                  </Text>
+                )}
               </View>
             ))}
 
