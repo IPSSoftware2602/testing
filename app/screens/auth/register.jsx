@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '../../../styles/common';
 import TopNavigation from '../../../components/ui/TopNavigation';
@@ -13,6 +13,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../../constant/constants';
 // import { useToast } from 'react-native-toast-notifications';
 import { useToast } from '../../../hooks/useToast';
+
+const { width } = Dimensions.get('window');
+
 
 export default function Register() {
   const router = useRouter();
@@ -139,6 +142,7 @@ export default function Register() {
         </View>
 
         <View style={styles.form}>
+          <Text style={styles.inputLabel}>Name</Text>
           <TextInput
             style={commonStyles.input}
             placeholder="Name"
@@ -147,6 +151,7 @@ export default function Register() {
             onChangeText={setName}
           />
 
+          <Text style={styles.inputLabel}>Email Address</Text>
           <TextInput
             style={commonStyles.input}
             placeholder="Email"
@@ -157,6 +162,7 @@ export default function Register() {
             autoCapitalize="none"
           />
 
+          <Text style={styles.inputLabel}>Birthday</Text>
           <DateSelector
             value={birthday}
             onDateChange={setBirthday}
@@ -228,4 +234,11 @@ const styles = {
     fontSize: 14,
     fontWeight: 'bold',
   },
+  inputLabel: {
+    fontFamily: 'Route159-Bold',
+    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 12 : 12) : 14) : 14,
+    color: '#C2000E',
+    marginBottom: 4,
+    marginTop: 10,
+  }
 }; 
