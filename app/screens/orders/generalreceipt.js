@@ -10,6 +10,7 @@ import axios from 'axios';
 import { apiUrl } from '../../constant/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import useAuthGuard from '../../auth/check_token_expiry';
+import { useToast } from '../../../hooks/useToast';
 
 export default function GeneralReceipt() {
   useAuthGuard();
@@ -18,6 +19,8 @@ export default function GeneralReceipt() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+    const toast = useToast();
+
 
   const calculateItemTotalPrice = (item) => {
     const basePrice = parseFloat(item.unit_price) || 0;
@@ -54,6 +57,12 @@ export default function GeneralReceipt() {
   // 🔹 Handle Download PDF - Works on both web and mobile
   const handleDownload = async () => {
     if (!order) return;
+
+    toast.show('Downloading your receipt...', {
+      type: 'custom_toast',
+      data: { title: '', status: 'success' }
+    });
+
     try {
       setDownloading(true);
 

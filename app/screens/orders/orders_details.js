@@ -330,15 +330,23 @@ const AnimationImage = ({ image, containerStyle = styles.orderDetailsIconSection
 
 const DeliveryStatus = ({ stage = "preparing", item, expected_ready_time }) => {
 
+  const isScheduledOrder = item?.selected_date && item?.selected_time;
+
   if (stage.toLocaleLowerCase() === "pending") {
-    stage = "preparing"
+    stage = "confirmed"
   }
 
   const status = [
-    { stage: "completed", image: require('../../../assets/elements/home/recharge_gift.png'), title: "Order Completed", subtitle: "Your order has completed" },
-    { stage: "on_the_way", image: require('../../../assets/elements/order/driver.png'), title: "Delivering Order", subtitle: "The pizza is on its way." },
-    { stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle: "The pizzaiolo is baking your pizza." },
+    { stage: "completed", image: require('../../../assets/elements/home/recharge_gift.png'), title: "Order Completed", subtitle: "Thank you for your support! Comeback for more Ultra Sedap!" },
+    { stage: "on_the_way", image: require('../../../assets/elements/order/driver.png'), title: "Delivering Order", subtitle: "Pizza is on the road! Countdown to Ultra Sedap" },
+    { stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle: isScheduledOrder 
+        ? `You can head over now for your pickup at ${expected_ready_time}`
+        : "Freshness in progress - just for you." },
     { stage: "picked_up", image: require('../../../assets/elements/home/home_pickup.png'), title: "Order Picked Up", subtitle: "Your order has been picked up by the driver" },
+    { stage: "confirmed", image: require('../../../assets/elements/order/pizza.png'), title: "Upcoming Order",  subtitle: isScheduledOrder 
+        ? `We will prepare your pizza fresh and have it ready at ${expected_ready_time}`: "Get ready... ultra sedap is coming your way!" },
+    // { stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Pending Order", subtitle: "We will be preparing your order when its the time." },
+
   ]
 
   const statusObj = status.find(obj => obj.stage === stage);
@@ -387,6 +395,10 @@ const DeliveryStatus = ({ stage = "preparing", item, expected_ready_time }) => {
 
 const PickupStatus = ({ stage = "preparing", item, expected_ready_time }) => {
 
+  // console.log(item.selected_date, item.selected_time)
+  const isScheduledOrder = item?.selected_date && item?.selected_time;
+
+
   if (stage.toLocaleLowerCase() === "pending") {
     stage = "preparing"
   }
@@ -395,15 +407,18 @@ const PickupStatus = ({ stage = "preparing", item, expected_ready_time }) => {
   const [readyHour, readyMin] = expected_ready_time.split(':');
   const readyDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(readyHour), parseInt(readyMin));
   const msDiff = readyDate - now;
-  if (msDiff > 60 * 60 * 1000) {
+  if (msDiff > 60 * 60 * 1000 && stage !== 'ready_to_pickup' && stage !== 'completed') {
     stage = "pending"
   }
 
   const status = [
-    { stage: "completed", image: require('../../../assets/elements/home/recharge_gift.png'), title: "Order Completed", subtitle: "Your order has completed" },
-    { stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle: "The pizzaiolo is baking your pizza." },
-    { stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Upcoming Order", subtitle: "We will be preparing your order when its the time." },
-    { stage: "ready_to_pickup", image: require('../../../assets/elements/home/home_pickup.png'), title: "Order Ready", subtitle: "Your order is ready for pick up" },
+    { stage: "completed", image: require('../../../assets/elements/home/recharge_gift.png'), title: "Order Completed", subtitle: "Thank you for your support! Come back for more Ultra Sedap!" },
+    { stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle: isScheduledOrder 
+        ? `You can head over now for your pickup at ${expected_ready_time}`
+        : "Freshness in progress - just for you."  },
+    { stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Upcoming Order", subtitle: isScheduledOrder 
+        ? `We will prepare your pizza fresh and have it ready at ${expected_ready_time}`: "Get ready... ultra sedap is coming your way!" },
+    { stage: "ready_to_pickup", image: require('../../../assets/elements/home/home_pickup.png'), title: "Order Ready", subtitle: "Come grab your ultra sedapp Pizza!" },
   ]
 
   const statusObj = status.find(obj => obj.stage === stage);
@@ -514,6 +529,8 @@ export default function OrderDetails({ navigation }) {
   const [podModalVisible, setPodModalVisible] = useState(false);
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
   const [customerId, setCustomerId] = useState(null);
+  const [orderStatus, setOrderStatus] = useState("");
+  const [orderType, setOrderType] = useState("");
 
   const handlePaymentModalClose = async () => {
     setShowPaymentScreen(false);
@@ -560,6 +577,8 @@ export default function OrderDetails({ navigation }) {
       setIsDelivery(order_type === "delivery");
       setIsPickup(order_type === "pickup");
       setIsDinein(order_type === "dinein");
+      setOrderStatus(orderData.data?.status);
+      setOrderType(order_type);
       // console.log(orderData.data);
     } catch (err) {
       console.log(err);
@@ -875,6 +894,68 @@ export default function OrderDetails({ navigation }) {
     }
   }
 
+  const message = () => {
+    var text = '';
+    switch (orderType){
+      case 'delivery':
+        switch(orderStatus){
+          case 'pending':
+            break;
+          case 'confirmed':
+            text = 'Get ready... ultra sedap is coming your way!';
+            break;
+          case 'on_the_way':
+            text = 'Pizza is on the road! Countdown to Ultra Sedap';
+            break;
+          case 'preparing':
+            text = 'Freshness in progress - just for you.'
+            break;
+          case 'completed':
+            text = 'Thank you for your support! Come back for more Ultra Sedap!'
+            break;
+        }
+        break;
+      case 'pickup':
+        switch(orderStatus){
+          case 'pending':
+            break;
+          case 'confirmed':
+            text = 'Get ready... ultra sedap is coming your way!';
+            break;
+          case 'ready_to_pickup':
+            text = 'Come grab your ultra sedapp Pizza!';
+            break;
+          case 'preparing':
+            text = 'Freshness in progress - just for you.'
+            break;
+          case 'completed':
+            text = 'Thank you for your support! Come back for more Ultra Sedap!'
+            break;
+        }
+        break;
+      case 'dinein':
+        switch(orderStatus){
+          case 'pending':
+          case 'confirmed':
+            text = 'Get ready... ultra sedap is coming your way!';
+            break;
+          case 'ready_to_serve':
+            text = 'Your pizza is ready to be served fresh & hot!';
+            break;
+          case 'preparing':
+            text = 'Freshness in progress - just for you.'
+            break;
+          case 'completed':
+            text = 'Thank you for your support! Come back for more Ultra Sedap!'
+            break;
+        }
+        break;
+    }
+
+    return text;
+  }
+  
+
   return (
     <ResponsiveBackground>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -965,9 +1046,9 @@ export default function OrderDetails({ navigation }) {
                   <Image source={require('../../../assets/elements/home/home_dinein.png')} style={styles.thankyouIcon} />
                 </View>
 
-                <View>
-                  <Text style={styles.orderItemName}>Thank you for your support!</Text>
-                  <Text style={[styles.totalLabel, { width: '90%' }]}>Enjoy your pizza</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.orderItemName}>{message ()}</Text>
+                  {/* <Text style={[styles.totalLabel, { width: '90%' }]}>Enjoy your pizza</Text> */}
                 </View>
               </View>
             </View>
@@ -1645,7 +1726,7 @@ const styles = StyleSheet.create({
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 15 : 16) : 16) : 16,
     color: '#C2000E',
     minHeight: 20,
-    lineHeight: 16,
+    lineHeight: 20,
   },
   pickupNo: {
     fontFamily: 'Route159-Bold',

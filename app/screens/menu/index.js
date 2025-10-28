@@ -1,7 +1,7 @@
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
 import PolygonButton from '../../../components/ui/PolygonButton';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import { commonStyles } from '../../../styles/common';
@@ -22,6 +22,11 @@ const orderTypes = [
   { key: 'pickup', label: 'Pick Up' },
   { key: 'delivery', label: 'Delivery' },
 ];
+
+const getOrderTypeLabel = (key) => {
+  const orderType = orderTypes.find(type => type.key === key);
+  return orderType ? orderType.label : key;
+};
 
 const isWeb = Platform.OS === 'web';
 
@@ -67,6 +72,9 @@ export default function MenuScreen() {
   const [customer, setCustomer] = useState('');
   const isProgrammaticScroll = useRef(false);
   const [listReady, setListReady] = useState(false);
+  //modal for confirm order type change
+  const [confirmOrderTypeModalVisible, setConfirmOrderTypeModalVisible] = useState(false);
+  const [pendingOrderType, setPendingOrderType] = useState(null);
 
   const categoryListPerfProps = useMemo(() => {
     if (isWeb) {
@@ -115,6 +123,25 @@ export default function MenuScreen() {
       console.log(err.response.data.message);
     }
   }
+
+  const requestOrderTypeChange = useCallback((nextType) => {
+    if (nextType === activeOrderType) return;
+    setPendingOrderType(nextType);
+    setConfirmOrderTypeModalVisible(true);
+  }, [activeOrderType]);
+
+  const confirmOrderTypeChange = useCallback(() => {
+    if (pendingOrderType) {
+      handleSetOrderType(pendingOrderType);
+    }
+    setConfirmOrderTypeModalVisible(false);
+    setPendingOrderType(null);
+  }, [pendingOrderType]);
+
+  const cancelOrderTypeChange = useCallback(() => {
+    setConfirmOrderTypeModalVisible(false);
+    setPendingOrderType(null);
+  }, []);
 
   const setAsyncEstimatedTime = async ({ estimatedTime, date, time }) => {
 
@@ -713,12 +740,53 @@ export default function MenuScreen() {
                 style={{ marginHorizontal: 6 }}
               />
             ) : (
-              <TouchableOpacity key={type.key} onPress={() => handleSetOrderType(type.key)}>
+              <TouchableOpacity key={type.key} onPress={() => requestOrderTypeChange(type.key)}>
                 <Text style={styles.orderTypeInactive}>{type.label}</Text>
               </TouchableOpacity>
             )
           )}
         </View>
+        <Modal 
+          transparent
+          visible={confirmOrderTypeModalVisible}
+          animationType="fade"
+          onRequestClose={cancelOrderTypeChange}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+
+              <Text style={styles.modalTitle}>
+                {`Switch to ${pendingOrderType ? getOrderTypeLabel(pendingOrderType) : 'this type'}?`}
+              </Text>
+
+              {/* Add AnimationImage here */}
+              <Image
+                source={require('../../../assets/elements/home/recharge_gift.png')}
+                style={{ width: 120, height: 120, marginVertical: 12 }}
+                resizeMode="contain"
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalBtnCancel]}
+                  onPress={cancelOrderTypeChange}
+                >
+                  <Text style={styles.modalBtnCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalBtnConfirm]}
+                  onPress={confirmOrderTypeChange}
+                >
+                  <Text style={styles.modalBtnConfirmText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
+
+            </View>
+          </View>
+        </Modal>
+
+
         <View style={styles.rowContainer}>
           {activeOrderType !== "dinein" ? <TouchableOpacity
             style={styles.prominentTimeSelector}
@@ -940,37 +1008,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     resizeMode: 'cover',
   },
-  // sidebar: {
-  //   width: Math.min(width, 440) * 0.25,
-  //   backgroundColor: '#FCEEDB',
-  //   paddingVertical: 0,
-  //   alignItems: 'center',
-  // },
-  // categoryItem: {
-  //   alignItems: 'center',
-  //   paddingVertical: 18,
-  //   width: width * 0.25,
-  //   backgroundColor: '#FCEEDB',
-  // },
-  // categoryItemActive: {
-  //   width: width * 0.25,
-  //   backgroundColor: '#C2000E'
-  // },
-  // categoryIcon: {
-  //   width: 36,
-  //   height: 36,
-  //   marginBottom: 6,
-  //   tintColor: '#C2000E',
-  // },
-  // categoryLabel: {
-  //   color: '#C2000E',
-  //   fontWeight: 'bold',
-  //   fontSize: 15,
-  //   fontFamily: 'Route159-Bold',
-  // },
-  // categoryLabelActive: {
-  //   color: '#fff',
-  // },
   menuList: {
     width: Math.min(width, 440) * 0.75,
     backgroundColor: '#fff',
@@ -1200,5 +1237,65 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#333',
     fontFamily: 'Route159-SemiBold',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 280,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#C2000E',
+    marginBottom: 8,
+    fontFamily: 'Route159-Bold',
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 12,
+    fontFamily: 'Route159-SemiBold',
+    justifyContent: 'center',
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  modalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  modalBtnCancel: {
+    backgroundColor: '#F0F0F0',
+  },
+  modalBtnConfirm: {
+    backgroundColor: '#C2000E',
+  },
+  modalBtnCancelText: {
+    color: '#333',
+    fontWeight: '600',
+  },
+  modalBtnConfirmText: {
+    color: '#fff',
+    fontWeight: '700',
   },
 });

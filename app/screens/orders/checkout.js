@@ -1382,13 +1382,15 @@ export default function CheckoutScreen({ navigation }) {
               ))
             ) : null}
 
-            {cartData?.order_summary?.voucher_discount_amount !== 0 || cartData?.order_summary?.promo_discount_amount !== 0 ? <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Discount</Text>
-              <Text style={styles.totalValue}>
-                - RM {parseFloat(cartData?.order_summary?.promo_discount_amount || cartData?.order_summary?.voucher_discount_amount).toFixed(2)}
-              </Text>
-            </View> : null}
-
+            {(parseFloat(cartData?.order_summary?.promo_discount_amount) > 0 ||
+              parseFloat(cartData?.order_summary?.voucher_discount_amount) > 0) ? (
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Discount</Text>
+                  <Text style={styles.totalValue}>
+                    - RM {parseFloat(cartData?.order_summary?.promo_discount_amount || cartData?.order_summary?.voucher_discount_amount).toFixed(2)}
+                  </Text>
+                </View>
+            ) : null}
             {/* {cartData?.tax_detail.length !== 0 ? (<View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Tax Charges ({parseInt(cartData?.tax_detail[0]?.tax_rate)}% {cartData?.tax_detail[0]?.tax_type})</Text>
               <Text style={styles.totalValue}>
