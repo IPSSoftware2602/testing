@@ -98,7 +98,29 @@ export default function VoucherSelectScreen() {
     return (
         <ResponsiveBackground>
             <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-                <TopNavigation title="My Vouchers" isBackButton={true} navigatePage={() => router.push('(tabs)/profile')} />
+                <TopNavigation
+                    title={
+                        <View style={{ flexDirection: "row", alignItems: "center" }}>
+                            <Text style={{ fontFamily: "Route159-Bold", fontSize: 18, color: "#C2000E" }}>
+                                My Vouchers
+                            </Text>
+
+                            <TouchableOpacity
+                                onPress={() =>
+                                    router.push({
+                                        pathname: '(tabs)/market',
+                                        params: { from: 'my-vouchers' }
+                                    })
+                                }
+                                style={{ marginLeft: 12 }}
+                            >
+                                <Ionicons name="storefront-outline" size={22} color="#C2000E" />
+                            </TouchableOpacity>
+                        </View>
+                    }
+                    isBackButton={true}
+                    navigatePage={() => router.push('(tabs)/profile')}
+                />
                 <ScrollView
                     contentContainerStyle={[styles.container, { paddingHorizontal: 24 }]}
                     showsVerticalScrollIndicator={false}

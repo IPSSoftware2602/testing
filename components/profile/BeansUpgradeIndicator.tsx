@@ -34,7 +34,7 @@ export default function BeansUpgradeIndicator({ beansNeeded, totalBeansForUpgrad
           <View style={styles.arrow} />
         </View>
         <Text style={styles.text}>
-          Spend another {beansNeeded} US beans to upgrade to {nextTierName}
+          Spend another {beansNeeded} Sedap Points to upgrade to {nextTierName}
         </Text>
       </View>
     );

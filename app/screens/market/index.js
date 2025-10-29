@@ -45,7 +45,7 @@ export default function Market() {
       <View style={styles.productPriceWrapper}>
         <View style={styles.productPriceContainer}>
           <Text style={styles.productPrice}>{item.price}</Text>
-          <Text style={styles.productBeans}> US Beans</Text>
+          <Text style={styles.productBeans}> Sedap Points</Text>
         </View>
       </View>
     </View>

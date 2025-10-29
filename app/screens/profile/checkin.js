@@ -239,7 +239,7 @@ export default function Checkin() {
                       <Text style={styles.pointsLabel}>  888</Text>
                     )}
                     {/* </Text> */}
-                    <Text style={styles.pointsValue}>US beans</Text>
+                    <Text style={styles.pointsValue}>Sedap Points</Text>
                   </TouchableOpacity>
                   <Text style={styles.streakText}>{customerData?.checkin_today ? `You have checked in for the ${mapCheckinDays[parseInt(customerData?.current_streak)]} consecutive day` : `Sign in for the ${mapCheckinDays[(parseInt(customerData?.current_streak) + 1)]} consecutive day`}</Text>
                 </View>

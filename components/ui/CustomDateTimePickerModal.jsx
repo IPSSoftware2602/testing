@@ -245,7 +245,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                 }
             }
 
-            for (let i = shouldExcludeToday ? 1 : 0; i < 7; i++) {
+            for (let i = shouldExcludeToday ? 1 : 0; i < 3; i++) {
                 const date = new Date();
                 date.setDate(date.getDate() + i);
                 const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
@@ -411,7 +411,6 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
     }
 
     const generateTimesForDate = (date) => {
-        console.log(date)
         const dateStringToFind = new Date(date).toISOString().split('T')[0];
         const dayObj = availableDates.find(d => d.dateString === dateStringToFind);
 

@@ -30,6 +30,28 @@ export default function OutletSelection() {
     const [orderType, setOrderType] = useState("");
     const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
 
+    const openLocationSettings = async () => {
+        try {
+            if (Platform.OS === 'android') {
+                await Linking.openSettings();
+                return;
+            }
+
+            if (Platform.OS === 'ios') {
+                await Linking.openURL('app-settings:');
+                return;
+            }
+
+            // Web fallback
+            Alert.alert(
+                "Enable Location",
+                "Please allow location access in your browser or phone settings."
+            );
+        } catch (error) {
+            console.error("Error opening location settings:", error);
+        }
+    };
+
 
 
     const renderEmptyOutlet = () => (
@@ -396,23 +418,17 @@ export default function OutletSelection() {
                             Turn on the location on your mobile phone to let us serve you at the nearest location.
                         </Text>
 
-                        <TouchableOpacity
-                            onPress={() => {
-                                if (Platform.OS === 'android') {
-                                    Linking.openSettings(); 
-                                    // Or better: take them to location service directly:
-                                    Linking.openURL('app-settings:');
-                                    Linking.openURL('android.settings.LOCATION_SOURCE_SETTINGS');
-                                } else {
-                                    // iOS
-                                    Linking.openURL('app-settings:');
-                                }
-                            }}
+                        {Platform.OS !== 'web' && (
+                            <TouchableOpacity
+                                onPress={openLocationSettings}
+                                style={styles.enableLocationBtn}
                             >
-                            <Text style={styles.enableLocationText}>
-                                Turn on your location now
-                            </Text>
-                        </TouchableOpacity>
+                                <Text style={styles.enableLocationText}>
+                                    Turn on your location now
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
                     </View>
                 ) : (
                     <FlatList

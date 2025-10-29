@@ -538,6 +538,13 @@ export default function OrderDetails({ navigation }) {
     router.replace(`/screens/orders/orders_details?orderId=${orderId}`);
   }
 
+  const outletNameWithStatus = useMemo(() => {
+    const name = outlets?.title || '';
+    if (!name) return '';
+    const isClosed = !!(outlets?.deleted_at && String(outlets.deleted_at).trim() !== '');
+    return `${name}${isClosed ? ' (closed)' : ''}`;
+  }, [outlets]);
+
   useEffect(() => {
     const checkStoredData = async () => {
       try {
@@ -1062,7 +1069,9 @@ export default function OrderDetails({ navigation }) {
               style={{ width: '52%' }}
             >
               <View style={styles.rowStyle}>
-                <Text style={[styles.totalLabel, { width: '90%', justifyContent: 'flex-end' }]}>{order ? outlets.title : null}</Text>
+                <Text style={[styles.totalLabel, { width: '90%', justifyContent: 'flex-end' }]}>
+                  {order ? outletNameWithStatus : null}
+                </Text>
                 <FontAwesome6
                   name={"store"}
                   size={14}
@@ -1199,7 +1208,7 @@ export default function OrderDetails({ navigation }) {
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>{isPaid ? "Points Awarded" : "Earnable Points"}</Text>
-              <Text style={styles.totalValue}>{order?.points ? `${order.points} US Beans` : ""} </Text>
+              <Text style={styles.totalValue}>{order?.points ? `${order.points} Sedap Points` : ""} </Text>
             </View>
           </View>
           <View style={styles.grandtotalSection}>

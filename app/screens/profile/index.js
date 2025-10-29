@@ -239,9 +239,9 @@ export default function Profile() {
                     >
                       <Text style={styles.pointsLabel}>Points</Text>
                       {customerData && customerData.customer_point ? (
-                        <Text style={styles.pointsValue}>{customerData.customer_point} US Beans</Text>
+                        <Text style={styles.pointsValue}>{parseInt(customerData.customer_point)} Sedap Points</Text>
                       ) : (
-                        <Text style={styles.pointsValue}>888 US Beans</Text>
+                        <Text style={styles.pointsValue}>888 Sedap Points</Text>
                       )}
                     </TouchableOpacity>
                     {Platform.OS === 'web' ? (
@@ -277,7 +277,7 @@ export default function Profile() {
                     >
                       <Text style={styles.pointsLabel}>Balances</Text>
                       {customerData && customerData.customer_wallet ? (
-                        <Text style={styles.pointsValue}>RM {customerData.customer_wallet}</Text>
+                        <Text style={styles.pointsValue}>RM {parseInt(customerData.customer_wallet)}</Text>
                       ) : (
                         <Text style={styles.pointsValue}>RM 666.00</Text>
                       )}

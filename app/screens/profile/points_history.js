@@ -205,7 +205,7 @@ export default function PointsHistory() {
                   ) : (
                     <Text style={styles.pointsLabel}>  888</Text>
                   )}
-                  <Text style={styles.pointsValue}>US beans</Text>
+                  <Text style={styles.pointsValue}>Sedap Points</Text>
                 </TouchableOpacity>
                 <Text style={styles.streakText}>Points details breakdown</Text>
               </View>
