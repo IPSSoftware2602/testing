@@ -277,7 +277,7 @@ export default function Profile() {
                     >
                       <Text style={styles.pointsLabel}>Balances</Text>
                       {customerData && customerData.customer_wallet ? (
-                        <Text style={styles.pointsValue}>RM {parseInt(customerData.customer_wallet)}</Text>
+                        <Text style={styles.pointsValue}>RM {customerData.customer_wallet}</Text>
                       ) : (
                         <Text style={styles.pointsValue}>RM 666.00</Text>
                       )}

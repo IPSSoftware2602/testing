@@ -62,6 +62,14 @@ export const CustomDatePicker = styled(DatePicker)`
   }
 `;
 
+
+const safeParseDate = (dateStr) => {
+  if (!dateStr) return null;
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+};
+
+
 const DateSelector = ({
   value,
   onDateChange,
@@ -225,7 +233,7 @@ const DateSelector = ({
       {Platform.OS === 'web' ? (
         <CustomDatePicker
           placeholder={placeholder}
-          value={tempDate ? new Date(tempDate) : null}
+          value={safeParseDate(tempDate) || undefined}
           onChange={(date) => {
             if (date) {
               const formattedDate = date.toISOString().split('T')[0];

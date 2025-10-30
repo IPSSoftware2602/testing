@@ -245,7 +245,7 @@ export default function HomeScreen() {
                     <Text style={styles.points}>POINT:
                       {/* <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>888 Sedap Points</Text> */}
                       {customerData && customerData.customer_point ? (
-                        <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>  {customerData.customer_point} Sedap Points</Text>
+                        <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}> {parseInt(customerData.customer_point)} Sedap Points</Text>
                       ) : (
                         <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>  888 Sedap Points</Text>
                       )}
