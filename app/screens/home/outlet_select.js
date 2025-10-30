@@ -30,28 +30,6 @@ export default function OutletSelection() {
     const [orderType, setOrderType] = useState("");
     const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
 
-    const openLocationSettings = async () => {
-        try {
-            if (Platform.OS === 'android') {
-                await Linking.openSettings();
-                return;
-            }
-
-            if (Platform.OS === 'ios') {
-                await Linking.openURL('app-settings:');
-                return;
-            }
-
-            // Web fallback
-            Alert.alert(
-                "Enable Location",
-                "Please allow location access in your browser or phone settings."
-            );
-        } catch (error) {
-            console.error("Error opening location settings:", error);
-        }
-    };
-
 
 
     const renderEmptyOutlet = () => (
@@ -60,6 +38,14 @@ export default function OutletSelection() {
             <Text style={styles.emptySubText}>Just a moment… locating your nearest outlet</Text>
         </View>
     );
+
+    useEffect(() => {
+    if (typeof window !== "undefined") {
+        window.addEventListener("pageshow", (e) => {
+        if (e.persisted) window.location.reload();
+        });
+    }
+    }, []);
 
     useEffect(() => {
         const getStoredData = async () => {
@@ -152,35 +138,73 @@ export default function OutletSelection() {
 
 
 
-    const getCoordinates = async () => {
-        try {
-            const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
+    const getCoordinates = async (retry = false) => {
+    try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') {
+        setLocationPermissionDenied(true);
+        return;
+        }
 
-            if (status !== 'granted') {
-                // User rejected
-                setLocation(null); // no location
-                setLocationPermissionDenied(true); // show fallback UI
+        let currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        if (!currentLocation?.coords && !retry) {
+        console.log('Retrying location fetch...');
+        setTimeout(() => getCoordinates(true), 1000); // retry after 1s
+        return;
+        }
+
+        setLocation({
+        lat: currentLocation.coords.latitude,
+        lng: currentLocation.coords.longitude
+        });
+        setLocationPermissionDenied(false);
+    } catch (error) {
+        console.error('Error getting location:', error);
+    }
+    };
+
+
+    const openLocationSettings = async () => {
+        try {
+            if (Platform.OS === 'android') {
+                await Linking.openSettings();
                 return;
             }
 
-            let currentLocation = await Location.getCurrentPositionAsync({});
-            setLocation({
-                lat: currentLocation.coords.latitude,
-                lng: currentLocation.coords.longitude
-            });
-            setLocationPermissionDenied(false);
+            if (Platform.OS === 'ios') {
+                await Linking.openURL('app-settings:');
+                return;
+            }
+
+            // Web fallback
+            Alert.alert(
+                "Enable Location",
+                "Please allow location access in your browser or phone settings."
+            );
         } catch (error) {
-            console.error('Error getting location:', error);
+            console.error("Error opening location settings:", error);
         }
     };
 
 
 
     useEffect(() => {
-        if (orderType && orderType !== "delivery") {
-            getCoordinates();
+    if (orderType && orderType !== "delivery") {
+        getCoordinates();
+
+        // 🕒 If still no location after 3s, retry once
+        const timeout = setTimeout(() => {
+        if (!location.lat || !location.lng) {
+            console.log("Still no location after 3s, retrying...");
+            getCoordinates(true);
         }
+        }, 3000);
+
+        // cleanup if user leaves the page quickly
+        return () => clearTimeout(timeout);
+    }
     }, [orderType]);
+
 
     useFocusEffect(
         React.useCallback(() => {
@@ -604,7 +628,7 @@ const styles = StyleSheet.create({
         fontFamily: 'Route159-Bold',
     },
     timeText: {
-        fontSize: 13,
+        fontSize: 12,
         color: '#555',
         fontFamily: 'Route159-Regular',
     },

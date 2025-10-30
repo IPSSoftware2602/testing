@@ -169,16 +169,12 @@ export default function VipCard() {
 
           {/* Card Benefit */}
           <View style={styles.cardBenefit}>
-            <Text style={styles.benefitTitle}>VIP Plan – Only RM55 / year</Text>
+            <Text style={styles.benefitTitle}>VIP Plan – Only RM50 / year</Text>
             <Text style={styles.benefitText}>Unlock exclusive perks worth over RM200+!</Text>
             <View style={{ marginVertical: '1%' }}>
               {benefitList.map((item, index) => (
                 <View key={index} style={styles.cardBenefitList}>
                   <View style={styles.iconWrapper}>
-                    {/* <Image
-                      source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=500' }}
-                      style={styles.avatar}
-                    /> */}
                     <FontAwesome6 name={item.iconName} size={30} color="rgb(239, 239, 239)" solid />
                   </View>
                   <View style={styles.benefit}>
@@ -187,18 +183,9 @@ export default function VipCard() {
                   </View>
                 </View>
               ))}
-              {/* <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=500' }}
-                style={styles.avatar}
-              />
-              <View>
-                <Text style={styles.benefitListTitle}>US Pizza Points</Text>
-                <Text style={styles.benefitListText}>Earn points with every order</Text>
-              </View> */}
             </View>
             <View style={{ marginTop: '2%' }}>
-              {/* <Text style={styles.benefitText}>Don’t miss out — tap  <Text style={styles.benefitTitle}>“Subscribe”</Text> to enjoy all these perks!</Text> */}
-                            <Text style={styles.benefitTextPerk}>All these exclusive perks for just RM55. Don’t miss out!</Text>
+                            <Text style={styles.benefitTextPerk}>All these exclusive perks for just RM50. Don’t miss out!</Text>
 
             </View>
           </View>

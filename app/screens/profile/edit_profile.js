@@ -256,22 +256,6 @@ export default function UpdateProfile() {
 
           </>
         )}
-
-        {/* Update Button remains untouched */}
-        {Platform.OS === 'web' ? (
-          <div data-testid="update-profile-button" style={{ display: 'flex', justifyContent: 'center' }}>
-            <PolygonButton
-              text="Update Profile"
-              width={180}
-              height={40}
-              onPress={handleUpdateProfile}
-              color="#C2000E"
-              textColor="#fff"
-              textStyle={{ fontSize: 22, fontWeight: 'bold' }}
-              style={{ marginTop: 20, alignSelf: 'center' }}
-            />
-          </div>
-        ) : (
           <PolygonButton
             text="Update Profile"
             width={180}
@@ -282,7 +266,6 @@ export default function UpdateProfile() {
             textStyle={{ fontSize: 22, fontWeight: 'bold' }}
             style={{ marginTop: 20, alignSelf: 'center' }}
           />
-        )}
 
         <View style={styles.loginContainer}>
           <Text style={styles.loginText}>Please complete your profile to proceed. </Text>
