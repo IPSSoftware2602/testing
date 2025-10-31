@@ -41,10 +41,14 @@ export default function Market() {
           }}
         />
       </TouchableOpacity>
-      <Text style={styles.productName}>{item.name}</Text>
+      <View style={styles.productNameContainer}>
+        <Text style={styles.productName} numberOfLines={2} ellipsizeMode="tail">
+          {item.name}
+        </Text>
+      </View>
       <View style={styles.productPriceWrapper}>
         <View style={styles.productPriceContainer}>
-          <Text style={styles.productPrice}>{item.price}</Text>
+          <Text style={styles.productPrice}>{parseInt(item.price)}</Text>
           <Text style={styles.productBeans}> Sedap Points</Text>
         </View>
       </View>
@@ -139,6 +143,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
+  productNameContainer: {
+    minHeight: 24,
+    justifyContent: 'center',
+    alignItems: 'center', 
+    paddingHorizontal: 6,
+  },
   promoImage: {
     width: '100%',
     height: 120,
@@ -165,11 +175,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 38,
   },
-  searchIcon: {
-    fontSize: 18,
-    color: '#bbb',
-    marginRight: 8,
-  },
   searchInput: {
     flex: 1,
     fontSize: 16,
@@ -184,18 +189,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginHorizontal: 16,
     marginBottom: 8,
-  },
-  mallTabInactive: {
-    color: '#bbb',
-    fontWeight: 'bold',
-    fontSize: 16,
-    fontFamily: 'Route159-HeavyItalic',
-  },
-  mallTabSlash: {
-    color: '#bbb',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginHorizontal: 4,
   },
   mallTabActive: {
     color: '#C2000E',
@@ -214,15 +207,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     alignItems: 'center',
   },
-  productImage: {
-    width: '100%',
-    height: 100,
-    borderRadius: 12,
-    marginBottom: 8,
-    backgroundColor: '#d16c6cff',
-  },
   productName: {
-    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 14 : 14) : 18) : 16,
+    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 12 : 12) : 12) : 12,
     color: '#333',
     marginBottom: 0,
     fontFamily: 'Route159-Bold',
@@ -240,49 +226,9 @@ const styles = StyleSheet.create({
   },
   productBeans: {
     color: '#C2000E',
-    fontSize: 14,
+    fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 14 : 14) : 14) : 14,
     fontFamily: 'Route159-Regular',
     marginRight: 6,
-  },
-  productAddBtn: {
-    backgroundColor: '#C2000E',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-  },
-  productAddBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18,
-    fontFamily: 'Route159-Bold',
-  },
-  bottomBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    padding: 8,
-    justifyContent: 'space-between',
-    zIndex: 10,
-  },
-  bottomBarBeans: {
-    color: '#C2000E',
-    fontWeight: 'bold',
-    fontSize: 16,
-    fontFamily: 'Route159-Bold',
-  },
-  bottomBarBeansValue: {
-    color: '#C2000E',
-    fontWeight: 'bold',
-    fontSize: 22,
-    fontFamily: 'Route159-HeavyItalic',
-    marginLeft: 4,
   },
   productPriceContainer: {
     flexDirection: 'row',
@@ -294,5 +240,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 4,
     marginBottom: 8,
+    minHeight: 24,
   },
 });
