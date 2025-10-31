@@ -10,7 +10,8 @@ import {
   Linking,
   TextInput,
   Platform,
-  Modal
+  Modal,
+  KeyboardAvoidingView
 } from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -216,27 +217,8 @@ export default function TopupWalletScreen() {
             setPaymentUrl(redirectUrl);
             setShowPaymentScreen(true);
             return;
-
-            // try {
-
-            //   // Try opening in-app browser first
-            //   await WebBrowser.openBrowserAsync(redirectUrl, {
-            //     toolbarColor: '#C2000E', // Your brand color
-            //     controlsColor: 'white',
-            //     dismissButtonStyle: 'close',
-            //   });
-
-            //   // Fallback to system browser if needed
-            //   if (!WebBrowser.dismissBrowser()) {
-            //     await Linking.openURL(redirectUrl);
-            //   }
-            // } catch (err) {
-            //   console.error('Redirect failed:', err);
-            //   router.push('/orders'); // Fallback navigation
-            // }
           }
 
-          // 4. Setup return URL handler (mobile only)
           if (Platform.OS !== 'web') {
             const subscription = Linking.addEventListener('url', (event) => {
               // handlePaymentReturn(event.url);
@@ -290,6 +272,11 @@ export default function TopupWalletScreen() {
           isBackButton={true}
           navigatePage={() => router.push('(tabs)/profile')}
         />
+
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
 
         <ScrollView
           style={{ overflow: 'hidden' }} // prevent accidental horizontal scroll on web
@@ -413,6 +400,7 @@ export default function TopupWalletScreen() {
             </View>
           </View>
         </ScrollView>
+        </KeyboardAvoidingView>
 
         {/* Bottom Bar */}
         <View style={styles.bottomBar}>
