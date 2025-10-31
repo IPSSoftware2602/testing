@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     minHeight: 24,
     justifyContent: 'center',
     alignItems: 'center', 
-    paddingHorizontal: 6,
+    paddingHorizontal: 2,
   },
   promoImage: {
     width: '100%',

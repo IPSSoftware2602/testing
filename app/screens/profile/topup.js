@@ -107,16 +107,16 @@ export default function TopupWalletScreen() {
   const [topupPackages, setTopupPackages] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Avoid programmatic focus on mobile web; it can cause horizontal shift/zoom
-    if (Platform.OS === 'web') return;
+  // useEffect(() => {
+  //   // Avoid programmatic focus on mobile web; it can cause horizontal shift/zoom
+  //   if (Platform.OS === 'web') return;
 
-    if (!selectedId) {
-      manualAmountInputRef.current?.focus?.();
-    } else {
-      manualAmountInputRef.current?.blur?.();
-    }
-  }, [selectedId]);
+  //   if (!selectedId) {
+  //     manualAmountInputRef.current?.focus?.();
+  //   } else {
+  //     manualAmountInputRef.current?.blur?.();
+  //   }
+  // }, [selectedId]);
 
   // Lock horizontal overflow on web to prevent page shift
   useEffect(() => {
@@ -154,13 +154,13 @@ export default function TopupWalletScreen() {
     setManualAmount(sanitized);
   };
 
-  useEffect(() => {
-    if (!selectedId) {
-      manualAmountInputRef.current?.focus?.();
-    } else {
-      manualAmountInputRef.current?.blur?.();
-    }
-  }, [selectedId]);
+  // useEffect(() => {
+  //   if (!selectedId) {
+  //     manualAmountInputRef.current?.focus?.();
+  //   } else {
+  //     manualAmountInputRef.current?.blur?.();
+  //   }
+  // }, [selectedId]);
 
   const handlePaymentModalClose = async () => {
     setShowPaymentScreen(false);
@@ -296,7 +296,7 @@ export default function TopupWalletScreen() {
                 </Text>
               ) : (
                 <TextInput
-                  ref={manualAmountInputRef}
+                  // ref={manualAmountInputRef}
                   style={[styles.amountInputValue, { borderWidth: 0, borderColor: 'transparent', backgroundColor: 'transparent', outlineWidth: 0, outlineColor: 'transparent' }]}
                   placeholder="0.00"
                   keyboardType="decimal-pad"
