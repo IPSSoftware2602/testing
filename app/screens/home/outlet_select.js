@@ -311,7 +311,7 @@ export default function OutletSelection() {
                     isOpen ? styles.openIndicator : styles.closedIndicator
                 ]}>
                     <Text style={styles.statusText}>
-                        {isOpen ? 'OPEN' : 'CLOSED'}
+                        {isOpen ? 'Open' : 'Closed'}
                     </Text>
                 </View>
                 <Text style={styles.timeText}>

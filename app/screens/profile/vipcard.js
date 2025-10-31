@@ -35,12 +35,12 @@ const benefitList = [
   },
   {
     title: 'Free Pizzas',
-    description: '4 regular pizzas yearly (March, June, Sept & your birthday month!)',
+    description: '4 regular pizzas yearly (March, June, Sept & Dec!)',
     iconName: 'pizza-slice',
   },
   {
     title: 'Birthday Treat',
-    description: 'Free lava cake during birthday month',
+    description: 'Free lava cake in your birthday month',
     iconName: 'cake-candles',
   },
   {
@@ -198,7 +198,9 @@ export default function VipCard() {
               disabled={(customerData.customer_type).toLowerCase() === 'vip customer' || (customerData.customer_type).toLowerCase() === 'student'}
             ></CustomPolygonButton> : null}
           </View>
-          {customerData?.customer_type ? 
+
+          {/*/ Display note for customer_type = students only */}
+          {customerData?.customer_type === 'student' ? 
             <View style={{ textAlign: 'center', alignItems: 'center' }}>
               <Text style={styles.benefitText}>Note*: {((customerData.customer_type).toLowerCase() === 'student' ? "Not available for students" : "")}</Text>
             </View> : null}
