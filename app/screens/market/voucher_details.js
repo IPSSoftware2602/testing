@@ -186,6 +186,15 @@ export default function VoucherDetails() {
 
           <View style={{ marginHorizontal: 16, marginTop: 18 }}>
             <Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E', marginBottom: 6 }}>
+              Voucher Name
+            </Text>
+            <Text style={{ fontSize: 15, color: '#333' }}>
+              {voucher?.voucher_name ?? 'No voucher name'}
+            </Text>
+          </View>
+
+          <View style={{ marginHorizontal: 16, marginTop: 18 }}>
+            <Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E', marginBottom: 6 }}>
               Expiry
             </Text>
             <Text style={{ fontSize: 15, color: '#333' }}>
@@ -202,21 +211,12 @@ export default function VoucherDetails() {
             </Text>
           </View>
 
-          {/* <View style={{ marginHorizontal: 16, marginTop: 18 }}>
-            <Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E', marginBottom: 6 }}>
-              Expiry
-            </Text>
-            <Text style={{ fontSize: 15, color: '#333' }}>
-              {voucher?.expiry_display ?? 'No expiry info'}
-            </Text>
-          </View> */}
-
           <View style={{ marginHorizontal: 16, marginTop: 18 }}>
             <Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E', marginBottom: 6, textAlign: 'left', }}>
               Terms & Conditions
             </Text>
             <Text style={{ fontSize: 15, color: '#333' }}>
-              {voucher?.voucher_tnc ?? 'No details'}
+              {voucher?.voucher_tnc || 'No terms and conditions applied.'}
             </Text>
           </View>
         </ScrollView>
