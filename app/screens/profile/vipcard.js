@@ -169,7 +169,7 @@ export default function VipCard() {
 
           {/* Card Benefit */}
           <View style={styles.cardBenefit}>
-            <Text style={styles.benefitTitle}>VIP Plan – Only RM50 / year</Text>
+            <Text style={styles.benefitTitle}>VIP Plan – Only RM55 / year</Text>
             <Text style={styles.benefitText}>Unlock exclusive perks worth over RM200+!</Text>
             <View style={{ marginVertical: '1%' }}>
               {benefitList.map((item, index) => (
@@ -185,7 +185,7 @@ export default function VipCard() {
               ))}
             </View>
             <View style={{ marginTop: '2%' }}>
-                            <Text style={styles.benefitTextPerk}>All these exclusive perks for just RM50. Don’t miss out!</Text>
+                            <Text style={styles.benefitTextPerk}>All these exclusive perks for just RM55. Don’t miss out!</Text>
 
             </View>
           </View>
