@@ -115,9 +115,9 @@ export default function VoucherDetails() {
     );
 
     if (res.data.message === 'Voucher already redeemed for this customer') {
-      toast.show('You have already redeemed this voucher. Please check your voucher wallet page.', {
+      toast.show('You have already redeemed this voucher. Please check your voucher wallet.', {
         type: 'custom_toast',
-        data: { title: 'Info', status: 'info' }
+        data: { title: 'Info', status: 'success' }
       });
     } else if (res.data.status === 200) {
       toast.show('Voucher redeemed successfully!', {
