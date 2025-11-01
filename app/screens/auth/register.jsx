@@ -206,6 +206,9 @@ export default function Register() {
                 Please complete your profile to proceed.{" "}
               </Text>
             </View>
+
+                        <View style={{ height: Platform.OS === "ios" ? 160 : 140 }} />
+
           </View>
         </ScrollView>
       </SafeAreaView>
