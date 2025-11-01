@@ -588,11 +588,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     emptyWrapper: {
-  flex: 1,
-  justifyContent: 'center', // centers vertically
-  alignItems: 'center',     // centers horizontally
-  minHeight: Dimensions.get('window').height * 0.7, // ensures it stays mid-screen
-},
+    flex: 1,
+    justifyContent: 'center', // centers vertically
+    alignItems: 'center',     // centers horizontally
+    minHeight: Dimensions.get('window').height * 0.7, // ensures it stays mid-screen
+    },
 
 
 

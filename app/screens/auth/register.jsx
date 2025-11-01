@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import React, { useState, useEffect } from "react";
-import { Text, TextInput, View, Dimensions } from "react-native";
+import { Text, TextInput, View, Dimensions, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, commonStyles } from "../../../styles/common";
 import TopNavigation from "../../../components/ui/TopNavigation";
@@ -143,7 +143,11 @@ export default function Register() {
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
-            paddingBottom: 50, // prevents last button from being hidden
+            paddingBottom: Platform.select({
+              ios: 120,    // extra scroll space for iOS Safari
+              android: 100, // extra scroll space for Chrome Android
+              default: 50,  // fallback for web/desktop
+            }),
           }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
