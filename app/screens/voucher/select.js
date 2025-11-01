@@ -3,7 +3,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     ScrollView,
     StyleSheet,
@@ -13,7 +13,9 @@ import {
     View,
     Dimensions,
     Image,
-    Platform
+    Platform,
+    Animated,
+    Easing
 } from 'react-native';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
@@ -41,6 +43,31 @@ export default function VoucherSelectScreen() {
     const [voucherData, setVoucherData] = useState([]);
     const [authToken, setAuthToken] = useState("");
     const [customerData, setCustomerData] = useState(null);
+
+    const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
+    const scale = useRef(new Animated.Value(1)).current;
+
+    // subtle breathing animation for Market icon
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(scale, {
+                    toValue: 1.15,
+                    duration: 400,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(scale, {
+                    toValue: 1,
+                    duration: 400,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+                Animated.delay(800),
+            ])
+        ).start();
+    }, []);
+
 
     const handleApplyManualVoucher = () => {
 
@@ -117,11 +144,36 @@ export default function VoucherSelectScreen() {
 
 
     const renderEmptyVoucher = () => (
-        <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No vouchers available.</Text>
-            <Text style={styles.emptySubText}>You may proceed to Market to exchange Voucher or enter Promo Code.</Text>
-        </View>
-    );
+  <View style={styles.emptyWrapper}>
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyText}>No vouchers available.</Text>
+      <Text style={styles.emptySubText}>
+        You may proceed to Market to exchange a Voucher.
+      </Text>
+
+      <TouchableOpacity
+        style={styles.addVoucherButton}
+        activeOpacity={0.8}
+        onPress={() =>
+          router.push({
+            pathname: '(tabs)/market',
+            params: { from: 'voucher-select' },
+          })
+        }
+      >
+        <Ionicons
+          name="add-circle-outline"
+          size={22}
+          color="#fff"
+          style={{ marginRight: 8 }}
+        />
+        <Text style={styles.addVoucherText}>Go to Market</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+);
+
+
 
     return (
         <ResponsiveBackground>
@@ -129,21 +181,27 @@ export default function VoucherSelectScreen() {
                 <TopNavigation
                     title={
                         <View style={{ flexDirection: "row", alignItems: "center" }}>
-                        <Text style={{ fontFamily: "Route159-Bold", fontSize: 18, color: "#C2000E" }}>
-                            Voucher Wallet
-                        </Text>
+                            <Text style={{ fontFamily: "Route159-Bold", fontSize: 18, color: "#C2000E" }}>
+                                Voucher Wallet
+                            </Text>
 
-                        <TouchableOpacity
-                            onPress={() =>
-                            router.push({
-                                pathname: '(tabs)/market',
-                                params: { from: 'voucher-select' }
-                            })
-                            }
-                            style={{ marginLeft: 12 }}
-                        >
-                            <Ionicons name="storefront-outline" size={22} color="#C2000E" />
-                        </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() =>
+                                    router.push({
+                                        pathname: '(tabs)/market',
+                                        params: { from: 'voucher-select' },
+                                    })
+                                }
+                                style={{ marginLeft: 12 }}
+                            >
+                                <AnimatedIcon
+                                    name="storefront-outline"
+                                    size={26}
+                                    color="#C2000E"
+                                    style={{ transform: [{ scale }] }}
+                                />
+                            </TouchableOpacity>
+
                         </View>
                     }
                     isBackButton={true}
@@ -399,13 +457,12 @@ const styles = StyleSheet.create({
     disabledButtonText: {
         color: '#ffffffff',
     },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        width: Math.min(width * 0.8, 400),
-    },
+   emptyContainer: {
+  justifyContent: 'center',
+  alignItems: 'center',
+  paddingHorizontal: 20,
+  width: Math.min(width * 0.8, 400),
+},
     emptyText: {
         fontSize: 18,
         fontFamily: 'Route159-Bold',
@@ -538,6 +595,33 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         maxWidth: '100%',
     },
+    addVoucherButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#C2000E',
+        borderRadius: 25,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        marginTop: 10,
+        shadowColor: '#C2000E',
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 3,
+    },
+    addVoucherText: {
+        fontFamily: 'Route159-Bold',
+        color: '#fff',
+        fontSize: 16,
+    },
+    emptyWrapper: {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+  minHeight: Dimensions.get('window').height * 0.7, // stay mid-page
+},
+
+
+    
 
 
 });
