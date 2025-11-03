@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import useAuthGuard from '../../auth/check_token_expiry';
 // import { useToast } from 'react-native-toast-notifications';
 import { useToast } from '../../../hooks/useToast';
+import { Ellipse } from 'react-native-svg';
 
 const { width, height } = Dimensions.get('window');
 
@@ -39,13 +40,13 @@ export default function OutletSelection() {
         </View>
     );
 
-    useEffect(() => {
-    if (typeof window !== "undefined") {
-        window.addEventListener("pageshow", (e) => {
-        if (e.persisted) window.location.reload();
-        });
-    }
-    }, []);
+    // useEffect(() => {
+    // if (typeof window !== "undefined") {
+    //     window.addEventListener("pageshow", (e) => {
+    //     if (e.persisted) window.location.reload();
+    //     });
+    // }
+    // }, []);
 
     useEffect(() => {
         const getStoredData = async () => {
@@ -333,7 +334,7 @@ export default function OutletSelection() {
             <TouchableOpacity
                 onPress={() => {
                     if (!getOutletStatus(item.operating_schedule).isOpen && orderType === 'dinein') {
-                        toast.show('This outlet currently is closed', {
+                        toast.show('This outlet currently is closed, But you can still order for later', {
                             type: 'custom_toast',
                             data: {
                                 title: 'Outlet Closed',
@@ -341,7 +342,7 @@ export default function OutletSelection() {
                                 status: 'danger'
                             }
                         });
-                        return; // Don't proceed
+                        router.push('(tabs)/menu'); // proceed for  dine-in even is closed 
                     }
 
                     setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen, operatingHours: item.operating_schedule });
@@ -349,6 +350,16 @@ export default function OutletSelection() {
                         router.push('(tabs)/menu')
                     }
                 }}
+                // onPress={() => {
+                //     setOutletDetials({
+                //         outletId: item.id,
+                //         distance: item.distance_km,
+                //         outletTitle: item.title,
+                //         isOperate: getOutletStatus(item.operating_schedule).isOpen,
+                //         operatingHours: item.operating_schedule
+                //     });
+                //     router.push('(tabs)/menu');
+                // }}
                 style={styles.card}>
                 <View style={styles.outletNameContainer}>
                     <Text style={styles.name}>{item.title}</Text>
@@ -387,7 +398,7 @@ export default function OutletSelection() {
                         resizeMode="cover"
                     />
                 </View>
-                {getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein') ?
+                {/* {getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein') ? */}
                     <View style={styles.btnContainer}>
                         <PolygonButton
                             text="Select"
@@ -405,7 +416,7 @@ export default function OutletSelection() {
                             }}
                         />
                     </View>
-                    : null}
+                    {/* : null} */}
 
             </TouchableOpacity>
         </>
@@ -549,7 +560,8 @@ const styles = StyleSheet.create({
         width: '95%',
         alignItems: 'center',
         justifyContent: 'space-between',
-        alignSelf: 'center'
+        alignSelf: 'center',
+        alignContent: 'flex-start',
     },
     outletInfoContainer: {
         paddingHorizontal: 14,
@@ -587,6 +599,8 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#C2000E',
         fontFamily: 'Route159-Bold',
+        // textTransform: 'uppercase',
+         marginLeft: 0,
     },
     address: {
         paddingVertical: '5%',
@@ -641,7 +655,8 @@ const styles = StyleSheet.create({
         width: '95%',
         alignItems: 'center',
         justifyContent: 'space-between',
-        alignSelf: 'center'
+        alignSelf: 'center',
+        textStyle: 'Ellipse'
     },
     emptyContainer: {
         flex: 1,
