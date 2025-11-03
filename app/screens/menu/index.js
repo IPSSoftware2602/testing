@@ -1,4 +1,4 @@
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
@@ -75,6 +75,77 @@ export default function MenuScreen() {
   //modal for confirm order type change
   const [confirmOrderTypeModalVisible, setConfirmOrderTypeModalVisible] = useState(false);
   const [pendingOrderType, setPendingOrderType] = useState(null);
+  const { order_type, outlet_id } = useLocalSearchParams();
+
+  useEffect(() => {
+  const handleQR = async () => {
+    if (!order_type || !outlet_id) return;
+
+    await checkoutClearStorage();
+
+    await AsyncStorage.setItem("orderType", String(order_type));
+    await AsyncStorage.setItem(
+      "outletDetails",
+      JSON.stringify({ outletId: String(outlet_id) })
+    );
+    console.log("QR scanned:", order_type, outlet_id);
+
+    setSelectedOutlet({ outletId: String(outlet_id) });
+
+    fetchOutletInfo(outlet_id);
+
+      const outletDetailsString = await AsyncStorage.getItem("outletDetails");
+      if (outletDetailsString) {
+        const outletDetails = JSON.parse(outletDetailsString);
+        if (order_type === "dinein" && outletDetails.isOperate === false) {
+          setShowDateTimePicker(true);
+        }
+      }
+    };
+
+    handleQR();
+  }, [order_type, outlet_id]);
+
+
+  const fetchOutletInfo = async (id) => {
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+
+      const res = await axios.get(`${apiUrl}outlets/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (res.data?.status === 200) {
+        const outlet = res.data.data;
+
+        const outletObj = {
+          outletId: String(outlet.id),
+          outletTitle: outlet.title,
+          distanceFromUserLocation: outlet.distance_km ?? "0.00",
+          isOperate: outlet.is_operated ?? true
+        };
+
+        await AsyncStorage.setItem("outletDetails", JSON.stringify(outletObj));
+        setSelectedOutlet(outletObj);
+
+        const orderType = await AsyncStorage.getItem("orderType");
+        if (orderType === "dinein" && outletObj.isOperate === false) {
+          setShowDateTimePicker(true);
+        }
+
+        console.log("Outlet info:", outletObj);
+      }
+    } catch (err) {
+      console.log("error:", err?.response?.data || err.message);
+    }
+  };
+
+
+
+
+
 
   const categoryListPerfProps = useMemo(() => {
     if (isWeb) {
@@ -133,10 +204,14 @@ export default function MenuScreen() {
   const confirmOrderTypeChange = useCallback(() => {
     if (pendingOrderType) {
       handleSetOrderType(pendingOrderType);
+      if (pendingOrderType !== "dinein") {
+        setShowDateTimePicker(false);
+      }
     }
     setConfirmOrderTypeModalVisible(false);
     setPendingOrderType(null);
   }, [pendingOrderType]);
+
 
   const cancelOrderTypeChange = useCallback(() => {
     setConfirmOrderTypeModalVisible(false);
@@ -177,13 +252,13 @@ export default function MenuScreen() {
         if (outletDetails) {
           const parsedOutletDetails = JSON.parse(outletDetails);
           console.log(parsedOutletDetails);
-          if(parsedOutletDetails.isHQ === undefined) {
-          // console.log(outletDetails.outletId); 
+          if (parsedOutletDetails.isHQ === undefined) {
+            // console.log(outletDetails.outletId); 
             setSelectedOutlet(parsedOutletDetails);
             if ((activeOrderType !== "dinein" && !estimatedTime) || is_over) {
-               setShowDateTimePicker(true);
+              setShowDateTimePicker(true);
             }
-          }else{
+          } else {
             router.push('/');
           }
         }
@@ -271,13 +346,13 @@ export default function MenuScreen() {
       const mostVisibleItem = [...viewableItems].sort((a, b) =>
         b.percentVisible - a.percentVisible
       )[0].item;
-  
+
       const firstCatIdRaw = mostVisibleItem.categoryIds?.[0];
       const firstCatId = firstCatIdRaw != null ? String(firstCatIdRaw) : '';
       if (firstCatId && firstCatId !== activeCategoryRef.current) {
         activeCategoryRef.current = firstCatId;
         setActiveCategory(firstCatId);
-  
+
         const catIdx = categoriesRef.current.findIndex(c => c.key === firstCatId);
         if (catIdx !== -1 && categoryListRef.current) {
           categoryListRef.current.scrollToIndex({
@@ -333,7 +408,7 @@ export default function MenuScreen() {
     if (!listReady) {
       return;
     }
-  
+
     // 1) Scroll the left category list to keep the tapped item centered
     const catIdx = categoriesRef.current.findIndex(c => c.key === normalizedKey);
     if (catIdx !== -1 && categoryListRef.current) {
@@ -351,14 +426,14 @@ export default function MenuScreen() {
         });
       }
     }
-  
+
     // 2) Scroll the menu list to the first item for this category (the "title" lives with that row)
     let index = categoryToIndex[normalizedKey];
     if (index == null || !menuListRef.current) {
       setTimeout(releaseCategoryLock, LOCK_RELEASE_MS);
       return;
     }
-    index-=0.05;
+    index -= 0.05;
     // Let layout settle, then attempt precise jump
     requestAnimationFrame(() => {
       try {
@@ -372,7 +447,7 @@ export default function MenuScreen() {
         // If not measured yet, do an approximate offset first…
         const roughOffset = Math.max(0, index * APPROX_ITEM_HEIGHT - APPROX_ITEM_HEIGHT);
         menuListRef.current.scrollToOffset({ offset: roughOffset, animated: false });
-  
+
         // …then retry the precise jump shortly after
         setTimeout(() => {
           try {
@@ -580,39 +655,39 @@ export default function MenuScreen() {
     return Math.floor(num * Math.pow(10, maxDecimals)) / Math.pow(10, maxDecimals);
   }
 
-      // console.log('Request params:', {
-      //   customer_id: customer.id,
-      //   outlet_id: selectedOutlet.outletId
-      // });
-      const formatDateTime = useCallback(() => {
-          // console.log('selectedDateTime', selectedDateTime);
-          if (!selectedDateTime) return;
+  // console.log('Request params:', {
+  //   customer_id: customer.id,
+  //   outlet_id: selectedOutlet.outletId
+  // });
+  const formatDateTime = useCallback(() => {
+    // console.log('selectedDateTime', selectedDateTime);
+    if (!selectedDateTime) return;
 
-          const now = new Date();
-          let finalDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-          let finalTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const now = new Date();
+    let finalDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    let finalTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-          if (selectedDateTime.split(" ").length > 1) {
-            const [dayLabel, timeString] = selectedDateTime.split(" ");
-            let selectedDate = new Date();
+    if (selectedDateTime.split(" ").length > 1) {
+      const [dayLabel, timeString] = selectedDateTime.split(" ");
+      let selectedDate = new Date();
 
-            if (dayLabel.toLowerCase() === "today") {
-              const [hours, minutes] = timeString.split(":").map(Number);
-              selectedDate.setHours(hours, minutes, 0, 0);
-              const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+      if (dayLabel.toLowerCase() === "today") {
+        const [hours, minutes] = timeString.split(":").map(Number);
+        selectedDate.setHours(hours, minutes, 0, 0);
+        const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
-              if (selectedDate > oneHourFromNow) {
-                finalDate = selectedDate.toISOString().split("T")[0];
-                finalTime = `${String(selectedDate.getHours()).padStart(2, "0")}:${String(selectedDate.getMinutes()).padStart(2, "0")}`;
-              }
-            } else {
-              [finalDate, finalTime] = convertToDateTimeString(selectedDateTime);
-            }
-          }
+        if (selectedDate > oneHourFromNow) {
+          finalDate = selectedDate.toISOString().split("T")[0];
+          finalTime = `${String(selectedDate.getHours()).padStart(2, "0")}:${String(selectedDate.getMinutes()).padStart(2, "0")}`;
+        }
+      } else {
+        [finalDate, finalTime] = convertToDateTimeString(selectedDateTime);
+      }
+    }
 
-          setAsyncEstimatedTime({ estimatedTime: selectedDateTime, date: finalDate, time: finalTime });
-          return { estimatedTime: selectedDateTime, date: finalDate, time: finalTime };
-        }, [selectedDateTime]);
+    setAsyncEstimatedTime({ estimatedTime: selectedDateTime, date: finalDate, time: finalTime });
+    return { estimatedTime: selectedDateTime, date: finalDate, time: finalTime };
+  }, [selectedDateTime]);
 
   const fetchCartTotal = useCallback(async () => {
     try {
@@ -621,7 +696,14 @@ export default function MenuScreen() {
       const customer = customerData ? JSON.parse(customerData) : null;
       setCustomer(customer);
 
-      if (!token || !customer?.id || !selectedOutlet?.outletId) {
+      // if (!token || !customer?.id || !selectedOutlet?.outletId) {
+      //   return 0;
+      // }
+      if (!token || !customer?.id) {
+        return 0;
+      }
+
+      if (!selectedOutlet?.outletId) {
         return 0;
       }
 
@@ -652,13 +734,18 @@ export default function MenuScreen() {
     } catch (error) {
       // console.log(error);
       if (error?.response?.status === 400) {
+
+        // Skip redirect if cart is empty (likely first visit)
+        if (error?.response?.data?.message?.includes("Cart is empty")) {
+          return 0;
+        }
+
         if (error?.response?.data?.status === 405) {
           router.push({ pathname: '(tabs)', params: { setErrorModal: true } });
           checkoutClearStorage();
         }
-
-        // console.log('Error fetching cart total:', error?.response?.data?.message ?? "Outlet not available for this order type");
       }
+
     }
   }, [selectedOutlet, selectedDeliveryAddress, activeOrderType, router, formatDateTime]);
 
@@ -746,7 +833,7 @@ export default function MenuScreen() {
             )
           )}
         </View>
-        <Modal 
+        <Modal
           transparent
           visible={confirmOrderTypeModalVisible}
           animationType="fade"
@@ -895,7 +982,7 @@ export default function MenuScreen() {
             />
             <View style={styles.bottomPriceContainer}>
               <Text style={styles.bottomPriceSmall}>RM </Text>
-              
+
               <Text style={styles.bottomPrice}>{totalPrice.toFixed(2)}</Text>
             </View>
             <PolygonButton

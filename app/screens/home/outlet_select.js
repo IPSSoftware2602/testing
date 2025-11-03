@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import useAuthGuard from '../../auth/check_token_expiry';
 // import { useToast } from 'react-native-toast-notifications';
 import { useToast } from '../../../hooks/useToast';
+import { Ellipse } from 'react-native-svg';
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,6 +39,14 @@ export default function OutletSelection() {
             <Text style={styles.emptySubText}>Just a moment… locating your nearest outlet</Text>
         </View>
     );
+
+    // useEffect(() => {
+    // if (typeof window !== "undefined") {
+    //     window.addEventListener("pageshow", (e) => {
+    //     if (e.persisted) window.location.reload();
+    //     });
+    // }
+    // }, []);
 
     useEffect(() => {
         const getStoredData = async () => {
@@ -130,35 +139,73 @@ export default function OutletSelection() {
 
 
 
-    const getCoordinates = async () => {
-        try {
-            const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
+    const getCoordinates = async (retry = false) => {
+    try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') {
+        setLocationPermissionDenied(true);
+        return;
+        }
 
-            if (status !== 'granted') {
-                // User rejected
-                setLocation(null); // no location
-                setLocationPermissionDenied(true); // show fallback UI
+        let currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        if (!currentLocation?.coords && !retry) {
+        console.log('Retrying location fetch...');
+        setTimeout(() => getCoordinates(true), 1000); // retry after 1s
+        return;
+        }
+
+        setLocation({
+        lat: currentLocation.coords.latitude,
+        lng: currentLocation.coords.longitude
+        });
+        setLocationPermissionDenied(false);
+    } catch (error) {
+        console.error('Error getting location:', error);
+    }
+    };
+
+
+    const openLocationSettings = async () => {
+        try {
+            if (Platform.OS === 'android') {
+                await Linking.openSettings();
                 return;
             }
 
-            let currentLocation = await Location.getCurrentPositionAsync({});
-            setLocation({
-                lat: currentLocation.coords.latitude,
-                lng: currentLocation.coords.longitude
-            });
-            setLocationPermissionDenied(false);
+            if (Platform.OS === 'ios') {
+                await Linking.openURL('app-settings:');
+                return;
+            }
+
+            // Web fallback
+            Alert.alert(
+                "Enable Location",
+                "Please allow location access in your browser or phone settings."
+            );
         } catch (error) {
-            console.error('Error getting location:', error);
+            console.error("Error opening location settings:", error);
         }
     };
 
 
 
     useEffect(() => {
-        if (orderType && orderType !== "delivery") {
-            getCoordinates();
+    if (orderType && orderType !== "delivery") {
+        getCoordinates();
+
+        // 🕒 If still no location after 3s, retry once
+        const timeout = setTimeout(() => {
+        if (!location.lat || !location.lng) {
+            console.log("Still no location after 3s, retrying...");
+            getCoordinates(true);
         }
+        }, 3000);
+
+        // cleanup if user leaves the page quickly
+        return () => clearTimeout(timeout);
+    }
     }, [orderType]);
+
 
     useFocusEffect(
         React.useCallback(() => {
@@ -265,7 +312,7 @@ export default function OutletSelection() {
                     isOpen ? styles.openIndicator : styles.closedIndicator
                 ]}>
                     <Text style={styles.statusText}>
-                        {isOpen ? 'OPEN' : 'CLOSED'}
+                        {isOpen ? 'Open' : 'Closed'}
                     </Text>
                 </View>
                 <Text style={styles.timeText}>
@@ -287,7 +334,7 @@ export default function OutletSelection() {
             <TouchableOpacity
                 onPress={() => {
                     if (!getOutletStatus(item.operating_schedule).isOpen && orderType === 'dinein') {
-                        toast.show('This outlet currently is closed', {
+                        toast.show('This outlet currently is closed, But you can still order for later', {
                             type: 'custom_toast',
                             data: {
                                 title: 'Outlet Closed',
@@ -295,7 +342,7 @@ export default function OutletSelection() {
                                 status: 'danger'
                             }
                         });
-                        return; // Don't proceed
+                        router.push('(tabs)/menu'); // proceed for  dine-in even is closed 
                     }
 
                     setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen, operatingHours: item.operating_schedule });
@@ -303,6 +350,16 @@ export default function OutletSelection() {
                         router.push('(tabs)/menu')
                     }
                 }}
+                // onPress={() => {
+                //     setOutletDetials({
+                //         outletId: item.id,
+                //         distance: item.distance_km,
+                //         outletTitle: item.title,
+                //         isOperate: getOutletStatus(item.operating_schedule).isOpen,
+                //         operatingHours: item.operating_schedule
+                //     });
+                //     router.push('(tabs)/menu');
+                // }}
                 style={styles.card}>
                 <View style={styles.outletNameContainer}>
                     <Text style={styles.name}>{item.title}</Text>
@@ -341,7 +398,7 @@ export default function OutletSelection() {
                         resizeMode="cover"
                     />
                 </View>
-                {getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein') ?
+                {/* {getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein') ? */}
                     <View style={styles.btnContainer}>
                         <PolygonButton
                             text="Select"
@@ -359,7 +416,7 @@ export default function OutletSelection() {
                             }}
                         />
                     </View>
-                    : null}
+                    {/* : null} */}
 
             </TouchableOpacity>
         </>
@@ -396,23 +453,17 @@ export default function OutletSelection() {
                             Turn on the location on your mobile phone to let us serve you at the nearest location.
                         </Text>
 
-                        <TouchableOpacity
-                            onPress={() => {
-                                if (Platform.OS === 'android') {
-                                    Linking.openSettings(); 
-                                    // Or better: take them to location service directly:
-                                    Linking.openURL('app-settings:');
-                                    Linking.openURL('android.settings.LOCATION_SOURCE_SETTINGS');
-                                } else {
-                                    // iOS
-                                    Linking.openURL('app-settings:');
-                                }
-                            }}
+                        {Platform.OS !== 'web' && (
+                            <TouchableOpacity
+                                onPress={openLocationSettings}
+                                style={styles.enableLocationBtn}
                             >
-                            <Text style={styles.enableLocationText}>
-                                Turn on your location now
-                            </Text>
-                        </TouchableOpacity>
+                                <Text style={styles.enableLocationText}>
+                                    Turn on your location now
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
                     </View>
                 ) : (
                     <FlatList
@@ -509,7 +560,8 @@ const styles = StyleSheet.create({
         width: '95%',
         alignItems: 'center',
         justifyContent: 'space-between',
-        alignSelf: 'center'
+        alignSelf: 'center',
+        alignContent: 'flex-start',
     },
     outletInfoContainer: {
         paddingHorizontal: 14,
@@ -547,6 +599,8 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#C2000E',
         fontFamily: 'Route159-Bold',
+        // textTransform: 'uppercase',
+         marginLeft: 0,
     },
     address: {
         paddingVertical: '5%',
@@ -588,7 +642,7 @@ const styles = StyleSheet.create({
         fontFamily: 'Route159-Bold',
     },
     timeText: {
-        fontSize: 13,
+        fontSize: 12,
         color: '#555',
         fontFamily: 'Route159-Regular',
     },
@@ -601,7 +655,8 @@ const styles = StyleSheet.create({
         width: '95%',
         alignItems: 'center',
         justifyContent: 'space-between',
-        alignSelf: 'center'
+        alignSelf: 'center',
+        textStyle: 'Ellipse'
     },
     emptyContainer: {
         flex: 1,

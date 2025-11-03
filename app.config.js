@@ -39,6 +39,8 @@ export default {
     },
     plugins: [
       "expo-router",
+      "expo-font",
+      "expo-maps",
       [
         "expo-splash-screen",
         {

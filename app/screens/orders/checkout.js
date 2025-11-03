@@ -1412,12 +1412,23 @@ export default function CheckoutScreen({ navigation }) {
               </View>
             )}
 
+
+            {/*add 1 more row named as Delivery Fee discount*/}
             {orderType === "delivery" ? (
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Standard Delivery</Text>
                 <Text style={styles.totalValue}>RM {parseFloat(cartData?.order_summary?.delivery_fee || 0).toFixed(2)}</Text>
               </View>
             ) : null}
+
+             {orderType === "delivery" && cartData?.order_summary?.delivery_fee_discount > 0 ? (
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Delivery Discount</Text>
+                  <Text style={styles.totalValue}>
+                    - RM {parseFloat(cartData?.order_summary?.delivery_fee_discount).toFixed(2)}
+                  </Text>
+                </View>
+              ) : null}
 
             {(orderType === "delivery" || orderType === "pickup") && cartData?.order_summary?.packaging_charge !== "0.00" ? (<View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Packaging Charges</Text>

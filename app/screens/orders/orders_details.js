@@ -338,13 +338,17 @@ const DeliveryStatus = ({ stage = "preparing", item, expected_ready_time }) => {
 
   const status = [
     { stage: "completed", image: require('../../../assets/elements/home/recharge_gift.png'), title: "Order Completed", subtitle: "Thank you for your support! Comeback for more Ultra Sedap!" },
-    { stage: "on_the_way", image: require('../../../assets/elements/order/driver.png'), title: "Delivering Order", subtitle: "Pizza is on the road! Countdown to Ultra Sedap" },
-    { stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle: isScheduledOrder 
+    { stage: "on_the_way", image: require('../../../assets/elements/order/driver.png'), title: "Out for Delivery", subtitle: "Pizza is on the road! Countdown to Ultra Sedap" },
+    {
+      stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle: isScheduledOrder
         ? `You can head over now for your pickup at ${expected_ready_time}`
-        : "Freshness in progress - just for you." },
-    { stage: "picked_up", image: require('../../../assets/elements/home/home_pickup.png'), title: "Order Picked Up", subtitle: "Your order has been picked up by the driver" },
-    { stage: "confirmed", image: require('../../../assets/elements/order/pizza.png'), title: "Upcoming Order",  subtitle: isScheduledOrder 
-        ? `We will prepare your pizza fresh and have it ready at ${expected_ready_time}`: "Get ready... ultra sedap is coming your way!" },
+        : "Freshness in progress - just for you."
+    },
+    { stage: "picked_up", image: require('../../../assets/elements/home/home_pickup.png'), title: "Order Ready", subtitle: "Your order has been picked up by the driver" },
+    {
+      stage: "confirmed", image: require('../../../assets/elements/order/pizza.png'), title: "Order Confirmed", subtitle: isScheduledOrder
+        ? `We will prepare your pizza fresh and have it ready at ${expected_ready_time}` : "Get ready... ultra sedap is coming your way!"
+    },
     // { stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Pending Order", subtitle: "We will be preparing your order when its the time." },
 
   ]
@@ -413,12 +417,16 @@ const PickupStatus = ({ stage = "preparing", item, expected_ready_time }) => {
 
   const status = [
     { stage: "completed", image: require('../../../assets/elements/home/recharge_gift.png'), title: "Order Completed", subtitle: "Thank you for your support! Come back for more Ultra Sedap!" },
-    { stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle: isScheduledOrder 
+    {
+      stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle: isScheduledOrder
         ? `You can head over now for your pickup at ${expected_ready_time}`
-        : "Freshness in progress - just for you."  },
-    { stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Upcoming Order", subtitle: isScheduledOrder 
-        ? `We will prepare your pizza fresh and have it ready at ${expected_ready_time}`: "Get ready... ultra sedap is coming your way!" },
-    { stage: "ready_to_pickup", image: require('../../../assets/elements/home/home_pickup.png'), title: "Order Ready", subtitle: "Come grab your ultra sedapp Pizza!" },
+        : "Freshness in progress - just for you."
+    },
+    {
+      stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Order Confirmed", subtitle: isScheduledOrder
+        ? `We will prepare your pizza fresh and have it ready at ${expected_ready_time}` : "Get ready... ultra sedap is coming your way!"
+    },
+    { stage: "ready_to_pickup", image: require('../../../assets/elements/home/home_pickup.png'), title: "Ready for Pickup", subtitle: "Come grab your ultra sedapp Pizza!" },
   ]
 
   const statusObj = status.find(obj => obj.stage === stage);
@@ -464,6 +472,60 @@ const PickupStatus = ({ stage = "preparing", item, expected_ready_time }) => {
     </View >
   )
 }
+
+const DineInStatus = ({ stage = "preparing", item, expected_ready_time }) => {
+  const isScheduledOrder = item?.selected_date && item?.selected_time;
+
+  if (stage.toLocaleLowerCase() === "pending") {
+    stage = "preparing";
+  }
+
+  const status = [
+    { stage: "completed", image: require('../../../assets/elements/home/recharge_gift.png'), title: "Order Completed", subtitle: "Thank you for your support! Come back for more Ultra Sedap!" },
+    {
+      stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle:"Freshness in progress - just for you."
+    },
+    {
+      stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Order Confirmed", subtitle: "Get ready... ultra sedap is coming your way!"
+    },
+    { stage: "ready_to_serve", image: require('../../../assets/elements/home/home_pickup.png'), title: "Ready to Serve", subtitle: "Your pizza is ready to be served fresh & hot!" },
+  ];
+
+  const statusObj = status.find(obj => obj.stage === stage);
+
+  return (
+    <View style={styles.pickupstatusContainerDinein}>
+      <Text style={styles.etaText}>
+        Expected to be ready at{' '}
+        <Text
+          style={{
+            color: '#C2000E',
+            fontFamily: 'Route159-Heavy',
+            fontSize: 22,
+          }}
+        >
+          {expected_ready_time}
+        </Text>
+      </Text>
+
+      <View style={styles.pickupstatusSection}>
+        <View style={styles.pickupIconContainer}>
+          <View style={{ paddingBottom: '2%' }}>
+            <AnimationImage
+              image={statusObj?.image}
+              containerStyle={styles.pickupStatusIconSection}
+            />
+          </View>
+
+          <View style={styles.alignCenterContainer}>
+            <Text style={styles.orderItemName}>{statusObj?.title}</Text>
+            <Text style={styles.totalLabel}>{statusObj?.subtitle}</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
 
 
 const OrderSummary = ({ itemList }) => {
@@ -531,12 +593,26 @@ export default function OrderDetails({ navigation }) {
   const [customerId, setCustomerId] = useState(null);
   const [orderStatus, setOrderStatus] = useState("");
   const [orderType, setOrderType] = useState("");
+  const [paymentMethodModalVisible, setPaymentMethodModalVisible] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
+
+  const paymentMethodsAll = [
+    { id: 'wallet', name: 'US Pizza Wallet', icon: 'wallet', iconType: 'ionicons' },
+    { id: 'razerpay', name: 'Online Payment', icon: require('../../../assets/elements/order/fiuu-icon.png'), iconType: 'image' },
+  ];
 
   const handlePaymentModalClose = async () => {
     setShowPaymentScreen(false);
     const orderId = await AsyncStorage.getItem('orderId');
     router.replace(`/screens/orders/orders_details?orderId=${orderId}`);
   }
+
+  const outletNameWithStatus = useMemo(() => {
+    const name = outlets?.title || '';
+    if (!name) return '';
+    const isClosed = !!(outlets?.deleted_at && String(outlets.deleted_at).trim() !== '');
+    return `${name}${isClosed ? ' (closed)' : ''}`;
+  }, [outlets]);
 
   useEffect(() => {
     const checkStoredData = async () => {
@@ -677,30 +753,7 @@ export default function OrderDetails({ navigation }) {
     Linking.openURL(url);
   };
 
-  // const getAddress = (addressId) => {
-  //   if (!addresses) return '';
-
-  //   const addressObj = addresses.find(item => item.id === addressId);
-  //   if (!addressObj?.address) return '';
-
-  //   // const splitAddress = addressObj.address.split(",");
-  //   // return splitAddress[0] || ''; //Return only first part of the address
-  //   return addressObj.address;
-  // }
-
-  // const getOutlet = (outletId) => {
-  //   if (!outlets) return '';
-
-  //   const outletObj = outlets.find(item => item.id === outletId);
-  //   if (!outletObj?.title) return '';
-
-  //   return outletObj.title;
-  // }
-
-  // useEffect(() => {
-  //   console.log(order);
-  // }, [order])
-
+  // const getAddress = (addressId) => {  
 
   // Memoize the driver animation to prevent unnecessary re-renders
   const animateDriver = useCallback(() => {
@@ -834,16 +887,26 @@ export default function OrderDetails({ navigation }) {
     }
   }
 
-  const handlePayAgain = async () => {
+  const handlePayAgain = async (paymentMethod) => {
     try {
-      const response = await axios.get(
+      const authToken = await AsyncStorage.getItem('authToken');
+
+      console.log('Auth Token:', authToken);
+
+      if (!authToken) {
+        console.error('No authentication token found');
+        return;
+    }
+      const response = await axios.post(
         `${apiUrl}payment/payagain/${order.id}`,
+        { payment_method: paymentMethod },
         {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authToken}`,
           },
-        });
+        }
+      );
 
       const paymentData = await response.data;
 
@@ -851,54 +914,25 @@ export default function OrderDetails({ navigation }) {
         const redirectUrl = paymentData.redirect_url;
         if (redirectUrl) {
           if (Platform.OS === 'web') {
-            // Web solution
             window.location.href = redirectUrl;
           } else {
             setPaymentUrl(redirectUrl);
             setShowPaymentScreen(true);
-            return;
-
-            // try {
-
-            //   // Try opening in-app browser first
-            //   await WebBrowser.openBrowserAsync(redirectUrl, {
-            //     toolbarColor: '#C2000E', // Your brand color
-            //     controlsColor: 'white',
-            //     dismissButtonStyle: 'close',
-            //   });
-
-            //   // Fallback to system browser if needed
-            //   if (!WebBrowser.dismissBrowser()) {
-            //     await Linking.openURL(redirectUrl);
-            //   }
-            // } catch (err) {
-            //   console.error('Redirect failed:', err);
-            //   router.push('/orders'); // Fallback navigation
-            // }
-          }
-
-          // 4. Setup return URL handler (mobile only)
-          if (Platform.OS !== 'web') {
-            const subscription = Linking.addEventListener('url', (event) => {
-              // handlePaymentReturn(event.url);
-              subscription.remove(); // Cleanup
-            });
           }
         } else {
           router.push('/orders');
         }
       }
-      // console.log("Sorted Addresses:", sortedAddresses);
     } catch (error) {
-      console.error('Error fetching addresses:', error);
+      console.error('Error fetching payment details:', error);
     }
-  }
+  };
 
   const message = () => {
     var text = '';
-    switch (orderType){
+    switch (orderType) {
       case 'delivery':
-        switch(orderStatus){
+        switch (orderStatus) {
           case 'pending':
             break;
           case 'confirmed':
@@ -916,7 +950,7 @@ export default function OrderDetails({ navigation }) {
         }
         break;
       case 'pickup':
-        switch(orderStatus){
+        switch (orderStatus) {
           case 'pending':
             break;
           case 'confirmed':
@@ -934,19 +968,19 @@ export default function OrderDetails({ navigation }) {
         }
         break;
       case 'dinein':
-        switch(orderStatus){
+        switch (orderStatus) {
           case 'pending':
           case 'confirmed':
-            text = 'Get ready... ultra sedap is coming your way!';
+            text = 'Order Confirmed!\nGet ready... ultra sedap is coming your way!';
             break;
           case 'ready_to_serve':
-            text = 'Your pizza is ready to be served fresh & hot!';
+            text = 'Ready to Serve\nYour pizza is ready to be served fresh & hot!';
             break;
           case 'preparing':
-            text = 'Freshness in progress - just for you.'
+            text = 'Preparing Order\nFreshness in progress - just for you.'
             break;
           case 'completed':
-            text = 'Thank you for your support! Come back for more Ultra Sedap!'
+            text = 'Order Completed!\nThank you for your support! Come back for more Ultra Sedap!'
             break;
         }
         break;
@@ -954,7 +988,7 @@ export default function OrderDetails({ navigation }) {
 
     return text;
   }
-  
+
 
   return (
     <ResponsiveBackground>
@@ -995,18 +1029,13 @@ export default function OrderDetails({ navigation }) {
 
           {/* Pickup Progress */}
           {isPickup && isPaid ? <OrderProgressBar mode='pickup' status={order.status} /> : null}
-
           {/* Dinein Progress */}
           {isDinein && isPaid ? <OrderProgressBar mode='dinein' status={order.status} /> : null}
 
-          {/* ETA & Map */}
-          {/* {isActive && isDelivery && isPaid ? <MapSection
-            driverPos={driverPos}
-            pointA={memoizedPointA}
-            pointB={memoizedPointB}
-            mapRef={mapRef}
-            order={order}
-          /> : null} */}
+          {/* Dinein */}
+          {isActive && isDinein && isPaid ? (<DineInStatus item={order} stage={order.status} expected_ready_time={order.expected_ready_time} />) : null}
+
+          {/* Delivery */}
           {isActive && isDelivery && isPaid ? <DeliveryStatus item={order} stage={order.status} expected_ready_time={order.expected_ready_time} /> : null}
 
           {/* Pick up */}
@@ -1014,9 +1043,6 @@ export default function OrderDetails({ navigation }) {
 
           {/* Prompt Payment */}
           {(isActive && !isPaid) ? <>
-            {/* <View style={styles.orderDetailsIconSection}>
-              <Image source={require('../../../assets/elements/home/home_pickup.png')} style={styles.orderDetailsIcon} />
-            </View> */}
             <AnimationImage image={require('../../../assets/elements/home/home_pickup.png')} />
 
             <View style={styles.thankyouSection}>
@@ -1031,28 +1057,7 @@ export default function OrderDetails({ navigation }) {
                 </View>
               </View>
             </View>
-          </> : null}
-
-          {/* Thank you */}
-          {(!isActive || (isDinein && isPaid)) ? <>
-            {/* <View style={styles.orderDetailsIconSection}>
-              <Image source={require('../../../assets/elements/home/home_pickup.png')} style={styles.orderDetailsIcon} />
-            </View> */}
-            <AnimationImage image={require('../../../assets/elements/home/recharge_gift.png')} />
-
-            <View style={styles.thankyouSection}>
-              <View style={styles.thankyouRow}>
-                <View>
-                  <Image source={require('../../../assets/elements/home/home_dinein.png')} style={styles.thankyouIcon} />
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.orderItemName}>{message ()}</Text>
-                  {/* <Text style={[styles.totalLabel, { width: '90%' }]}>Enjoy your pizza</Text> */}
-                </View>
-              </View>
-            </View>
-          </> : null}
+          </> : null}      
 
           {/* Outlet Location */}
           <View style={[styles.detailTopSection, styles.totalRow]}>
@@ -1062,7 +1067,9 @@ export default function OrderDetails({ navigation }) {
               style={{ width: '52%' }}
             >
               <View style={styles.rowStyle}>
-                <Text style={[styles.totalLabel, { width: '90%', justifyContent: 'flex-end' }]}>{order ? outlets.title : null}</Text>
+                <Text style={[styles.totalLabel, { width: '90%', justifyContent: 'flex-end' }]}>
+                  {order ? outletNameWithStatus : null}
+                </Text>
                 <FontAwesome6
                   name={"store"}
                   size={14}
@@ -1199,7 +1206,7 @@ export default function OrderDetails({ navigation }) {
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>{isPaid ? "Points Awarded" : "Earnable Points"}</Text>
-              <Text style={styles.totalValue}>{order?.points ? `${order.points} US Beans` : ""} </Text>
+              <Text style={styles.totalValue}>{order?.points ? `${order.points} Sedap Points` : ""} </Text>
             </View>
           </View>
           <View style={styles.grandtotalSection}>
@@ -1220,11 +1227,15 @@ export default function OrderDetails({ navigation }) {
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
-              onPress={() =>
-                !isActive
-                  ? handleOrderAgain()
-                  : (!isPaid ? handlePayAgain() : isDelivery ? handleLalamoveTracking() : setMapModalVisible(true))
-              }
+              onPress={() => {
+                if (!isPaid) {
+                  setPaymentMethodModalVisible(true);
+                } else if (isDelivery) {
+                  handleLalamoveTracking();
+                } else {
+                  setMapModalVisible(true);
+                }
+              }}
             >
               <CustomTabBarBackground />
               <Text style={styles.placeOrderText}>
@@ -1396,7 +1407,7 @@ export default function OrderDetails({ navigation }) {
                 }}
                 onPress={() => {
                   setReceiptModalVisible(false);
-                    router.push(`/screens/orders/generalreceipt?orderId=${order.id}`);
+                  router.push(`/screens/orders/generalreceipt?orderId=${order.id}`);
                 }}
               >
                 <FontAwesome
@@ -1418,53 +1429,142 @@ export default function OrderDetails({ navigation }) {
 
               {/* IRBM e-Invoice */}
               {/* IRBM e-Invoice */}
-            <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                width: "100%",
-                paddingVertical: 24,
-                paddingHorizontal: 24,
-                borderRadius: 12,
-                backgroundColor: "#e3e3e3",
-              }}
-              onPress={() => {
-                setReceiptModalVisible(false);
-
-                if (order?.zeoniq_loc_code && order.zeoniq_loc_code.trim() !== "") {
-                  router.push(`/screens/orders/einvoice?orderId=${order.id}`);
-                } else {
-                  const phoneNumber = "60173978341";
-                  const message = encodeURIComponent(
-                    `Hi, I would like to request an e-Invoice for my order ${order?.order_so || "(Order ID not found)"}.`
-                  );
-                  const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
-                  Linking.openURL(whatsappUrl);
-                }
-              }}
-            >
-              <FontAwesome
-                name="file-text-o"
-                size={24}
-                color="#C2000E"
-                style={{ marginRight: 16 }}
-              />
-              <Text
+              <TouchableOpacity
                 style={{
-                  fontFamily: "Route159-BoldItalic",
-                  fontSize: 24,
-                  color: "#C2000E",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  width: "100%",
+                  paddingVertical: 24,
+                  paddingHorizontal: 24,
+                  borderRadius: 12,
+                  backgroundColor: "#e3e3e3",
+                }}
+                onPress={() => {
+                  setReceiptModalVisible(false);
+
+                  if (order?.zeoniq_loc_code && order.zeoniq_loc_code.trim() !== "") {
+                    router.push(`/screens/orders/einvoice?orderId=${order.id}`);
+                  } else {
+                    const phoneNumber = "60173978341";
+                    const message = encodeURIComponent(
+                      `Hi, I would like to request an e-Invoice for my order ${order?.order_so || "(Order ID not found)"}.`
+                    );
+                    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
+                    Linking.openURL(whatsappUrl);
+                  }
                 }}
               >
-                IRBM e-Invoice
-              </Text>
-            </TouchableOpacity>
+                <FontAwesome
+                  name="file-text-o"
+                  size={24}
+                  color="#C2000E"
+                  style={{ marginRight: 16 }}
+                />
+                <Text
+                  style={{
+                    fontFamily: "Route159-BoldItalic",
+                    fontSize: 24,
+                    color: "#C2000E",
+                  }}
+                >
+                  IRBM e-Invoice
+                </Text>
+              </TouchableOpacity>
 
+            </View>
+          </View>
+        </Modal>
+        <Modal
+          visible={paymentMethodModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPaymentMethodModalVisible(false)}
+        >
+          <View
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+            }}
+          >
+            <View
+              style={{
+                width: 320,
+                backgroundColor: '#fff',
+                borderRadius: 16,
+                paddingVertical: 24,
+                paddingHorizontal: 16,
+                alignItems: 'center',
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => setPaymentMethodModalVisible(false)}
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  right: 12,
+                  padding: 6,
+                  zIndex: 1,
+                }}
+              >
+                <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#999' }}>×</Text>
+              </TouchableOpacity>
+
+              <Text
+                style={{
+                  fontFamily: 'Route159-BoldItalic',
+                  fontSize: 18,
+                  marginBottom: 24,
+                  textAlign: 'center',
+                  color: '#C2000E',
+                }}
+              >
+                Choose Payment Method
+              </Text>
+
+              {/* Dynamically render payment methods */}
+              {paymentMethodsAll.map((method) => (
+                <TouchableOpacity
+                  key={method.id}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'flex-start',
+                    alignItems: 'center',
+                    width: '100%',
+                    paddingVertical: 16,
+                    paddingHorizontal: 24,
+                    borderRadius: 12,
+                    backgroundColor: '#e3e3e3',
+                    marginBottom: 16,
+                  }}
+                  onPress={() => {
+                    setPaymentMethodModalVisible(false);
+                    handlePayAgain(method.id);
+                  }}
+                >
+                  {method.iconType === 'ionicons' ? (
+                    <Ionicons name={method.icon} size={32} color="#C2000E" style={{ marginRight: 32 }} />
+                  ) : (
+                    <Image source={method.icon} style={{ width: 48, height: 48, marginRight: 24, resizeMode: 'contain' }} />
+                  )}
+                  <Text
+                    style={{
+                      fontFamily: 'Route159-BoldItalic',
+                      fontSize: 18,
+                      color: '#C2000E',
+                    }}
+                  >
+                    {method.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         </Modal>
       </SafeAreaView>
     </ResponsiveBackground>
+
   );
 }
 
@@ -1562,6 +1662,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     marginTop: '-2%',
   },
+  pickupstatusContainerDinein: {
+    paddingHorizontal: 22,
+    marginTop: '3%',
+  },
   pickupIconContainer: {
     alignItems: 'center',
     alignSelf: 'center',
@@ -1579,6 +1683,13 @@ const styles = StyleSheet.create({
     fontFamily: 'RobotoSlab-Regular',
     fontSize: 12,
     marginBottom: 8,
+    color: '#727171',
+  },
+  etaTextDinein: {
+    fontFamily: 'RobotoSlab-Regular',
+    fontSize: 12,
+    marginBottom: 8,
+    paddingLeft: '3%',
     color: '#727171',
   },
   section: {
@@ -1749,8 +1860,8 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
-    flexWrap: 'wrap',   
-    width: '110%', 
+    flexWrap: 'wrap',
+    width: '110%',
   },
   orderItemOriginalPrice: {
     fontFamily: 'Route159-Regular',

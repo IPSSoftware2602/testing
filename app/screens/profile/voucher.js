@@ -3,7 +3,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     ScrollView,
     StyleSheet,
@@ -23,6 +23,84 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { apiUrl } from '../../constant/constants';
 import useAuthGuard from '../../auth/check_token_expiry';
+import { Animated, Easing } from 'react-native';
+
+const AnimationImage = ({ image, containerStyle }) => {
+    const opacityValue = useRef(new Animated.Value(1)).current;
+    const scaleValue = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                // Fade out slightly + scale down
+                Animated.parallel([
+                    Animated.timing(opacityValue, {
+                        toValue: 0.7,
+                        duration: 300,
+                        easing: Easing.linear,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(scaleValue, {
+                        toValue: 0.95,
+                        duration: 300,
+                        easing: Easing.linear,
+                        useNativeDriver: true,
+                    }),
+                ]),
+                // Brighten + scale up
+                Animated.parallel([
+                    Animated.timing(opacityValue, {
+                        toValue: 1.2,
+                        duration: 200,
+                        easing: Easing.linear,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(scaleValue, {
+                        toValue: 1.1,
+                        duration: 200,
+                        easing: Easing.linear,
+                        useNativeDriver: true,
+                    }),
+                ]),
+                // Return to normal
+                Animated.parallel([
+                    Animated.timing(opacityValue, {
+                        toValue: 1,
+                        duration: 500,
+                        easing: Easing.linear,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(scaleValue, {
+                        toValue: 1,
+                        duration: 500,
+                        easing: Easing.linear,
+                        useNativeDriver: true,
+                    }),
+                ]),
+                // Pause
+                Animated.delay(1000),
+            ])
+        ).start();
+    }, [opacityValue, scaleValue]);
+
+    return (
+        <View style={containerStyle}>
+            <Animated.Image
+                source={image}
+                defaultSource={require('../../../assets/elements/home/home_pickup.png')}
+                style={{
+                    width: 24,
+                    height: 24,
+                    opacity: opacityValue,
+                    transform: [{ scale: scaleValue }],
+                }}
+                resizeMode="contain"
+            />
+        </View>
+    );
+};
+
+
 
 const vouchers = [
     { code: 'USBEANS', description: 'RM5 off your order', discount: 5 },
@@ -40,6 +118,29 @@ export default function VoucherSelectScreen() {
     const [voucherData, setVoucherData] = useState([]);
     const [authToken, setAuthToken] = useState("");
     const [customerData, setCustomerData] = useState(null);
+    const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
+    const scale = useRef(new Animated.Value(1)).current;
+
+    // loop animation (gentle breathing effect)
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(scale, {
+                    toValue: 1.15,
+                    duration: 400,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(scale, {
+                    toValue: 1,
+                    duration: 400,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+                Animated.delay(800),
+            ])
+        ).start();
+    }, []);
 
     useEffect(() => {
         const checkStoredData = async () => {
@@ -90,15 +191,72 @@ export default function VoucherSelectScreen() {
     }, [authToken, customerData])
 
     const renderEmptyVoucher = () => (
-        <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No vouchers available.</Text>
-        </View>
-    );
+  <View style={styles.emptyWrapper}>
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyText}>No vouchers available.</Text>
+      <Text style={styles.emptySubText}>
+        You may proceed to Market to redeem a Voucher.
+      </Text>
+
+      {/* Go to Market button */}
+      <TouchableOpacity
+        style={styles.addVoucherButton}
+        activeOpacity={0.8}
+        onPress={() =>
+          router.push({
+            pathname: '(tabs)/market',
+            params: { from: 'voucher-select' },
+          })
+        }
+      >
+        <Ionicons
+          name="add-circle-outline"
+          size={22}
+          color="#fff"
+          style={{ marginRight: 8 }}
+        />
+        <Text style={styles.addVoucherText}>Go to Market</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+);
+
 
     return (
         <ResponsiveBackground>
             <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-                <TopNavigation title="My Vouchers" isBackButton={true} navigatePage={() => router.push('(tabs)/profile')} />
+                <TopNavigation
+                    title={
+                        <View style={{ flexDirection: "row", alignItems: "center" }}>
+                            <Text style={{ fontFamily: "Route159-Bold", fontSize: 18, color: "#C2000E" }}>
+                                My Vouchers
+                            </Text>
+
+                            <TouchableOpacity
+                                onPress={() =>
+                                    router.push({
+                                        pathname: '(tabs)/market',
+                                        params: { from: 'my-vouchers' }
+                                    })
+                                }
+                                activeOpacity={0.7}
+                                style={{ marginLeft: 12 }}
+                            >
+                                <AnimatedIcon
+                                    name="storefront-outline"
+                                    size={26}
+                                    color="#C2000E"
+                                    style={{
+                                        transform: [{ scale }],
+                                    }}
+                                />
+                            </TouchableOpacity>
+
+                        </View>
+                    }
+                    isBackButton={true}
+                    navigatePage={() => router.push('(tabs)/profile')}
+                />
                 <ScrollView
                     contentContainerStyle={[styles.container, { paddingHorizontal: 24 }]}
                     showsVerticalScrollIndicator={false}
@@ -273,12 +431,12 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     emptyContainer: {
-        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 20,
         width: Math.min(width * 0.8, 400),
     },
+
     emptyText: {
         fontSize: 18,
         fontFamily: 'Route159-Bold',
@@ -405,4 +563,37 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 6,
     },
+    addVoucherButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#C2000E',
+        borderRadius: 25,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        marginTop: 10,
+        shadowColor: '#C2000E',
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 3,
+    },
+    addVoucherText: {
+        fontFamily: 'Route159-Bold',
+        color: '#fff',
+        fontSize: 16,
+    },
+    emptyContainerWrapper: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+    },
+    emptyWrapper: {
+  flex: 1,
+  justifyContent: 'center', // centers vertically
+  alignItems: 'center',     // centers horizontally
+  minHeight: Dimensions.get('window').height * 0.7, // ensures it stays mid-screen
+},
+
+
+
 });

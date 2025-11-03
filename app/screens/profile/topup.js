@@ -10,7 +10,8 @@ import {
   Linking,
   TextInput,
   Platform,
-  Modal
+  Modal,
+  KeyboardAvoidingView
 } from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -106,16 +107,16 @@ export default function TopupWalletScreen() {
   const [topupPackages, setTopupPackages] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Avoid programmatic focus on mobile web; it can cause horizontal shift/zoom
-    if (Platform.OS === 'web') return;
+  // useEffect(() => {
+  //   // Avoid programmatic focus on mobile web; it can cause horizontal shift/zoom
+  //   if (Platform.OS === 'web') return;
 
-    if (!selectedId) {
-      manualAmountInputRef.current?.focus?.();
-    } else {
-      manualAmountInputRef.current?.blur?.();
-    }
-  }, [selectedId]);
+  //   if (!selectedId) {
+  //     manualAmountInputRef.current?.focus?.();
+  //   } else {
+  //     manualAmountInputRef.current?.blur?.();
+  //   }
+  // }, [selectedId]);
 
   // Lock horizontal overflow on web to prevent page shift
   useEffect(() => {
@@ -153,13 +154,13 @@ export default function TopupWalletScreen() {
     setManualAmount(sanitized);
   };
 
-  useEffect(() => {
-    if (!selectedId) {
-      manualAmountInputRef.current?.focus?.();
-    } else {
-      manualAmountInputRef.current?.blur?.();
-    }
-  }, [selectedId]);
+  // useEffect(() => {
+  //   if (!selectedId) {
+  //     manualAmountInputRef.current?.focus?.();
+  //   } else {
+  //     manualAmountInputRef.current?.blur?.();
+  //   }
+  // }, [selectedId]);
 
   const handlePaymentModalClose = async () => {
     setShowPaymentScreen(false);
@@ -216,27 +217,8 @@ export default function TopupWalletScreen() {
             setPaymentUrl(redirectUrl);
             setShowPaymentScreen(true);
             return;
-
-            // try {
-
-            //   // Try opening in-app browser first
-            //   await WebBrowser.openBrowserAsync(redirectUrl, {
-            //     toolbarColor: '#C2000E', // Your brand color
-            //     controlsColor: 'white',
-            //     dismissButtonStyle: 'close',
-            //   });
-
-            //   // Fallback to system browser if needed
-            //   if (!WebBrowser.dismissBrowser()) {
-            //     await Linking.openURL(redirectUrl);
-            //   }
-            // } catch (err) {
-            //   console.error('Redirect failed:', err);
-            //   router.push('/orders'); // Fallback navigation
-            // }
           }
 
-          // 4. Setup return URL handler (mobile only)
           if (Platform.OS !== 'web') {
             const subscription = Linking.addEventListener('url', (event) => {
               // handlePaymentReturn(event.url);
@@ -291,6 +273,11 @@ export default function TopupWalletScreen() {
           navigatePage={() => router.push('(tabs)/profile')}
         />
 
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+
         <ScrollView
           style={{ overflow: 'hidden' }} // prevent accidental horizontal scroll on web
           contentContainerStyle={{ paddingBottom: 120, minWidth: '100%' }}
@@ -309,7 +296,7 @@ export default function TopupWalletScreen() {
                 </Text>
               ) : (
                 <TextInput
-                  ref={manualAmountInputRef}
+                  // ref={manualAmountInputRef}
                   style={[styles.amountInputValue, { borderWidth: 0, borderColor: 'transparent', backgroundColor: 'transparent', outlineWidth: 0, outlineColor: 'transparent' }]}
                   placeholder="0.00"
                   keyboardType="decimal-pad"
@@ -413,6 +400,7 @@ export default function TopupWalletScreen() {
             </View>
           </View>
         </ScrollView>
+        </KeyboardAvoidingView>
 
         {/* Bottom Bar */}
         <View style={styles.bottomBar}>

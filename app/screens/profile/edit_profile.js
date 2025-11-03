@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { Text, TextInput, View, Dimensions } from 'react-native';
+import { Text, TextInput, View, Dimensions, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '../../../styles/common';
 import TopNavigation from '../../../components/ui/TopNavigation';
@@ -123,77 +123,77 @@ export default function UpdateProfile() {
   }
 
   const handleUpdateProfile = async () => {
-  const formData = new FormData();
+    const formData = new FormData();
 
-  if (profileImage) {
-    if (Platform.OS === "web") {
-      // Web: fetch blob from URL
-      const res = await fetch(profileImage.uri);
-      const blob = await res.blob();
-      formData.append(
-        "profile_picture",
-        blob,
-        profileImage.name || "profile_image.jpeg"
-      );
-    } else {
-      // Native: use { uri, type, name }
-      formData.append("profile_picture", {
-        uri: profileImage.uri,
-        type: profileImage.mimeType || profileImage.type || "image/jpeg",
-        name:
-          profileImage.fileName ||
-          profileImage.name ||
-          "profile_image.jpeg",
-      });
-    }
-  }
-
-  formData.append("name", customerData.name || "");
-  formData.append("email", customerData.email || "");
-  formData.append("birthday", customerData.birthday || "");
-
-  // Debug
-  for (let pair of formData.entries()) {
-    console.log(pair[0], pair[1]);
-  }
-
-  try {
-    const response = await axios.post(
-      `${apiUrl}update-profile/${customerData.id}`,
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${authToken}`,
-        },
+    if (profileImage) {
+      if (Platform.OS === "web") {
+        // Web: fetch blob from URL
+        const res = await fetch(profileImage.uri);
+        const blob = await res.blob();
+        formData.append(
+          "profile_picture",
+          blob,
+          profileImage.name || "profile_image.jpeg"
+        );
+      } else {
+        // Native: use { uri, type, name }
+        formData.append("profile_picture", {
+          uri: profileImage.uri,
+          type: profileImage.mimeType || profileImage.type || "image/jpeg",
+          name:
+            profileImage.fileName ||
+            profileImage.name ||
+            "profile_image.jpeg",
+        });
       }
-    );
+    }
 
-    const updateProfileData = response.data;
-    console.log(updateProfileData);
+    formData.append("name", customerData.name || "");
+    formData.append("email", customerData.email || "");
+    formData.append("birthday", customerData.birthday || "");
 
-    if (updateProfileData.status === "success") {
-      await AsyncStorage.setItem(
-        "customerData",
-        JSON.stringify(updateProfileData.data)
+    // Debug
+    for (let pair of formData.entries()) {
+      console.log(pair[0], pair[1]);
+    }
+
+    try {
+      const response = await axios.post(
+        `${apiUrl}update-profile/${customerData.id}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
       );
-      toast.show("Profile updated successfully", {
+
+      const updateProfileData = response.data;
+      console.log(updateProfileData);
+
+      if (updateProfileData.status === "success") {
+        await AsyncStorage.setItem(
+          "customerData",
+          JSON.stringify(updateProfileData.data)
+        );
+        toast.show("Profile updated successfully", {
+          type: "custom_toast",
+          data: { title: "Successfully", status: "success" },
+        });
+        router.replace("(tabs)");
+      }
+    } catch (err) {
+      toast.show("Please try again", {
         type: "custom_toast",
-        data: { title: "Successfully", status: "success" },
+        data: { title: "Update Profile Failed", status: "danger" },
       });
-      router.replace("(tabs)");
+      if (err.response) {
+        console.log("Response data:", err.response.data);
+        console.log("Response status:", err.response.status);
+      }
     }
-  } catch (err) {
-    toast.show("Please try again", {
-      type: "custom_toast",
-      data: { title: "Update Profile Failed", status: "danger" },
-    });
-    if (err.response) {
-      console.log("Response data:", err.response.data);
-      console.log("Response status:", err.response.status);
-    }
-  }
-};
+  };
 
   return (
     <ResponsiveBackground>
@@ -208,58 +208,58 @@ export default function UpdateProfile() {
           />}
         </View>
 
-        <View style={styles.form}>
-        {customerData && (
-          <>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.form}>
+            {customerData && (
+              <>
+                {/* Name */}
+                <Text style={styles.inputLabel}>Name</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Enter your name"
+                  placeholderTextColor="#999"
+                  value={customerData.name}
+                  onChangeText={(value) => handleInputChange("name", value)}
+                />
 
-            {/* Name */}
-            <Text style={styles.inputLabel}>Name</Text>
-            <TextInput
-              style={commonStyles.input}
-              placeholder="Enter your name"
-              placeholderTextColor="#999"
-              value={customerData.name}
-              onChangeText={(value) => handleInputChange("name", value)}
-            />
+                {/* Email */}
+                <Text style={styles.inputLabel}>Email Address</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Enter your email"
+                  placeholderTextColor="#999"
+                  value={customerData.email}
+                  onChangeText={(value) => handleInputChange("email", value)}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
 
-            {/* Email */}
-            <Text style={styles.inputLabel}>Email Address</Text>
-            <TextInput
-              style={commonStyles.input}
-              placeholder="Enter your email"
-              placeholderTextColor="#999"
-              value={customerData.email}
-              onChangeText={(value) => handleInputChange("email", value)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+                {/* Birthday */}
+                <Text style={styles.inputLabel}>Birthday</Text>
+                <DateSelector
+                  value={customerData.birthday}
+                  placeholder="Select your birthday"
+                  style={commonStyles.input}
+                  isDisabled={true}
+                />
 
-            {/* Birthday */}
-            <Text style={styles.inputLabel}>Birthday</Text>
-            <DateSelector
-              value={customerData.birthday}
-              placeholder="Select your birthday"
-              style={commonStyles.input}
-              isDisabled={true}
-            />
+                {/* Phone */}
+                <Text style={styles.inputLabel}>Phone No</Text>
+                <TextInput
+                  style={[commonStyles.input, { backgroundColor: '#ddd', color: '#999' }]}
+                  placeholder="Phone number"
+                  placeholderTextColor="#999"
+                  value={customerData.phone}
+                  editable={false}
+                  selectTextOnFocus={false}
+                />
+              </>
+            )}
 
-            {/* Phone */}
-            <Text style={styles.inputLabel}>Phone No</Text>
-            <TextInput
-              style={[commonStyles.input, { backgroundColor: '#ddd', color: '#999', cursor: 'default' }]}
-              placeholder="Phone number"
-              placeholderTextColor="#999"
-              value={customerData.phone}
-              editable={false}
-              selectTextOnFocus={false}
-            />
-
-          </>
-        )}
-
-        {/* Update Button remains untouched */}
-        {Platform.OS === 'web' ? (
-          <div data-testid="update-profile-button" style={{ display: 'flex', justifyContent: 'center' }}>
             <PolygonButton
               text="Update Profile"
               width={180}
@@ -268,32 +268,25 @@ export default function UpdateProfile() {
               color="#C2000E"
               textColor="#fff"
               textStyle={{ fontSize: 22, fontWeight: 'bold' }}
-              style={{ marginTop: 20, alignSelf: 'center' }}
+              style={{ marginTop: 30, alignSelf: 'center' }}
             />
-          </div>
-        ) : (
-          <PolygonButton
-            text="Update Profile"
-            width={180}
-            height={40}
-            onPress={handleUpdateProfile}
-            color="#C2000E"
-            textColor="#fff"
-            textStyle={{ fontSize: 22, fontWeight: 'bold' }}
-            style={{ marginTop: 20, alignSelf: 'center' }}
-          />
-        )}
 
-        <View style={styles.loginContainer}>
-          <Text style={styles.loginText}>Please complete your profile to proceed. </Text>
-        </View>
-      </View>
+            <View style={styles.loginContainer}>
+              <Text style={styles.loginText}>Please complete your profile to proceed.</Text>
+            </View>
+          </View>
+        </ScrollView>
+
       </SafeAreaView>
     </ResponsiveBackground>
   );
 }
 
 const styles = {
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
   container: {
     flex: 1,
     backgroundColor: '#FEF2E2',

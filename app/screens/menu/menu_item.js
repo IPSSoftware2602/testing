@@ -275,7 +275,7 @@ export default function MenuItemScreen() {
         setQuantity(item.quantity);
         setVariationPrice(item?.variation?.price);
         //set note
-        setNote(item?.note || '');
+        setNote(item?.note || '').slice(0, 30);
       }
     };
     fetchCartItem();
@@ -627,6 +627,7 @@ export default function MenuItemScreen() {
       toast.show('Failed to add to cart', { type: 'error' });
     }
   };
+
   return (
     <ResponsiveBackground>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -738,6 +739,7 @@ export default function MenuItemScreen() {
               placeholderTextColor="#bbb"
               value={note}
               onChangeText={setNote}
+              maxLength={30}
             />
           </View>
           <View style={styles.separator} />

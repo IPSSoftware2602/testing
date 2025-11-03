@@ -66,26 +66,9 @@ export default function ItemDetailsScreen() {
             <Text style={styles.price}>RM {menuItem?.price || '-'}</Text>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Main raw materials</Text>
+              <Text style={styles.sectionTitle}>Description</Text>
               <Text style={styles.sectionContent}>{menuItem?.short_description || '-'}</Text>
             </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Detailed description</Text>
-              <Text style={styles.sectionContent}>{menuItem?.long_description || '-'}</Text>
-            </View>
-
-            {/* <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Meal portion size</Text>
-              <Text style={styles.sectionContent}>{menuItem?.long_description || '-'}</Text>
-            </View> */}
-
-            {/* <View style={styles.separator} />
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Other instructions</Text>
-              <Text style={styles.sectionContent}>{menuItem?.long_description || '-'}</Text>
-            </View> */}
           </View>
         </ScrollView>
       </SafeAreaView>

@@ -201,11 +201,11 @@ export default function PointsHistory() {
               <View style={{ width: '40%', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'flex-end', marginTop: 10 }}>
                 <TouchableOpacity style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
                   {customerData?.customer_point ? (
-                    <Text style={styles.pointsLabel}>  {customerData?.customer_point}</Text>
+                    <Text style={styles.pointsLabel}>{parseInt(customerData?.customer_point)}</Text>
                   ) : (
                     <Text style={styles.pointsLabel}>  888</Text>
                   )}
-                  <Text style={styles.pointsValue}>US beans</Text>
+                  <Text style={styles.pointsValue}>Sedap Points</Text>
                 </TouchableOpacity>
                 <Text style={styles.streakText}>Points details breakdown</Text>
               </View>
