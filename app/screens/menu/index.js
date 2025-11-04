@@ -598,12 +598,14 @@ export default function MenuScreen() {
               ? { uri: imageUrl + "tags/" + tag.icon_url }
               : require('../../../assets/icons/burger.png'),
           }));
+          // console.log(item);
 
           return {
             id: item.id,
             name: item.title,
             description: item.short_description,
             price: item.price,
+            discount_price: item.discount_price,
             image: imageUrlFull,
             categoryIds: (item.category_ids || []).map(id => String(id)),
             tags: mappedTags,
