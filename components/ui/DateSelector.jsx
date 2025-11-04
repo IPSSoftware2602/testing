@@ -134,59 +134,17 @@ const DateSelector = ({
 
   const renderPicker = () => {
     if (Platform.OS === 'android') {
-    return showPicker ? (
-      <Modal
-        visible={showPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowPicker(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            justifyContent: 'flex-end',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#fff',
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              padding: 20,
-            }}
-          >
-            <DateTimePicker
-              value={value ? new Date(value) : new Date()}
-              mode="date"
-              display="spinner"
-              onChange={(event, selectedDate) => {
-                if (event.type === 'set' && selectedDate) {
-                  onDateChange(selectedDate.toISOString().split('T')[0]);
-                }
-                setShowPicker(false);
-              }}
-              maximumDate={new Date()}
-              minimumDate={new Date(1900, 0, 1)}
-            />
-
-            <TouchableOpacity
-              onPress={() => setShowPicker(false)}
-              style={{
-                marginTop: 10,
-                backgroundColor: '#C2000E',
-                paddingVertical: 10,
-                borderRadius: 10,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    ) : null;
-  }
+      return showPicker ? (
+        <DateTimePicker
+          value={value || new Date()}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+          maximumDate={new Date()}
+          minimumDate={new Date(1900, 0, 1)}
+        />
+      ) : null;
+    }
     else {
       // iOS and Web - show in modal
       return (

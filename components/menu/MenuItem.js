@@ -72,7 +72,7 @@ const MenuItem = memo(({
             <View style={styles.menuPriceRow}>
               <View style={styles.menuOldPriceContainer}>
                 <Text style={styles.menuPrice}>RM {item.price}</Text>
-                <Text style={styles.menuPriceslash}>RM {item.price}</Text>
+                <Text style={styles.menuPriceslash}>RM {item.discount_price}</Text>
               </View>
               {item.is_available ? (
                 <PolygonButton

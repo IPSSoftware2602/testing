@@ -143,6 +143,7 @@ export default function Register() {
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
+            minHeight: Dimensions.get("window").height + 200,
             paddingBottom: Platform.select({
               ios: 120,    // extra scroll space for iOS Safari
               android: 100, // extra scroll space for Chrome Android

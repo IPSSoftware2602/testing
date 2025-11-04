@@ -144,9 +144,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   productNameContainer: {
-    minHeight: 24,
+    minHeight: 24, // Set a fixed height to prevent shifting
     justifyContent: 'center',
-    alignItems: 'center', 
+    alignItems: 'center', // Center the title horizontally
     paddingHorizontal: 2,
   },
   promoImage: {
