@@ -171,6 +171,7 @@ export default function VipCard() {
           <View style={styles.cardBenefit}>
             <Text style={styles.benefitTitle}>Be Our VIP – Unlock Ultra Rewards!</Text>
             <Text style={styles.benefitText}>Unlock RM300+ perks for only RM55/year – treat yourself all year long!</Text>
+              <Text style={styles.benefitTextPerk}>✨ Your VIP Perks:</Text>
             <View style={{ marginVertical: '1%' }}>
               {benefitList.map((item, index) => (
                 <View key={index} style={styles.cardBenefitList}>
@@ -185,7 +186,7 @@ export default function VipCard() {
               ))}
             </View>
             <View style={{ marginTop: '2%' }}>
-              <Text style={styles.benefitTextPerk}>All these ultra-sedap rewards for just RM55/year.<br />Don’t miss out—join the Ultra VIP Club today!</Text>
+              <Text style={styles.benefitTextPerk2}>All these ultra-sedap rewards for just RM55/year.<br />Don’t miss out—join the Ultra VIP Club today!</Text>
 
             </View>
           </View>
@@ -334,8 +335,15 @@ const styles = StyleSheet.create({
   benefitTextPerk: {
     fontSize: 15,
     fontFamily: 'Route159-Bold',
+    color: '#C2000E',
+    marginTop: '4%',
+    textAlign: 'flex-start',
+  },
+  benefitTextPerk2: {
+    fontSize: 15,
+    fontFamily: 'Route159-Bold',
     color: '#333333',
-    // marginBottom: '2%',
+    marginTop: '4%',
     textAlign: 'center',
   },
   benefit: {
