@@ -662,7 +662,9 @@ export default function MenuItemScreen() {
               })}
             />
             <View style={styles.priceRow}>
-              <Text style={styles.originalPrice}>RM {menuItem?.price || '0'}</Text>
+              {menuItem?.discount_price && (
+                <Text style={styles.originalPrice}>RM {menuItem.discount_price}</Text>
+              )}
               <Text style={styles.price}>RM {menuItem?.price || '0'}</Text>
             </View>
           </View>
