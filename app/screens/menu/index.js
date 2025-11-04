@@ -485,14 +485,20 @@ export default function MenuScreen() {
   );
 
   const renderCategoryItem = useCallback(({ item }) => (
-    <CategoryItem
-      item={item}
-      isActive={item.isActive}
-      onPress={listReady ? handleCategoryPressCallback : undefined} // 🔒 disable taps
-      disabled={!listReady}
-      style={disabledCategoryStyle}
-    />
-  ), [disabledCategoryStyle, handleCategoryPressCallback, listReady]);
+  <CategoryItem
+    item={item}
+    isActive={item.isActive}
+    onPress={listReady ? handleCategoryPressCallback : undefined} // Disable taps if the list is not ready
+    disabled={!listReady}
+    style={[
+      styles.categoryItem,
+      item.isActive && styles.categoryItemActive, // Apply active style
+    ]}
+    iconStyle={{
+      tintColor: item.isActive ? '#FFFFFF' : '#C2000E', // White when active, red otherwise
+    }}
+  />
+), [listReady, handleCategoryPressCallback]);
 
   const renderMenuItem = useCallback(({ item, index }) => {
     const isFirst = isFirstInCategory(menuItems, index, item.categoryIds?.[0]);
@@ -1039,7 +1045,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     marginBottom: 6,
-    // tintColor: '#C2000E',
+    tintColor: '#C2000E',
   },
   categoryLabel: {
     color: '#C2000E',
