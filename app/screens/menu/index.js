@@ -75,36 +75,62 @@ export default function MenuScreen() {
   //modal for confirm order type change
   const [confirmOrderTypeModalVisible, setConfirmOrderTypeModalVisible] = useState(false);
   const [pendingOrderType, setPendingOrderType] = useState(null);
-  const { order_type, outlet_id } = useLocalSearchParams();
+  const { orderType, outletId } = useLocalSearchParams();
+  const fromQR = !!orderType && !!outletId;
 
   useEffect(() => {
   const handleQR = async () => {
-    if (!order_type || !outlet_id) return;
+  if (!orderType || !outletId) return;
 
-    await checkoutClearStorage();
+  // console.log("QR scanned:", orderType, outletId);
+  await checkoutClearStorage();
 
-    await AsyncStorage.setItem("orderType", String(order_type));
-    await AsyncStorage.setItem(
-      "outletDetails",
-      JSON.stringify({ outletId: String(outlet_id) })
-    );
-    console.log("QR scanned:", order_type, outlet_id);
+  await AsyncStorage.setItem("orderType", String(orderType));
 
-    setSelectedOutlet({ outletId: String(outlet_id) });
+  try {
+    const token = await AsyncStorage.getItem("authToken");
+    const res = await axios.get(`${apiUrl}outlets/${outletId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const outlet = res.data?.result || res.data?.data || res.data;
 
-    fetchOutletInfo(outlet_id);
+    if (!outlet?.id) {
+      console.error("Outlet not found", res.data);
+      return;
+    }
 
-      const outletDetailsString = await AsyncStorage.getItem("outletDetails");
-      if (outletDetailsString) {
-        const outletDetails = JSON.parse(outletDetailsString);
-        if (order_type === "dinein" && outletDetails.isOperate === false) {
-          setShowDateTimePicker(true);
-        }
-      }
+    const outletObj = {
+      outletId: String(outlet.id),
+      outletTitle: outlet.title,
+      distanceFromUserLocation: outlet.distance_km ?? "0.00",
+      isOperate: outlet.operating_schedule
+        ? outlet.operating_schedule[new Date().toLocaleString("en-US", { weekday: "long" })]?.is_operated ?? true
+        : true,
+      operatingHours: outlet.operating_schedule ?? {},
     };
 
-    handleQR();
-  }, [order_type, outlet_id]);
+    await AsyncStorage.setItem("outletDetails", JSON.stringify(outletObj));
+    setSelectedOutlet(outletObj);
+
+    setTimeout(() => {
+      fetchMenuData({ resetList: true });
+    }, 200);
+
+    if (orderType === "dinein" && outletObj.isOperate === false) {
+      setShowDateTimePicker(true);
+    }
+
+    // console.log("✅ Outlet info fetched:", outletObj);
+  } catch (err) {
+    console.error("❌ Error fetching outlet info:", err.response?.data || err.message);
+  }
+};
+
+
+  handleQR();
+}, [orderType, outletId]);
+
+
 
 
   const fetchOutletInfo = async (id) => {
@@ -236,6 +262,7 @@ export default function MenuScreen() {
   useEffect(() => {
     const fetchOutletData = async () => {
       try {
+        if (fromQR) return;
         const outletDetails = await AsyncStorage.getItem('outletDetails');
         const estimatedTime = await AsyncStorage.getItem('estimatedTime');
         console.log(!estimatedTime);
@@ -263,7 +290,9 @@ export default function MenuScreen() {
           }
         }
         else {
-          router.push('/screens/home/outlet_select');
+          if (!outletDetails && !fromQR) {
+            router.push('/screens/home/outlet_select');
+          }
         }
       } catch (err) {
         console.log(err.response.data.message);
