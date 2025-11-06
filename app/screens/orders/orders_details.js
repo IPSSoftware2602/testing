@@ -346,7 +346,7 @@ const DeliveryStatus = ({ stage = "preparing", item, expected_ready_time }) => {
     },
     { stage: "picked_up", image: require('../../../assets/elements/home/home_pickup.png'), title: "Order Ready", subtitle: "Your order has been picked up by the driver" },
     {
-      stage: "confirmed", image: require('../../../assets/elements/order/pizza.png'), title: "Order Confirmed", subtitle: isScheduledOrder
+      stage: "confirmed", image: require('../../../assets/elements/order/pizza.png'), title: "Order Confirmed!", subtitle: isScheduledOrder
         ? `We will prepare your pizza fresh and have it ready at ${expected_ready_time}` : "Get ready... ultra sedap is coming your way!"
     },
     // { stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Pending Order", subtitle: "We will be preparing your order when its the time." },
@@ -423,7 +423,7 @@ const PickupStatus = ({ stage = "preparing", item, expected_ready_time }) => {
         : "Freshness in progress - just for you."
     },
     {
-      stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Order Confirmed", subtitle: isScheduledOrder
+      stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Order Confirmed!", subtitle: isScheduledOrder
         ? `We will prepare your pizza fresh and have it ready at ${expected_ready_time}` : "Get ready... ultra sedap is coming your way!"
     },
     { stage: "ready_to_pickup", image: require('../../../assets/elements/home/home_pickup.png'), title: "Ready for Pickup", subtitle: "Come grab your ultra sedapp Pizza!" },
@@ -476,9 +476,9 @@ const PickupStatus = ({ stage = "preparing", item, expected_ready_time }) => {
 const DineInStatus = ({ stage = "preparing", item, expected_ready_time }) => {
   const isScheduledOrder = item?.selected_date && item?.selected_time;
 
-  if (stage.toLocaleLowerCase() === "pending") {
-    stage = "preparing";
-  }
+  // if (stage.toLocaleLowerCase() === "pending") {
+  //   stage = "preparing";
+  // }
 
   const status = [
     { stage: "completed", image: require('../../../assets/elements/home/recharge_gift.png'), title: "Order Completed", subtitle: "Thank you for your support! Come back for more Ultra Sedap!" },
@@ -486,7 +486,7 @@ const DineInStatus = ({ stage = "preparing", item, expected_ready_time }) => {
       stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle:"Freshness in progress - just for you."
     },
     {
-      stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Order Confirmed", subtitle: "Get ready... ultra sedap is coming your way!"
+      stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Order Confirmed!", subtitle: "Get ready... ultra sedap is coming your way!"
     },
     { stage: "ready_to_serve", image: require('../../../assets/elements/home/home_pickup.png'), title: "Ready to Serve", subtitle: "Your pizza is ready to be served fresh & hot!" },
   ];
