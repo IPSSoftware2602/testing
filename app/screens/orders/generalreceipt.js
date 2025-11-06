@@ -69,25 +69,58 @@ export default function GeneralReceipt() {
     const token = await AsyncStorage.getItem('authToken');
     const customerData = await AsyncStorage.getItem('customerData');
     const customer_id = customerData ? JSON.parse(customerData).id : null;
-
     const downloadUrl = `${apiUrl}order/pdf/${orderId}/${customer_id}`;
+
     console.log('Starting PDF download from:', downloadUrl);
 
     if (Platform.OS === 'web') {
-      // detect iOS Safari
-      const isIOSWeb = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isIOSWeb =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
       if (isIOSWeb) {
-        // 🚀 Direct open for iOS Safari (fetch + blob triggers nothing)
-        window.open(downloadUrl, '_blank');
-
-        toast.show('Downloading Receipt...', {
-          type: 'custom_toast',
-          data: { title: '', status: 'success' },
+        // 🧠 Safari iOS workaround — fetch with headers, then share or open
+        const response = await fetch(downloadUrl, {
+          headers: { Authorization: `Bearer ${token}` },
         });
+
+        if (!response.ok) throw new Error('Download failed');
+
+        const blob = await response.blob();
+        const file = new File([blob], `USPizza_Receipt_${order.order_so}.pdf`, {
+          type: 'application/pdf',
+        });
+
+        if (navigator.share) {
+          // ✅ Use Web Share API if available (iOS 15+)
+          await navigator.share({
+            title: 'US PIZZA Receipt',
+            text: 'Here’s your receipt PDF',
+            files: [file],
+          });
+          toast.show('Receipt Downloaded successfully!', {
+            type: 'custom_toast',
+            data: { title: '', status: 'success' },
+          });
+        } else {
+          // 🪄 Fallback: open PDF inline
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const dataUrl = reader.result;
+            const newTab = window.open();
+            newTab.document.write(
+              `<iframe src="${dataUrl}" style="width:100%;height:100%;border:none;"></iframe>`
+            );
+          };
+          reader.readAsDataURL(blob);
+          toast.show('Receipt Downloaded successfully!', {
+            type: 'custom_toast',
+            data: { title: '', status: 'success' },
+          });
+        }
         return;
       }
 
+      // ✅ Normal browsers (Chrome, Edge, Desktop Safari, etc.)
       const response = await fetch(downloadUrl, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -102,7 +135,6 @@ export default function GeneralReceipt() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
       window.URL.revokeObjectURL(blobUrl);
 
       toast.show('PDF download started.', {
@@ -131,7 +163,7 @@ export default function GeneralReceipt() {
         reader.readAsDataURL(blob);
       });
 
-      // Save the file locally
+      // Save file locally
       const orderNumber = order.order_so || 'receipt';
       const fileName = `USPizza_Receipt_${orderNumber}.pdf`;
       const filePath = `${FileSystem.documentDirectory}${fileName}`;
@@ -145,7 +177,6 @@ export default function GeneralReceipt() {
       const fileInfo = await FileSystem.getInfoAsync(filePath);
       if (!fileInfo.exists) throw new Error('File was not saved successfully');
 
-      // ✅ Allow sharing / saving
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(filePath, {
@@ -153,11 +184,9 @@ export default function GeneralReceipt() {
           dialogTitle: 'Save Receipt PDF',
         });
       } else {
-        Alert.alert(
-          'Receipt Downloaded!',
-          `Saved as: ${fileName}`,
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Receipt Downloaded!', `Saved as: ${fileName}`, [
+          { text: 'OK' },
+        ]);
       }
     }
   } catch (err) {
@@ -167,6 +196,7 @@ export default function GeneralReceipt() {
     setDownloading(false);
   }
 };
+
 
 
   // Format currency
