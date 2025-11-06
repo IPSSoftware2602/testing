@@ -156,6 +156,9 @@ const OptionCard = React.memo(({
           <Text style={styles.optionPrice}>
             {item.price > 0 ? `+RM ${item.price.toFixed(2)}` : `RM ${item.price.toFixed(2)}`}
           </Text>
+          <Text style={styles.optionDiscountPrice}>
+            {item.discount_price > 0 ? `-RM ${item.discount_price.toFixed(2)}` : null}
+          </Text>
           <TouchableOpacity
             onPress={handlePress}
             activeOpacity={0.8}
@@ -275,7 +278,7 @@ export default function MenuItemScreen() {
         setQuantity(item.quantity);
         setVariationPrice(item?.variation?.price);
         //set note
-        setNote(item?.note || '').slice(0, 30);
+        item?.note !== '' ? setNote(item?.note).slice(0, 30) : setNote('');
       }
     };
     fetchCartItem();
@@ -469,6 +472,7 @@ export default function MenuItemScreen() {
           id: v.variation.id,
           name: v.variation.title,
           price: Number(v.variation.price),
+          discount_price: Number(v.variation.discount_price),
           image: v.variation.images || v.variation.images_compressed || '',
           tags: v.tags || []
         }))
@@ -478,6 +482,7 @@ export default function MenuItemScreen() {
         id: menuItem.variation.id,
         name: menuItem.variation.title,
         price: Number(menuItem.variation.price),
+        discount_price: Number(menuItem.variation.discount_price),
         image: '',
       }]);
     } else {
@@ -1054,6 +1059,13 @@ const styles = StyleSheet.create({
     color: '#C2000E',
     fontWeight: 'bold',
     fontFamily: 'Route159-SemiBoldItalic'
+  },
+  optionDiscountPrice: {
+    fontSize: 11,
+    color: '#999',
+    textDecorationLine: 'line-through',
+    fontFamily: 'Route159-SemiBoldItalic',
+    marginRight: 5
   },
   addButton: {
     width: width < 400 ? 16 : 28,  // Smaller on mobile (width < 400), normal on desktop
