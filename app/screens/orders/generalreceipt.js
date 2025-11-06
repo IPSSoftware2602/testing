@@ -56,147 +56,118 @@ export default function GeneralReceipt() {
 
   // 🔹 Handle Download PDF - Works on both web and mobile
   const handleDownload = async () => {
-    if (!order) return;
+  if (!order) return;
 
-    toast.show('Downloading your receipt...', {
-      type: 'custom_toast',
-      data: { title: '', status: 'success' }
-    });
+  toast.show('Preparing your receipt...', {
+    type: 'custom_toast',
+    data: { title: '', status: 'success' },
+  });
 
-    try {
-      setDownloading(true);
+  try {
+    setDownloading(true);
 
-      const token = await AsyncStorage.getItem('authToken');
-      const customer_id = await AsyncStorage.getItem('customerData') ?
-        JSON.parse(await AsyncStorage.getItem('customerData')).id : null;
+    const token = await AsyncStorage.getItem('authToken');
+    const customerData = await AsyncStorage.getItem('customerData');
+    const customer_id = customerData ? JSON.parse(customerData).id : null;
 
-      console.log('Starting PDF download...');
+    const downloadUrl = `${apiUrl}order/pdf/${orderId}/${customer_id}`;
+    console.log('Starting PDF download from:', downloadUrl);
 
-      // For web platform - use browser download
-      if (Platform.OS === 'web') {
-        const downloadUrl = `${apiUrl}order/pdf/${orderId}/${customer_id}`;
-        const response = await fetch(downloadUrl, {
-          headers: { 'Authorization': `Bearer ${token}` },
+    if (Platform.OS === 'web') {
+      // detect iOS Safari
+      const isIOSWeb = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+      if (isIOSWeb) {
+        // 🚀 Direct open for iOS Safari (fetch + blob triggers nothing)
+        window.open(downloadUrl, '_blank');
+
+        toast.show('Downloading Receipt...', {
+          type: 'custom_toast',
+          data: { title: '', status: 'success' },
         });
-
-        if (!response.ok) throw new Error('Download failed');
-
-        // Detect iPhone Safari specifically
-        const isIOSWeb = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-        if (isIOSWeb) {
-          // 🔹 Base64 workaround for iPhone Safari
-          const arrayBuffer = await response.arrayBuffer();
-          const base64String = btoa(
-            new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-          );
-          const dataUrl = `data:application/pdf;base64,${base64String}`;
-
-          const link = document.createElement('a');
-          link.href = dataUrl;
-          link.download = `USPizza_Receipt_${order.order_so}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-
-          Alert.alert(
-            'PDF Ready',
-            'Your receipt has been generated and saved as a file.',
-            [{ text: 'OK' }]
-          );
-        } else {
-          // 🔹 Normal browsers (Chrome, Edge, etc.)
-          const blob = await response.blob();
-          const blobUrl = window.URL.createObjectURL(blob);
-
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = `USPizza_Receipt_${order.order_so}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-
-          window.URL.revokeObjectURL(blobUrl);
-
-          Alert.alert(
-            'PDF Download Started',
-            'Your receipt PDF download has started.',
-            [{ text: 'OK' }]
-          );
-        }
-      }
-      else {
-        // For mobile platforms - use FileSystem
-        const response = await fetch(
-          `${apiUrl}order/pdf/${orderId}/${customer_id}`,
-          {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            }
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        // Get the PDF as blob
-        const blob = await response.blob();
-
-        if (blob.size === 0) {
-          throw new Error('Received empty PDF blob');
-        }
-
-        // Convert blob to base64
-        const base64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-
-        // Save file
-        const orderNumber = order.order_so || 'receipt';
-        const fileName = `USPizza_Receipt_${orderNumber}.pdf`;
-        const filePath = `${FileSystem.documentDirectory}${fileName}`;
-
-        await FileSystem.writeAsStringAsync(
-          filePath,
-          base64.split(',')[1],
-          { encoding: FileSystem.EncodingType.Base64 }
-        );
-
-        // Verify file was saved
-        const fileInfo = await FileSystem.getInfoAsync(filePath);
-
-        if (!fileInfo.exists) {
-          throw new Error('File was not saved successfully');
-        }
-
-        // Offer to share the file on mobile
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(filePath, {
-            mimeType: 'application/pdf',
-            dialogTitle: 'Save Receipt PDF',
-          });
-        } else {
-          Alert.alert(
-            'PDF Downloaded Successfully!',
-            `Receipt saved as: ${fileName}`,
-            [{ text: 'OK' }]
-          );
-        }
+        return;
       }
 
-    } catch (err) {
-      console.error('PDF download failed:', err);
-      Alert.alert('Error', `Failed to download PDF: ${err.message}`);
-    } finally {
-      setDownloading(false);
+      const response = await fetch(downloadUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Download failed');
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `USPizza_Receipt_${order.order_so}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      window.URL.revokeObjectURL(blobUrl);
+
+      toast.show('PDF download started.', {
+        type: 'custom_toast',
+        data: { title: '', status: 'success' },
+      });
+    } else {
+      // ✅ Native Mobile (Expo)
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      if (blob.size === 0) throw new Error('Received empty PDF blob');
+
+      // Convert blob → base64
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      // Save the file locally
+      const orderNumber = order.order_so || 'receipt';
+      const fileName = `USPizza_Receipt_${orderNumber}.pdf`;
+      const filePath = `${FileSystem.documentDirectory}${fileName}`;
+
+      await FileSystem.writeAsStringAsync(
+        filePath,
+        base64.split(',')[1],
+        { encoding: FileSystem.EncodingType.Base64 }
+      );
+
+      const fileInfo = await FileSystem.getInfoAsync(filePath);
+      if (!fileInfo.exists) throw new Error('File was not saved successfully');
+
+      // ✅ Allow sharing / saving
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(filePath, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Save Receipt PDF',
+        });
+      } else {
+        Alert.alert(
+          'Receipt Downloaded!',
+          `Saved as: ${fileName}`,
+          [{ text: 'OK' }]
+        );
+      }
     }
-  };
+  } catch (err) {
+    console.error('PDF download failed:', err);
+    Alert.alert('Error', `Failed to download PDF: ${err.message}`);
+  } finally {
+    setDownloading(false);
+  }
+};
+
 
   // Format currency
   const formatCurrency = (amount) => {
