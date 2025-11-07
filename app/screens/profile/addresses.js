@@ -117,7 +117,7 @@ export default function Addresses() {
             );
             const data = await response.data;
             if (data.status === 'success') {
-                console.log("Successful");
+                // console.log("Successful");
                 setDeleteAddressId(null);
                 setTimeout(() => {
                     router.replace('screens/home/address_select');
@@ -202,6 +202,13 @@ export default function Addresses() {
         </>
     )
 
+    const renderEmptyAddresses = () => (
+            <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No saved addresses found.</Text>
+                <Text style={styles.emptySubText}>Please add a delivery address to continue.</Text>
+            </View>
+        );
+
     return (
         <ResponsiveBackground>
             <SafeAreaView style={{ flex: 1, backgroundColor: '#FEF2E2' }}>
@@ -217,6 +224,7 @@ export default function Addresses() {
                         keyExtractor={item => item.id}
                         contentContainerStyle={styles.addressList}
                         renderItem={renderAddress}
+                        ListEmptyComponent={renderEmptyAddresses}
                         showsVerticalScrollIndicator={false}
                     />
                 </View>
@@ -407,6 +415,26 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
         includeFontPadding: false, // Removes extra font padding (Android)
         textAlignVertical: 'center'
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    emptyText: {
+        fontSize: 18,
+        fontFamily: 'Route159-Bold',
+        color: '#C2000E',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    emptySubText: {
+        fontSize: 14,
+        fontFamily: 'Route159-Regular',
+        color: '#666',
+        marginBottom: 20,
+        textAlign: 'center',
     },
 
 });

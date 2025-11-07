@@ -89,7 +89,7 @@ export default function PaymentSelectScreen() {
         const paymentMethod = await AsyncStorage.getItem('paymentMethod');
         const customerJson = await AsyncStorage.getItem('customerData');
         const customerData = customerJson ? JSON.parse(customerJson) : null;
-        console.log(customerData);
+        // console.log(customerData);
         setCustomerData(customerData);
         setSelectedMethod(paymentMethod);
       } catch (err) {

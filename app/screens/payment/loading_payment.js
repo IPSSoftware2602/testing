@@ -99,7 +99,7 @@ export default function LoadingPayment() {
                 }
 
                 // Handle successful response (status 200)
-                console.log(response.data);
+                // console.log(response.data);
                 if (response.data.status === 200 && response.data.result === "Success") {
                     // console.log(response.data.status, response.data.result);
 

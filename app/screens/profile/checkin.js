@@ -189,12 +189,12 @@ export default function Checkin() {
               <View style={styles.profileRow}>
                 {customerData && customerData.profile_picture ? (
                   <Image
-                    source={{ uri: `${customerData.profile_picture}` }}
+                    source={{ uri: `${customerData.profile_picture_url}` }}
                     style={styles.avatar}
                   />
                 ) : (
                   <Image
-                    source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=500' }}
+                    source={require('../../../assets/images/uspizza-icon.png')}
                     style={styles.avatar}
                   />
                 )}

@@ -35,10 +35,11 @@ const MenuItem = memo(({
       >
         <View style={styles.menuItem}>
           <View style={styles.menuImageContainer}>
+            
             <Image
               source={
                 item.image
-                  ? { uri: item.image }
+                  ? { uri: String(item.image) }
                   : require('../../assets/icons/burger.png')
               }
               style={styles.menuImage}

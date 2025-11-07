@@ -392,7 +392,7 @@ export default function OutletSelection() {
                                     uri: `${item.image.compressed_image_url || item.image.image_url
                                         }`,
                                 }
-                                : require("../../../assets/images/uspizza-icon.webp")
+                                : require("../../../assets/images/uspizza-icon.png")
                         }
                         style={styles.image}
                         resizeMode="cover"

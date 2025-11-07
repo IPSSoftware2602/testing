@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Text, TouchableOpacity, View, Modal, StyleSheet, Dimensions, Animated, Platform } from 'react-native';
 const { width } = Dimensions.get('window');
 const supportsNativeDriver = Platform.OS !== 'web';
@@ -12,23 +12,22 @@ export default function ConfirmationModal({
     onCancel,
     isVisible
 }) {
-    const scaleValue = new Animated.Value(0);
+    const scaleValue = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         if (isVisible) {
-            scaleValue.setValue(0.95);
+            scaleValue.setValue(0.9);
             Animated.spring(scaleValue, {
                 toValue: 1,
-                speed: 10,
+                speed: 18,
+                bounciness: 8,
                 useNativeDriver: supportsNativeDriver,
             }).start();
-        } else {
-            scaleValue.setValue(0);
         }
-    }, [isVisible]);
+    }, [isVisible, scaleValue]);
 
     return (
-        <Modal transparent visible={isVisible} animationType="fade">
+        <Modal transparent visible={!!isVisible} animationType="fade">
             <View style={styles.overlay}>
                 <Animated.View style={[styles.modalBox, { transform: [{ scale: scaleValue }] }]}>
                     <Text style={styles.title}>{title}</Text>

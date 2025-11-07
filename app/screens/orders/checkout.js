@@ -59,6 +59,21 @@ function getRandomItems(arr, count) {
   return shuffled.slice(0, count);
 }
 
+const voucherHasFreeItems = (voucher) => {
+  if (!voucher) return false;
+
+  if (voucher?.promo_settings?.promo_type === 'free_item') return true;
+
+  if (Array.isArray(voucher.free_items) && voucher.free_items.length > 0) return true;
+  if (voucher.free_items && typeof voucher.free_items === 'object') {
+    const flattened = Object.values(voucher.free_items).flat();
+    if (flattened.length > 0) return true;
+  }
+
+  return false;
+};
+
+
 const PaymentMethodButton = ({ selectedMethod, navigation, walletBalance }) => {
   const router = useRouter();
 
@@ -300,7 +315,6 @@ const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowD
           {vip || item.is_free_item === '1' ? null : (
             <TouchableOpacity
               onPress={() => {
-                console.log('🗑 Trash icon clicked — calling delete');
                 handleDelete(item);
               }}
               style={{ padding: 4 }} // Added padding for better touch area
@@ -375,6 +389,10 @@ export default function CheckoutScreen({ navigation }) {
   const [voucherToast, setVoucherToast] = useState(true);
   const [promoSettings, setPromoSettings] = useState(null);
   const [freeItemMaxQty, setFreeItemMaxQty] = useState(null);
+  const [pendingVoucherData, setPendingVoucherData] = useState(null);
+  const [showVoucherConfirmModal, setShowVoucherConfirmModal] = useState(false);
+  const [queuedSelectedVoucherJSON, setQueuedSelectedVoucherJSON] = useState(null);
+
 
   const { vip } = useLocalSearchParams();
 
@@ -384,7 +402,7 @@ export default function CheckoutScreen({ navigation }) {
     });
   }, []);
 
-  useEffect(() => {
+    useEffect(() => {
     const fetchPaymentMethod = async () => {
       try {
         const paymentMethod = await AsyncStorage.getItem('paymentMethod');
@@ -484,19 +502,124 @@ export default function CheckoutScreen({ navigation }) {
     });
   }, []);
 
-  useEffect(() => {
-    if (selectedVoucher) {
-      try {
-        const parsedVoucher = JSON.parse(selectedVoucher);
-        // console.log(parsedVoucher);
-        setVoucherCode(parsedVoucher.voucher_code);
-        setVoucherId(parsedVoucher.id ?? '');
-        setVoucherToApply(parsedVoucher.voucher_code);
-      } catch (err) {
-        console.error('Failed to parse voucher param:', err);
-      }
+  const preCheckVoucherType = async (voucherId, voucherCode) => {
+  if (!customerId || !cartData?.id || !cartData?.outlet_id || !orderType) {
+    // console.log('🔒 preCheckVoucherType blocked — missing prereqs');
+    return false;
+  }
+
+  const token = (await AsyncStorage.getItem('authToken')) || '';
+
+  try {
+    const res = await axios.post(
+      `${apiUrl}redeem-voucher/${customerId}`,
+      {
+        promo_code: voucherId ? '' : (voucherCode || '').trim(),
+        voucher_id: voucherId || '',
+        cart_id: parseInt(cartData.id),
+        outlet_id: parseInt(cartData.outlet_id),
+        order_type: orderType
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    const data = res.data?.data || {};
+    const hasFreeItems =
+      (Array.isArray(data.free_items) && data.free_items.length > 0) ||
+      data?.promo_settings?.promo_type === 'free_item';
+
+    if (hasFreeItems) {
+      await handleRemoveVoucher(); // cleanup dry run
     }
-  }, [selectedVoucher]);
+
+    return hasFreeItems;
+  } catch (err) {
+    console.warn('⚠️ Voucher pre-check failed:', err?.response?.data || err.message);
+    return false;
+  }
+};
+
+const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
+  try {
+    const parsedVoucher = JSON.parse(selectedVoucherJSON);
+    const code = parsedVoucher.voucher_code || '';
+    const triggerToken = code || String(parsedVoucher.id ?? '');
+
+    setVoucherCode(code);
+    setVoucherId(parsedVoucher.id ?? '');
+    hasAppliedPromo.current = false;
+
+    if (!customerId || !cartData?.id || !cartData?.outlet_id || !orderType) {
+      // console.log('⏳ Waiting for prerequisites before pre-check…');
+      return;
+    }
+
+    const hasFreeItems = await preCheckVoucherType(parsedVoucher.id, code);
+
+    if (hasFreeItems) {
+      // console.log('🟢 Free-item voucher detected — applying directly');
+      setVoucherToApply(triggerToken);
+      setPendingVoucherData(null);
+      setShowVoucherConfirmModal(false);
+    } else {
+      // console.log('🟡 Normal voucher detected — showing confirmation');
+      setPendingVoucherData({ ...parsedVoucher, triggerToken });
+      setVoucherToApply(null);
+      setShowVoucherConfirmModal(true);
+    }
+  } catch (err) {
+    console.error('❌ processSelectedVoucher error:', err);
+  }
+}, [customerId, cartData?.id, cartData?.outlet_id, orderType]);
+
+
+  useEffect(() => {
+    if (!selectedVoucher) return;
+
+    setQueuedSelectedVoucherJSON(selectedVoucher);
+
+    if (typeof router?.setParams === 'function') {
+      router.setParams({ selectedVoucher: undefined });
+    }
+  }, [selectedVoucher, router]);
+
+  useEffect(() => {
+  if (!queuedSelectedVoucherJSON) return;
+  if (!customerId || !cartData?.id || !cartData?.outlet_id || !orderType) return;
+
+  processSelectedVoucher(queuedSelectedVoucherJSON);
+}, [queuedSelectedVoucherJSON, customerId, cartData?.id, cartData?.outlet_id, orderType, processSelectedVoucher]);
+
+
+
+  const handleConfirmVoucherModal = useCallback(() => {
+    if (!pendingVoucherData) return;
+
+    setShowVoucherConfirmModal(false);
+    hasAppliedPromo.current = false;
+    setVoucherToApply(
+      pendingVoucherData.triggerToken ||
+        pendingVoucherData.voucher_code ||
+        String(pendingVoucherData.id ?? '')
+    );
+    setPendingVoucherData(null);
+  }, [pendingVoucherData]);
+
+  const handleCancelVoucherModal = useCallback(() => {
+    setShowVoucherConfirmModal(false);
+    setPendingVoucherData(null);
+    setVoucherCode('');
+    setVoucherId('');
+    setVoucherToApply(null);
+  }, []);
+
+  useEffect(() => {
+  if (!voucherToApply || !cartData || hasAppliedPromo.current) return;
+
+  handleApplyVoucher();
+  hasAppliedPromo.current = true;
+  setVoucherToApply(null);
+}, [voucherToApply, cartData]);
 
   const handleRemoveVoucher = async () => {
     const token = await AsyncStorage.getItem('authToken') || '';
@@ -723,7 +846,7 @@ export default function CheckoutScreen({ navigation }) {
       quantity: 1,
       is_pwp: true,
     };
-    console.log('freeee', payload);
+    // console.log('freeee', payload);
 
     try {
       const response = await axios.post(`${apiUrl}cart/add`, payload, {
@@ -938,118 +1061,130 @@ export default function CheckoutScreen({ navigation }) {
   };
 
   const handleApplyVoucher = async () => {
-    const token = (await AsyncStorage.getItem('authToken')) || '';
+  const token = (await AsyncStorage.getItem('authToken')) || '';
 
-    if (applyingVoucher) return;
+  if (applyingVoucher) return;
 
-    const code = voucherId ? '' : (voucherCode || '').trim();
-    if (!voucherId && !code) {
-      toast.show('Please enter a voucher code.', {
+  // ✅ Always prioritize new voucher from URL param if available
+  const newVoucherCode = voucherToApply || voucherCode;
+  const code = voucherId ? '' : (newVoucherCode || '').trim();
+
+  if (!voucherId && !code) {
+    toast.show('Please enter a voucher code.', {
+      type: 'custom_toast',
+      data: { title: '', status: 'warning' }
+    });
+    return;
+  }
+  if (!cartData) {
+    toast.show('Please wait a moment.', {
+      type: 'custom_toast',
+      data: { title: '', status: 'info' }
+    });
+    return;
+  }
+
+  setApplyingVoucher(true);
+
+  try {
+    if (voucherCode) {
+      console.log('Removing old voucher:', voucherCode);
+      await handleRemoveVoucher();
+
+      // ✅ Wait a moment to ensure backend fully updates before applying new one
+      await new Promise((r) => setTimeout(r, 300));
+
+      setVoucherCode('');
+    }
+
+    console.log('Applying new voucher:', code || voucherId);
+    const res = await axios.post(
+      `${apiUrl}redeem-voucher/${customerId}`,
+      {
+        promo_code: voucherId ? '' : code,
+        voucher_id: voucherId || '',
+        cart_id: parseInt(cartData.id),
+        outlet_id: parseInt(cartData.outlet_id),
+        order_type: orderType
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    if (res.data.status === 400 || res.data.data?.status === 400) {
+      const message = res.data.result || res.data.message;
+      toast.show(message, {
         type: 'custom_toast',
-        data: { title: '', status: 'warning' }
+        data: { title: 'Failed to apply voucher', status: 'warning' }
       });
+      setVoucherCode('');
+      setVoucherToApply(null);
       return;
     }
-    if (!cartData) {
-      toast.show('Please wait a moment.', {
-        type: 'custom_toast',
-        data: { title: '', status: 'info' }
-      });
-      return;
-    }
 
-    setApplyingVoucher(true);
-    try {
-      const res = await axios.post(
-        `${apiUrl}redeem-voucher/${customerId}`,
-        {
-          promo_code: voucherId ? '' : code,
-          voucher_id: voucherId || '',
-          cart_id: parseInt(cartData.id),
-          outlet_id: parseInt(cartData.outlet_id),
-          order_type: orderType
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    if (res.data.status === 200) {
+      // console.log('New voucher applied successfully:', code || voucherId);
+      const promoSettings = res.data.data.promo_settings;
+      setPromoSettings(promoSettings);
 
-      if (res.data.status === 400 || res.data.data.status === 400) {
-        const message = res.data.result;
-        toast.show(message, {
-          type: 'custom_toast',
-          data: { title: 'Fail to apply voucher', status: 'warning' }
-        });
-        setVoucherCode('');
-        setVoucherToApply(null);
-        return;
+      if (promoSettings?.promo_type === "free_item" && promoSettings?.amount) {
+        await AsyncStorage.setItem("freeItemMaxQuantity", String(promoSettings.amount));
       }
 
-      if (res.data.status === 200) {
-        // Extract promo settings from the response
-        const promoSettings = res.data.data.promo_settings;
-        setPromoSettings(promoSettings);
+      let items = [];
+      const freeItemsData = res.data.data.free_items;
 
-        if (promoSettings?.promo_type === "free_item" && promoSettings?.amount) {
-          await AsyncStorage.setItem("freeItemMaxQuantity", String(promoSettings.amount));
-        }
-        // console.log('Promo Settings:', promoSettings);
+      if (Array.isArray(freeItemsData)) {
+        items = freeItemsData;
+      } else if (typeof freeItemsData === "object" && freeItemsData !== null) {
+        items = Object.values(freeItemsData).flat();
+      }
 
-        // Check if backend returned free items to choose from
-        let items = [];
-          const freeItemsData = res.data.data.free_items;
-
-          if (Array.isArray(freeItemsData)) {
-            // Case 1: Already array
-            items = freeItemsData;
-          } else if (typeof freeItemsData === "object" && freeItemsData !== null) {
-            // Case 2: Object keyed by category → flatten values
-            items = Object.values(freeItemsData).flat();
-          }
-
-          if (items.length > 0) {
-            const normalized = items.map(it => ({
-              id: String(it.id),
-              variation_id: String(it.variation_id),
-              title: it.title,
-              image:
-                Array.isArray(it.image_url) && it.image_url[0]?.image_url
-                  ? it.image_url[0].image_url
-                  : undefined
-            }));
-            setFreeItems(normalized);
-            setSelectedFreeItemId(normalized[0]?.id || null);
-            setShowFreeItemsModal(true);
-            console.log('Promo Settings:', promoSettings);
-          } else {
-            await refreshCartData();
-
-            if (voucherToast && (cartData?.order_summary?.promo_code || cartData?.order_summary?.voucher_code) !== "") {
-              toast.show('Voucher applied successfully!', {
-                type: 'custom_toast',
-                data: { title: '', status: 'success' }
-              });
-              setVoucherToast(false);
-            }
-          }
+      if (items.length > 0) {
+        const normalized = items.map(it => ({
+          id: String(it.id),
+          variation_id: String(it.variation_id),
+          title: it.title,
+          image:
+            Array.isArray(it.image_url) && it.image_url[0]?.image_url
+              ? it.image_url[0].image_url
+              : undefined
+        }));
+        setFreeItems(normalized);
+        setSelectedFreeItemId(normalized[0]?.id || null);
+        setShowFreeItemsModal(true);
       } else {
-        toast.show(res.data.message || 'Failed to apply voucher.', {
-          type: 'custom_toast',
-          data: { title: '', status: 'warning' }
-        });
+        setVoucherCode(code); // ✅ use the new one from param
+        await refreshCartData();
+
+        if (voucherToast && (cartData?.order_summary?.promo_code || cartData?.order_summary?.voucher_code) !== "") {
+          toast.show('Voucher applied successfully!', {
+            type: 'custom_toast',
+            data: { title: '', status: 'success' }
+          });
+          setVoucherToast(false);
+        }
       }
-    } catch (err) {
-      console.error('Promo apply error:', err?.response?.data || err.message);
-      const msg =
-        err?.response?.data?.messages?.error ||
-        err?.response?.data?.message ||
-        'Something went wrong. Try again.';
-      toast.show(msg, {
+    } else {
+      toast.show(res.data.message || 'Failed to apply voucher.', {
         type: 'custom_toast',
         data: { title: '', status: 'warning' }
       });
-    } finally {
-      setApplyingVoucher(false);
     }
-  };
+  } catch (err) {
+    console.error('Promo apply error:', err?.response?.data || err.message);
+    const msg =
+      err?.response?.data?.messages?.error ||
+      err?.response?.data?.message ||
+      'Something went wrong. Try again.';
+    toast.show(msg, {
+      type: 'custom_toast',
+      data: { title: '', status: 'warning' }
+    });
+  } finally {
+    setApplyingVoucher(false);
+  }
+};
+
 
   const formatEstimatedTime = (estimatedTime) => {
 
@@ -1085,13 +1220,13 @@ export default function CheckoutScreen({ navigation }) {
       quantity: 1,
       is_free_item: 1,
     };
-    console.log('freeee', payload);
+    // console.log('freeee', payload);
 
     try {
       const response = await axios.post(`${apiUrl}cart/add`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      console.log(response);
+      // console.log(response);
 
       if (response.data.status === 200) {
         toast.show('Item added to cart', {
@@ -1164,7 +1299,7 @@ export default function CheckoutScreen({ navigation }) {
                 }}
                 onPress={() => {
                   setShowFreeItemsModal(false);
-                  console.log(item);
+                  // console.log(item);
                   handleAddFreeItemToCart(item);
                 }}
               >
@@ -1500,6 +1635,15 @@ export default function CheckoutScreen({ navigation }) {
           }}
           onCancel={() => setShowDeleteModal(false)}
           isVisible={showDeleteModal}
+        />
+
+         <ConfirmationModal
+          title={"Apply Voucher?"}
+          subtitle={"Are you sure you want to apply this voucher? If yes, your store discount will be removed."}
+          confirmationText={"Apply"}
+          onConfirm={handleConfirmVoucherModal}
+          onCancel={handleCancelVoucherModal}
+          isVisible={showVoucherConfirmModal}
         />
 
         {showPaymentScreen && (

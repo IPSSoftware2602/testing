@@ -93,7 +93,7 @@ export default function StudentCardActivation() {
                         studentIdPicture.name ||
                         "student_id.jpg",
                 };
-                console.log("Normalized file:", normalizedFile);
+                // console.log("Normalized file:", normalizedFile);
                 formData.append("profile_picture", normalizedFile);
             }
         }
@@ -102,10 +102,6 @@ export default function StudentCardActivation() {
         formData.append("studentId", studentId);
         formData.append("institution", institution);
         formData.append("graduationDate", graduationDate);
-
-        for (let pair of formData.entries()) {
-            console.log(pair[0], pair[1]);
-        }
 
         try {
             const response = await axios.post(
@@ -120,7 +116,7 @@ export default function StudentCardActivation() {
             );
 
             const updateProfileData = await response.data;
-            console.log(updateProfileData);
+            // console.log(updateProfileData);
 
             if (updateProfileData.status === "success") {
                 toast.show("Student Card successfully submitted", {

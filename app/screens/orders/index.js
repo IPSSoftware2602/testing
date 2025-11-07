@@ -254,9 +254,17 @@ export default function Orders() {
         <TopNavigation title="MY ORDER" isBackButton={false} />
         {/* Tabs */}
         <View style={styles.tabsRow}>
-          {TABS.map(tab =>
-            tab.key === activeTab ? (
-              <View key={tab.key} style={styles.tabContainer}>
+          {TABS.map(tab => (
+            <View
+              key={tab.key}
+              style={[
+                styles.tabContainer,
+                {
+                  transform: [{ translateY: tab.key === activeTab ? 0 : 3 }], // inactive tabs sit slightly lower
+                },
+              ]}
+            >
+              {tab.key === activeTab ? (
                 <PolygonButton
                   text={tab.label}
                   width={90}
@@ -265,14 +273,19 @@ export default function Orders() {
                   textColor="#fff"
                   textStyle={{ fontWeight: 'bold', fontSize: 16 }}
                 />
-              </View>
-            ) : (
-              <TouchableOpacity key={tab.key} style={styles.tabContainer} onPress={() => setActiveTab(tab.key)}>
-                <Text style={[styles.tabBtn, styles.tabBtnInactive]}>{tab.label}</Text>
-              </TouchableOpacity>
-            )
-          )}
+              ) : (
+                <TouchableOpacity
+                  style={{ justifyContent: 'center', alignItems: 'center' }}
+                  onPress={() => setActiveTab(tab.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.tabBtn, styles.tabBtnInactive]}>{tab.label}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
         </View>
+
         {/* Orders List */}
         <View style={[commonStyles.container, commonStyles.containerStyle]}>
           <FlatList
@@ -318,6 +331,7 @@ const styles = StyleSheet.create({
     width: 120,
     alignItems: 'center',
     justifyContent: 'center',
+    height: 50,
   },
   tabBtnInactive: {
     backgroundColor: '#fff',

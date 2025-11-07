@@ -152,11 +152,6 @@ export default function UpdateProfile() {
     formData.append("email", customerData.email || "");
     formData.append("birthday", customerData.birthday || "");
 
-    // Debug
-    for (let pair of formData.entries()) {
-      console.log(pair[0], pair[1]);
-    }
-
     try {
       const response = await axios.post(
         `${apiUrl}update-profile/${customerData.id}`,
@@ -170,7 +165,7 @@ export default function UpdateProfile() {
       );
 
       const updateProfileData = response.data;
-      console.log(updateProfileData);
+      // console.log(updateProfileData);
 
       if (updateProfileData.status === "success") {
         await AsyncStorage.setItem(

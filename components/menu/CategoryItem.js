@@ -8,7 +8,8 @@ const CategoryItem = memo(({
   isActive, 
   onPress,
   disabled = false,
-  style
+  style,
+  iconStyle,
 }) => {
   const handlePress = () => {
     if (disabled || !onPress) {
@@ -29,8 +30,13 @@ const CategoryItem = memo(({
       disabled={disabled}
     >
       <Image
+        key={`${item.key}-${isActive}`}
         source={item.icon}
-        style={styles.categoryIcon}
+        style={[
+          styles.categoryIcon,
+          iconStyle,
+          { tintColor: isActive ? '#FFFFFF' : '#C2000E', opacity: 0.99 },
+        ]}
       />
       <Text
         style={[

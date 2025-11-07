@@ -122,8 +122,8 @@ export const commonStyles = StyleSheet.create({
     ? height * 0.18
     : width <= 425
     ? Platform.OS === 'android'
-      ? height * 0.18
-      : height * 0.18
+      ? height * 0.16
+      : Platform.OS === 'ios' ? height * 0.12 : height * 0.18
     : width > 440
     ? height * 0.14
     : height * 0.15,

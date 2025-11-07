@@ -208,7 +208,6 @@ export default function TopupWalletScreen() {
         await AsyncStorage.removeItem('paymentMethod');
 
         const redirectUrl = res.data.redirect_url;
-        console.log("Redirect URL:", redirectUrl);
         if (redirectUrl) {
           if (Platform.OS === 'web') {
             // Web solution

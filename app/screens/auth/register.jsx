@@ -105,7 +105,6 @@ export default function Register() {
         }
       );
       const updateProfileData = await response.data;
-      console.log(updateProfileData);
 
       if (updateProfileData.status === "success") {
         const jsonCustomerData = JSON.stringify(updateProfileData.data);

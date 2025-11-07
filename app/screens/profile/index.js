@@ -188,7 +188,7 @@ export default function Profile() {
                     />
                   ) : (
                     <Image
-                      source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=500' }}
+                      source={require('../../../assets/images/uspizza-icon.png')}
                       style={styles.avatar}
                     />
                   )}

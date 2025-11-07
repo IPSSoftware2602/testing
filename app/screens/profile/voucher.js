@@ -178,7 +178,6 @@ export default function VoucherSelectScreen() {
 
                 const voucherData = await response.data;
                 setVoucherData(voucherData.data);
-                console.log(voucherData.data);
 
             } catch (err) {
                 console.log(err);

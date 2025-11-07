@@ -72,75 +72,149 @@ export default function MenuScreen() {
   const [customer, setCustomer] = useState('');
   const isProgrammaticScroll = useRef(false);
   const [listReady, setListReady] = useState(false);
+  // Scroll position preservation
+  const scrollOffsetRef = useRef(0);
+  const shouldRestoreScrollRef = useRef(false);
   //modal for confirm order type change
   const [confirmOrderTypeModalVisible, setConfirmOrderTypeModalVisible] = useState(false);
   const [pendingOrderType, setPendingOrderType] = useState(null);
-  const { order_type, outlet_id } = useLocalSearchParams();
+  const { orderType, outletId } = useLocalSearchParams();
+  const fromQR = !!orderType && !!outletId;
+
+  const fetchMenuData = useCallback(
+    async ({ resetList = false } = {}) => {
+      if (!selectedOutlet?.outletId) return;
+
+      try {
+        const shouldResetList = resetList && !isWeb && !shouldRestoreScrollRef.current;
+        if (shouldResetList) {
+          categoryLockRef.current = false;
+          isProgrammaticScroll.current = false;
+          setCategoryLock(false);
+          setListReady(false);
+          scrollOffsetRef.current = 0;
+
+          requestAnimationFrame(() => {
+            categoryListRef.current?.scrollToOffset({ offset: 0, animated: false });
+            menuListRef.current?.scrollToOffset({ offset: 0, animated: false });
+          });
+        }
+
+        const token = await AsyncStorage.getItem('authToken');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}`, { headers });
+
+        const fetchedCategories = (response.data.Categories || []).map(cat => ({
+          key: String(cat.id),
+          label: cat.title,
+          icon: cat.image_url
+            ? { uri: imageUrl + "menu_categories/" + String(cat.image_url) }
+            : require('../../../assets/icons/burger.png'),
+        }));
+        setCategories(fetchedCategories);
+
+        const fetchedItems = (response.data.Items || []).map(item => {
+          const rawImageUrl = item.images && item.images.length > 0 ? item.images[0].image_url : null;
+          const imageUrlFull = rawImageUrl
+            ? (String(rawImageUrl).startsWith('http')
+              ? String(rawImageUrl)
+              : imageUrl + 'menu_images/' + String(rawImageUrl))
+            : null;
+
+          const mappedTags = (item.tags || []).map(tag => ({
+            id: tag.id,
+            title: tag.title,
+            icon: tag.icon_url
+              ? { uri: String(tag.icon_url).startsWith('http') ? String(tag.icon_url) : imageUrl + 'tags/' + String(tag.icon_url) }
+              : require('../../../assets/icons/burger.png'),
+          }));
+
+          return {
+            id: item.id,
+            name: item.title,
+            description: item.short_description,
+            price: item.price,
+            discount_price: item.discount_price,
+            image: imageUrlFull,
+            categoryIds: (item.category_ids || []).map(id => String(id)),
+            tags: mappedTags,
+            is_available: item.is_available,
+            membership_tier: item.membership_tier,
+          };
+        });
+        setMenuItems(fetchedItems);
+        setListReady(fetchedItems.length > 0);
+
+        if (fetchedCategories.length > 0) {
+          setActiveCategory(prev => {
+            const prevKey = prev != null ? String(prev) : '';
+            if (prevKey && fetchedCategories.some(cat => cat.key === prevKey)) {
+              return prevKey;
+            }
+            return fetchedCategories[0].key;
+          });
+        } else {
+          setActiveCategory('');
+        }
+      } catch (_err) {
+        setListReady(menuItemsRef.current.length > 0);
+      }
+    },
+    [selectedOutlet?.outletId]
+  );
 
   useEffect(() => {
   const handleQR = async () => {
-    if (!order_type || !outlet_id) return;
+  if (!orderType || !outletId) return;
 
-    await checkoutClearStorage();
+  await checkoutClearStorage();
 
-    await AsyncStorage.setItem("orderType", String(order_type));
-    await AsyncStorage.setItem(
-      "outletDetails",
-      JSON.stringify({ outletId: String(outlet_id) })
-    );
-    console.log("QR scanned:", order_type, outlet_id);
+  await AsyncStorage.setItem("orderType", String(orderType));
 
-    setSelectedOutlet({ outletId: String(outlet_id) });
+  try {
+    const token = await AsyncStorage.getItem("authToken");
+    const res = await axios.get(`${apiUrl}outlets/${outletId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const outlet = res.data?.result || res.data?.data || res.data;
 
-    fetchOutletInfo(outlet_id);
+    if (!outlet?.id) {
+      return;
+    }
 
-      const outletDetailsString = await AsyncStorage.getItem("outletDetails");
-      if (outletDetailsString) {
-        const outletDetails = JSON.parse(outletDetailsString);
-        if (order_type === "dinein" && outletDetails.isOperate === false) {
-          setShowDateTimePicker(true);
-        }
-      }
+    const outletObj = {
+      outletId: String(outlet.id),
+      outletTitle: outlet.title,
+      distanceFromUserLocation: outlet.distance_km ?? "0.00",
+      isOperate: outlet.operating_schedule
+        ? outlet.operating_schedule[new Date().toLocaleString("en-US", { weekday: "long" })]?.is_operated ?? true
+        : true,
+      operatingHours: outlet.operating_schedule ?? {},
     };
 
-    handleQR();
-  }, [order_type, outlet_id]);
+    await AsyncStorage.setItem("outletDetails", JSON.stringify(outletObj));
+    setSelectedOutlet(outletObj);
 
+    setTimeout(() => {
+      fetchMenuData({ resetList: true });
+    }, 200);
 
-  const fetchOutletInfo = async (id) => {
-    try {
-      const token = await AsyncStorage.getItem("authToken");
-
-      const res = await axios.get(`${apiUrl}outlets/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      if (res.data?.status === 200) {
-        const outlet = res.data.data;
-
-        const outletObj = {
-          outletId: String(outlet.id),
-          outletTitle: outlet.title,
-          distanceFromUserLocation: outlet.distance_km ?? "0.00",
-          isOperate: outlet.is_operated ?? true
-        };
-
-        await AsyncStorage.setItem("outletDetails", JSON.stringify(outletObj));
-        setSelectedOutlet(outletObj);
-
-        const orderType = await AsyncStorage.getItem("orderType");
-        if (orderType === "dinein" && outletObj.isOperate === false) {
-          setShowDateTimePicker(true);
-        }
-
-        console.log("Outlet info:", outletObj);
-      }
-    } catch (err) {
-      console.log("error:", err?.response?.data || err.message);
+    if (orderType === "dinein" && outletObj.isOperate === false) {
+      setShowDateTimePicker(true);
     }
-  };
+
+  } catch (_err) {
+  }
+};
+
+
+  handleQR();
+}, [orderType, outletId, fetchMenuData]);
+
+
+
+
+
 
 
 
@@ -190,8 +264,7 @@ export default function MenuScreen() {
     try {
       await AsyncStorage.setItem('orderType', orderType);
     }
-    catch (err) {
-      console.log(err.response.data.message);
+    catch (_err) {
     }
   }
 
@@ -228,17 +301,16 @@ export default function MenuScreen() {
     try {
       await AsyncStorage.setItem('estimatedTime', JSON.stringify(estimatedTimeDetail));
     }
-    catch (err) {
-      console.log(err.response.data.message);
+    catch (_err) {
     }
   }
 
   useEffect(() => {
     const fetchOutletData = async () => {
       try {
+        if (fromQR) return;
         const outletDetails = await AsyncStorage.getItem('outletDetails');
         const estimatedTime = await AsyncStorage.getItem('estimatedTime');
-        console.log(!estimatedTime);
         let is_over = false;
         //check now over estimated time
         if (estimatedTime) {
@@ -251,22 +323,16 @@ export default function MenuScreen() {
         }
         if (outletDetails) {
           const parsedOutletDetails = JSON.parse(outletDetails);
-          console.log(parsedOutletDetails);
-          if (parsedOutletDetails.isHQ === undefined) {
-            // console.log(outletDetails.outletId); 
-            setSelectedOutlet(parsedOutletDetails);
-            if ((activeOrderType !== "dinein" && !estimatedTime) || is_over) {
-              setShowDateTimePicker(true);
-            }
-          } else {
-            router.push('/');
+          setSelectedOutlet(parsedOutletDetails);
+          if ((activeOrderType !== "dinein" && !estimatedTime) || is_over) {
+            setShowDateTimePicker(true);
+          }
+        } else {
+          if (!outletDetails && !fromQR) {
+            router.push('/screens/home/outlet_select');
           }
         }
-        else {
-          router.push('/screens/home/outlet_select');
-        }
-      } catch (err) {
-        console.log(err.response.data.message);
+      } catch (_err) {
       }
     }
     fetchOutletData();
@@ -283,8 +349,7 @@ export default function MenuScreen() {
         else {
           setSelectedDateTime("ASAP");
         }
-      } catch (err) {
-        console.log(err?.response?.data?.message);
+      } catch (_err) {
       }
     }
     fetchEstimatedTime();
@@ -300,21 +365,19 @@ export default function MenuScreen() {
         else if (!deliveryAddressDetails && activeOrderType === "delivery") {
           router.push('/screens/home/address_select');
         }
-      } catch (err) {
-        console.log(err.response.data.message);
+      } catch (_err) {
       }
     }
     fetchAddressData();
 
-  }, [router, activeOrderType, selectedDateTime])
+  }, [router, activeOrderType, selectedDateTime, fromQR])
 
   useEffect(() => {
     const fetchOrderType = async () => {
       try {
         const orderType = await AsyncStorage.getItem('orderType');
         setActiveOrderType(orderType);
-      } catch (err) {
-        console.log(err.response.data.message);
+      } catch (_err) {
       }
     }
     fetchOrderType();
@@ -381,8 +444,17 @@ export default function MenuScreen() {
     return !items[index - 1].categoryIds?.includes(activeCat);
   }, []);
 
+  // Track scroll position
+  const handleScroll = useCallback((event) => {
+    if (!isProgrammaticScroll.current) {
+      scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+    }
+  }, []);
+
   // Memoized callback functions to prevent recreation on every render
   const handleMenuItemPress = useCallback((itemId) => {
+    // Mark that we should restore scroll position when returning
+    shouldRestoreScrollRef.current = true;
     router.push({
       pathname: '/screens/menu/menu_item',
       params: { id: itemId },
@@ -418,8 +490,7 @@ export default function MenuScreen() {
           viewPosition: 0.5,
           animated: true,
         });
-      } catch (err) {
-        // soft fallback
+      } catch (_err) {
         categoryListRef.current.scrollToOffset({
           offset: Math.max(0, catIdx * 90 - 90),
           animated: true,
@@ -443,12 +514,10 @@ export default function MenuScreen() {
           viewPosition: 0,      // align the category title at the top
           viewOffset: 0,
         });
-      } catch (err) {
-        // If not measured yet, do an approximate offset first…
+      } catch (_err) {
         const roughOffset = Math.max(0, index * APPROX_ITEM_HEIGHT - APPROX_ITEM_HEIGHT);
         menuListRef.current.scrollToOffset({ offset: roughOffset, animated: false });
 
-        // …then retry the precise jump shortly after
         setTimeout(() => {
           try {
             menuListRef.current.scrollToIndex({
@@ -456,8 +525,9 @@ export default function MenuScreen() {
               animated: true,
               viewPosition: 0,
             });
-          } catch {
-            // give up gracefully — user can still scroll manually
+          } catch (_innerErr) {
+          } finally {
+            setTimeout(releaseCategoryLock, LOCK_RELEASE_MS);
           }
         }, 120);
       } finally {
@@ -470,10 +540,6 @@ export default function MenuScreen() {
   const categoryKeyExtractor = useCallback((item, index) => `${item.key}_${index}`, []);
   const menuKeyExtractor = useCallback((item, index) => `${item.id}_${index}`, []);
   // Memoized render functions
-  const disabledCategoryStyle = useMemo(
-    () => (!listReady ? styles.categoryDisabled : undefined),
-    [listReady]
-  );
 
   const categoriesWithActive = useMemo(
     () =>
@@ -485,14 +551,20 @@ export default function MenuScreen() {
   );
 
   const renderCategoryItem = useCallback(({ item }) => (
-    <CategoryItem
-      item={item}
-      isActive={item.isActive}
-      onPress={listReady ? handleCategoryPressCallback : undefined} // 🔒 disable taps
-      disabled={!listReady}
-      style={disabledCategoryStyle}
-    />
-  ), [disabledCategoryStyle, handleCategoryPressCallback, listReady]);
+  <CategoryItem
+    item={item}
+    isActive={item.isActive}
+    onPress={listReady ? handleCategoryPressCallback : undefined} // Disable taps if the list is not ready
+    disabled={!listReady}
+    style={[
+      styles.categoryItem,
+      item.isActive && styles.categoryItemActive, // Apply active style
+    ]}
+    iconStyle={{
+      tintColor: item.isActive ? '#FFFFFF' : '#C2000E', // White when active, red otherwise
+    }}
+  />
+), [listReady, handleCategoryPressCallback]);
 
   const renderMenuItem = useCallback(({ item, index }) => {
     const isFirst = isFirstInCategory(menuItems, index, item.categoryIds?.[0]);
@@ -526,127 +598,75 @@ export default function MenuScreen() {
     ];
 
     try {
-      console.log('Attempting to clear:', keysToRemove);
 
-      // First verify what's actually in storage
-      const currentStorage = await AsyncStorage.multiGet(keysToRemove);
-      console.log('Current storage before clear:', currentStorage);
-
-      // Perform the removal
       await AsyncStorage.multiRemove(keysToRemove);
 
-      // Verify removal was successful
       const clearedStorage = await AsyncStorage.multiGet(keysToRemove);
       const wereCleared = clearedStorage.every(([_, value]) => value === null);
 
       if (!wereCleared) {
-        console.error('Failed to clear these keys:',
-          clearedStorage.filter(([_, value]) => value !== null)
-        );
         throw new Error('Storage clearance failed');
       }
 
-      console.log('Storage cleared successfully');
       return true;
-    } catch (err) {
-      console.error('Clearance error:', err);
+    } catch (_err) {
       return false;
     }
   };
 
-  const fetchMenuData = useCallback(
-    async ({ resetList = false } = {}) => {
-      if (!selectedOutlet?.outletId) return;
-
-      try {
-        const shouldResetList = resetList && !isWeb;
-        if (shouldResetList) {
-          categoryLockRef.current = false;
-          isProgrammaticScroll.current = false;
-          setCategoryLock(false);
-          setListReady(false);
-
-          requestAnimationFrame(() => {
-            categoryListRef.current?.scrollToOffset({ offset: 0, animated: false });
-            menuListRef.current?.scrollToOffset({ offset: 0, animated: false });
-          });
-        }
-
-        const token = await AsyncStorage.getItem('authToken');
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}`, { headers });
-
-        const fetchedCategories = (response.data.Categories || []).map(cat => ({
-          key: String(cat.id),
-          label: cat.title,
-          icon: cat.image_url
-            ? { uri: imageUrl + "menu_categories/" + cat.image_url }
-            : require('../../../assets/icons/burger.png'),
-        }));
-        setCategories(fetchedCategories);
-
-        const fetchedItems = (response.data.Items || []).map(item => {
-          const imageUrlFull =
-            item.images && item.images.length > 0 && item.images[0].image_url
-              ? imageUrl + "menu_images/" + item.images[0].image_url
-              : null;
-
-          const mappedTags = (item.tags || []).map(tag => ({
-            id: tag.id,
-            title: tag.title,
-            icon: tag.icon_url
-              ? { uri: imageUrl + "tags/" + tag.icon_url }
-              : require('../../../assets/icons/burger.png'),
-          }));
-          // console.log(item);
-
-          return {
-            id: item.id,
-            name: item.title,
-            description: item.short_description,
-            price: item.price,
-            discount_price: item.discount_price,
-            image: imageUrlFull,
-            categoryIds: (item.category_ids || []).map(id => String(id)),
-            tags: mappedTags,
-            is_available: item.is_available,
-            membership_tier: item.membership_tier,
-          };
-        });
-        setMenuItems(fetchedItems);
-        setListReady(fetchedItems.length > 0);
-
-        if (fetchedCategories.length > 0) {
-          setActiveCategory(prev => {
-            const prevKey = prev != null ? String(prev) : '';
-            if (prevKey && fetchedCategories.some(cat => cat.key === prevKey)) {
-              return prevKey;
-            }
-            return fetchedCategories[0].key;
-          });
-        } else {
-          setActiveCategory('');
-        }
-      } catch (err) {
-        console.log('Error fetching menu data:', err.response?.data || err.message);
-        setListReady(menuItemsRef.current.length > 0);
-      }
-    },
-    [selectedOutlet?.outletId]
-  );
-
   useFocusEffect(
     useCallback(() => {
+      const needsRestore = shouldRestoreScrollRef.current && scrollOffsetRef.current > 0;
+      
       if (isWeb) {
         fetchMenuData({ resetList: false });
       } else {
-        fetchMenuData({ resetList: true });
+        // Don't reset list if we need to restore scroll position
+        fetchMenuData({ resetList: !needsRestore });
       }
-    }, [fetchMenuData])
+
+      // Restore scroll position if we're returning from a detail page
+      if (needsRestore) {
+        // Mark that we're restoring (so fetchMenuData won't reset scroll)
+        const savedOffset = scrollOffsetRef.current;
+        shouldRestoreScrollRef.current = false; // Clear flag immediately to prevent multiple restorations
+        
+        // Wait for list to be ready before restoring scroll
+        const restoreScroll = () => {
+          if (menuListRef.current && listReady && savedOffset > 0) {
+            isProgrammaticScroll.current = true;
+            requestAnimationFrame(() => {
+              menuListRef.current?.scrollToOffset({
+                offset: savedOffset,
+                animated: false,
+              });
+              // Release the programmatic scroll flag after a short delay
+              setTimeout(() => {
+                isProgrammaticScroll.current = false;
+              }, 200);
+            });
+          } else if (menuListRef.current && !listReady) {
+            // If list not ready yet, try again after a short delay
+            setTimeout(restoreScroll, 150);
+          }
+        };
+
+        // Small delay to ensure list is rendered and data is loaded
+        const timer = setTimeout(restoreScroll, 150);
+
+        return () => {
+          clearTimeout(timer);
+        };
+      }
+    }, [fetchMenuData, listReady])
   );
 
   useEffect(() => {
     if (selectedOutlet?.outletId) {
+      // Reset scroll position when outlet changes (not when returning from detail page)
+      if (!shouldRestoreScrollRef.current) {
+        scrollOffsetRef.current = 0;
+      }
       fetchMenuData({ resetList: !isWeb });
     }
   }, [selectedOutlet?.outletId, fetchMenuData]);
@@ -657,12 +677,7 @@ export default function MenuScreen() {
     return Math.floor(num * Math.pow(10, maxDecimals)) / Math.pow(10, maxDecimals);
   }
 
-  // console.log('Request params:', {
-  //   customer_id: customer.id,
-  //   outlet_id: selectedOutlet.outletId
-  // });
   const formatDateTime = useCallback(() => {
-    // console.log('selectedDateTime', selectedDateTime);
     if (!selectedDateTime) return;
 
     const now = new Date();
@@ -698,9 +713,6 @@ export default function MenuScreen() {
       const customer = customerData ? JSON.parse(customerData) : null;
       setCustomer(customer);
 
-      // if (!token || !customer?.id || !selectedOutlet?.outletId) {
-      //   return 0;
-      // }
       if (!token || !customer?.id) {
         return 0;
       }
@@ -710,7 +722,6 @@ export default function MenuScreen() {
       }
 
       const estimatedTimeObj = formatDateTime();
-      // console.log('estimatedTimeObj', estimatedTimeObj);
       const response = await axios.get(`${apiUrl}cart/get`, {
         params: {
           customer_id: customer.id,
@@ -721,8 +732,6 @@ export default function MenuScreen() {
           longitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.longitude) : "",
           selected_date: estimatedTimeObj.estimatedTime === "ASAP" ? null : estimatedTimeObj.date,
           selected_time: estimatedTimeObj.estimatedTime === "ASAP" ? null : estimatedTimeObj.time,
-          // selected_date: estimatedTimeObj.date,
-          // selected_time: estimatedTimeObj.time,
         },
         headers: {
           Authorization: `Bearer ${token}`
@@ -734,10 +743,8 @@ export default function MenuScreen() {
       }
       return 0;
     } catch (error) {
-      // console.log(error);
       if (error?.response?.status === 400) {
 
-        // Skip redirect if cart is empty (likely first visit)
         if (error?.response?.data?.message?.includes("Cart is empty")) {
           return 0;
         }
@@ -945,6 +952,8 @@ export default function MenuScreen() {
             contentContainerStyle={styles.menuList}
             viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs}
             renderItem={renderMenuItem}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
             onContentSizeChange={() => {
               if (menuItems.length > 0 && !listReady) {
                 setListReady(true);
@@ -1039,7 +1048,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     marginBottom: 6,
-    // tintColor: '#C2000E',
+    tintColor: '#C2000E',
   },
   categoryLabel: {
     color: '#C2000E',

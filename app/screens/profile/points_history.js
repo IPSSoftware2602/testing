@@ -64,14 +64,11 @@ export default function PointsHistory() {
           });
 
         const pointData = await response.data;
-        console.log('Full API response:', pointData);
-        console.log('Transactions data:', pointData.data.transactions);
-        console.log('Transactions length:', pointData.data.transactions?.length);
 
         // setCustomerPoint(pointData.data.current_point);
         setCustomerPointTransaction(pointData.data.transactions || []);
 
-        console.log('Current state transactions:', pointData.data.current_point);
+        // console.log('Current state transactions:', pointData.data.current_point);
       } catch (err) {
         console.log(err);
       }
@@ -162,7 +159,7 @@ export default function PointsHistory() {
                 />
               ) : (
                 <Image
-                  source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=500' }}
+                  source={require('../../../assets/images/uspizza-icon.png')}
                   style={styles.avatar}
                 />
               )}
@@ -230,7 +227,7 @@ export default function PointsHistory() {
             data={customerPointTransaction}
             keyExtractor={(item, index) => item.id?.toString() || index.toString()}
             renderItem={({ item: tx, index }) => {
-              console.log('Rendering item:', index, tx);
+              // console.log('Rendering item:', index, tx);
               return (
                 <View style={[
                   styles.tableRow,
@@ -252,7 +249,7 @@ export default function PointsHistory() {
               );
             }}
             ListEmptyComponent={() => {
-              console.log('FlatList is empty, transactions:', customerPointTransaction);
+              // console.log('FlatList is empty, transactions:', customerPointTransaction);
               return renderEmptyPointsHistory();
             }}
             showsVerticalScrollIndicator={false}

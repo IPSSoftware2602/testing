@@ -105,7 +105,7 @@ export default function WalletBalanceHistory() {
         setCustomerWallet(pointData.data.current_wallet);
         setCustomerWalletTransaction(pointData.data.transactions);
 
-        console.log(pointData.data.current_wallet);
+        // console.log(pointData.data.current_wallet);
       } catch (err) {
         console.log(err);
       }
@@ -157,7 +157,7 @@ export default function WalletBalanceHistory() {
                 />
               ) : (
                 <Image
-                  source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=500' }}
+                  source={require('../../../assets/images/uspizza-icon.png')}
                   style={styles.avatar}
                 />
               )}

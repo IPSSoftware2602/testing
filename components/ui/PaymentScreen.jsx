@@ -8,12 +8,12 @@ export default function PaymentScreen({ url, onClose }) {
     const [loading, setLoading] = useState(true);
     // const [webkey, setWebkey] = useState(0);
 
-    const RETURN_URL = "https://webordernew.uspizza.my/screens/payment/loading_payment";
+    const RETURN_URL = "https://order.uspizza.my/screens/payment/loading_payment";
     const FIUU_RETURN_URL = "https://pay.fiuu.com/MOLPay/return_merchant.php?";
-    const NO_TOKEN_URL = "https://webordernew.uspizza.my/screens/auth/login";
-    const CANCEL_URL = "https://webordernew.uspizza.my/screens/payment/cancel";
+    const NO_TOKEN_URL = "https://order.uspizza.my/screens/auth/login";
+    const CANCEL_URL = "https://order.uspizza.my/screens/payment/cancel";
     // If you use deep links instead:
-    const RETURN_SCHEME = "uspizzanewapp://payment/loading_payment";
+    const RETURN_SCHEME = "uspizzaapp://payment/loading_payment";
 
 
     const handleNav = (navState) => {
@@ -40,7 +40,7 @@ export default function PaymentScreen({ url, onClose }) {
                 ref={webRef}
                 source={{ uri: url }}
                 onLoadStart={() => {
-                    console.log("WebView loading started");
+                    // console.log("WebView loading started");
                     setLoading(true);
                 }}
                 // onLoadEnd={() => setLoading(false)}
@@ -51,13 +51,13 @@ export default function PaymentScreen({ url, onClose }) {
                 thirdPartyCookiesEnabled={true}
                 // startInLoadingState={true}
                 onError={event => {
-                    console.log("WebView error:", event.nativeEvent);
+                    // console.log("WebView error:", event.nativeEvent);
                     setLoading(false);
                 }}
                 onLoadEnd={() => {
                     // if (loading) {
                     // setWebkey(Date.now());
-                    console.log("WebView loaded successfully");
+                    // console.log("WebView loaded successfully");
                     setLoading(false);
                     // }
                 }}

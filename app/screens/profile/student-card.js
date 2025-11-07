@@ -55,7 +55,6 @@ export default function StudentCard() {
     useEffect(() => {
         // Fetch student card status on mount
         const fetchStatus = async () => {
-            console.log(customerData);
             try {
                 const response = await axios.get(
                     apiUrl + `customer/student-card-status/` + customerData.id,

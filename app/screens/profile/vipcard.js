@@ -20,32 +20,32 @@ const { width } = Dimensions.get('window');
 const benefitList = [
   {
     title: 'Welcome Gift',
-    description: 'Mystery surprise when you join',
+    description: 'A mystery surprise when you join!',
     iconName: 'gift',
   },
   {
-    title: '50% OFF Pizzas',
-    description: '⁠50% OFF all pizzas for 1 year + 20% OFF snacks & drinks',
+    title: 'Pizza Party Deals',
+    description: '50% OFF all pizzas + 20% OFF snacks & drinks.',
     iconName: 'percent',
   },
   {
-    title: 'Double Points',
-    description: '⁠Double points on all purchases during your birthday window (1 week before & after)',
+    title: 'Birthday Ultra Sedap Points!',
+    description: 'Double points on all purchases 1 week before & after your birthday.',
     iconName: 'cake-candles',
   },
   {
-    title: 'Free Pizzas',
-    description: '4 regular pizzas yearly (March, June, Sept & Dec!)',
+    title: 'Quarterly Freebies',
+    description: '4 Regular Pizzas on March, June, September & December.',
     iconName: 'pizza-slice',
   },
   {
     title: 'Birthday Treat',
-    description: 'Free lava cake in your birthday month',
+    description: 'Free Lava Cake during your birthday month.',
     iconName: 'cake-candles',
   },
   {
     title: 'Early Access',
-    description: 'Be the first to try new menu launches (1 week exclusive preview)',
+    description: 'Be the first to try our new menu, 1 week before everyone else!',
     iconName: 'bolt',
   },
 ];
@@ -78,10 +78,6 @@ export default function VipCard() {
   }, [])
 
   const handleSubscribe = async () => {
-    console.log("Subscribed successfully");
-    console.log({
-      "customer_id": customerData.id
-    });
     try {
       const response = await axios.post(
         `${apiUrl}order/vip`,
@@ -169,8 +165,9 @@ export default function VipCard() {
 
           {/* Card Benefit */}
           <View style={styles.cardBenefit}>
-            <Text style={styles.benefitTitle}>VIP Plan – Only RM55 / year</Text>
-            <Text style={styles.benefitText}>Unlock exclusive perks worth over RM200+!</Text>
+            <Text style={styles.benefitTitle}>Be Our VIP – Unlock Ultra Rewards!</Text>
+            <Text style={styles.benefitText}>Unlock RM300+ perks for only RM55/year – treat yourself all year long!</Text>
+              <Text style={styles.benefitTextPerk}>✨ Your VIP Perks:</Text>
             <View style={{ marginVertical: '1%' }}>
               {benefitList.map((item, index) => (
                 <View key={index} style={styles.cardBenefitList}>
@@ -185,7 +182,10 @@ export default function VipCard() {
               ))}
             </View>
             <View style={{ marginTop: '2%' }}>
-              <Text style={styles.benefitTextPerk}>All these exclusive perks for just RM55. Don’t miss out!</Text>
+              <Text style={styles.benefitTextPerk2}>
+                All these ultra-sedap rewards for just RM55/year.{"\n"}
+                Don’t miss out—join the Ultra VIP Club today!
+              </Text>
 
             </View>
           </View>
@@ -334,8 +334,15 @@ const styles = StyleSheet.create({
   benefitTextPerk: {
     fontSize: 15,
     fontFamily: 'Route159-Bold',
+    color: '#C2000E',
+    marginTop: '4%',
+    textAlign: 'flex-start',
+  },
+  benefitTextPerk2: {
+    fontSize: 15,
+    fontFamily: 'Route159-Bold',
     color: '#333333',
-    // marginBottom: '2%',
+    marginTop: '4%',
     textAlign: 'center',
   },
   benefit: {

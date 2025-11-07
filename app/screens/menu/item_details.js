@@ -25,7 +25,9 @@ export default function ItemDetailsScreen() {
       try {
         const token = await AsyncStorage.getItem('authToken');
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await axios.get(`${apiUrl}menu-items/${id}`, { headers });
+        const outletDetails = await AsyncStorage.getItem('outletDetails');
+        const outletId = outletDetails ? JSON.parse(outletDetails).outletId : 0;
+        const res = await axios.get(`${apiUrl}menu-items/${id}/${outletId}`, { headers });
         if (res.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
           setMenuItem(res.data.data[0]);
           setItemPrice(Number(res.data.data[0]?.price) || 0);
@@ -49,11 +51,11 @@ export default function ItemDetailsScreen() {
         <ScrollView>
           <View style={styles.imageContainer}>
             <Image
-              source={{
-                uri: menuItem?.image?.[0]?.image_url
-                  ? menuItem.image[0].image_url
-                  : require('../../../assets/images/menu_default.jpg'),
-              }}
+              source={
+                menuItem?.image?.[0]?.image_url
+                  ? { uri: String(menuItem.image[0].image_url) }
+                  : require('../../../assets/images/menu_default.jpg')
+              }
               style={styles.image}
             />
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -71,6 +73,9 @@ export default function ItemDetailsScreen() {
             </View>
           </View>
         </ScrollView>
+        <Text style={styles.footerNote}>
+          All prices or charges are subject to a{"\n"}10% service charge and 6% SST
+      </Text>
       </SafeAreaView>
     </ResponsiveBackground>
   );
@@ -131,5 +136,13 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#C2000E',
     marginVertical: 10,
+  },
+  footerNote: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#C2000E',
+    marginVertical: 10,
+    paddingHorizontal: 16,
+    fontFamily: 'Route159-SemiBold',
   },
 });

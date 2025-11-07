@@ -163,6 +163,24 @@ export default function VoucherDetails() {
     );
   }
 
+  const renderTncList = (text) => {
+    if (!text) return <Text style={styles.tncText}>No terms and conditions applied.</Text>;
+
+    // Split by newline or numbered patterns
+    const lines = text
+      .split(/\n|(?=\d+\.)/) // handles both newlines and "1." patterns
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    return lines.map((line, index) => (
+      <View key={index} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 }}>
+        <Text style={styles.tncNumber}>{index + 1}.</Text>
+        <Text style={styles.tncText}> {line.replace(/^\d+\.\s*/, '')}</Text>
+      </View>
+    ));
+  };
+
+
   return (
     <ResponsiveBackground>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -215,9 +233,9 @@ export default function VoucherDetails() {
             <Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E', marginBottom: 6, textAlign: 'left', }}>
               Terms & Conditions
             </Text>
-            <Text style={{ fontSize: 15, color: '#333' }}>
-              {voucher?.voucher_tnc || 'No terms and conditions applied.'}
-            </Text>
+            <View style={{ marginTop: 4 }}>
+              {renderTncList(voucher?.voucher_tnc)}
+            </View>
           </View>
         </ScrollView>
         <View style={styles.bottomContainer}>

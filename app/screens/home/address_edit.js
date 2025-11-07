@@ -104,15 +104,7 @@ export default function DeliveryAddressEdit() {
         }));
     }
 
-    useEffect(() => {
-        console.log(addressData);
-
-        // console.log({ latitude: parseFloat(addressData.latitude), longitude: parseFloat(addressData.longitude) })
-    }, [addressData]);
-
-
     const handleUpdateAddress = () => {
-        console.log("Update address");
         const updateLocation = async () => {
             try {
                 const response = await axios.post(
