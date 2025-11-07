@@ -25,7 +25,9 @@ export default function ItemDetailsScreen() {
       try {
         const token = await AsyncStorage.getItem('authToken');
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await axios.get(`${apiUrl}menu-items/${id}`, { headers });
+        const outletDetails = await AsyncStorage.getItem('outletDetails');
+        const outletId = outletDetails ? JSON.parse(outletDetails).outletId : 0;
+        const res = await axios.get(`${apiUrl}menu-items/${id}/${outletId}`, { headers });
         if (res.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
           setMenuItem(res.data.data[0]);
           setItemPrice(Number(res.data.data[0]?.price) || 0);

@@ -290,7 +290,10 @@ export default function MenuItemScreen() {
 
     const fetchMenuItem = async () => {
       try {
-        const res = await axios.get(`${apiUrl}menu-items/${id}`, {
+        const outletDetails = await AsyncStorage.getItem('outletDetails');
+        const outletId = outletDetails ? JSON.parse(outletDetails).outletId : 0;
+
+        const res = await axios.get(`${apiUrl}menu-items/${id}/${outletId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setMenuItem(res.data.data[0]);
