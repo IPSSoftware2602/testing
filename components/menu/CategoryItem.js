@@ -30,8 +30,13 @@ const CategoryItem = memo(({
       disabled={disabled}
     >
       <Image
+        key={`${item.key}-${isActive}`}
         source={item.icon}
-        style={[styles.categoryIcon, iconStyle]}
+        style={[
+          styles.categoryIcon,
+          iconStyle,
+          { tintColor: isActive ? '#FFFFFF' : '#C2000E', opacity: 0.99 },
+        ]}
       />
       <Text
         style={[
