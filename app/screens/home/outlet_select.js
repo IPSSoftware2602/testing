@@ -40,13 +40,13 @@ export default function OutletSelection() {
         </View>
     );
 
-    // useEffect(() => {
-    // if (typeof window !== "undefined") {
-    //     window.addEventListener("pageshow", (e) => {
-    //     if (e.persisted) window.location.reload();
-    //     });
-    // }
-    // }, []);
+    useEffect(() => {
+    if (typeof window !== "undefined") {
+        window.addEventListener("pageshow", (e) => {
+        if (e.persisted) window.location.reload();
+        });
+    }
+    }, []);
 
     useEffect(() => {
         const getStoredData = async () => {
