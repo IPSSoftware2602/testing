@@ -51,11 +51,11 @@ export default function ItemDetailsScreen() {
         <ScrollView>
           <View style={styles.imageContainer}>
             <Image
-              source={{
-                uri: menuItem?.image?.[0]?.image_url
-                  ? menuItem.image[0].image_url
-                  : require('../../../assets/images/menu_default.jpg'),
-              }}
+              source={
+                menuItem?.image?.[0]?.image_url
+                  ? { uri: String(menuItem.image[0].image_url) }
+                  : require('../../../assets/images/menu_default.jpg')
+              }
               style={styles.image}
             />
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -74,7 +74,7 @@ export default function ItemDetailsScreen() {
           </View>
         </ScrollView>
         <Text style={styles.footerNote}>
-        All prices or charges are subject to a<br /> 10% service charge and 6% SST
+          All prices or charges are subject to a{"\n"}10% service charge and 6% SST
       </Text>
       </SafeAreaView>
     </ResponsiveBackground>

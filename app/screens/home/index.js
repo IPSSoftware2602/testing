@@ -18,14 +18,12 @@ import { apiUrl } from '../../constant/constants';
 import useAuthGuard from '../../auth/check_token_expiry';
 import useCheckValidOrderType from '../home/check_valid_order_type';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 // Dummy assets, replace with your actual asset paths
 const dineInIcon = require('../../../assets/elements/home/home_dinein.png');
 const pickUpIcon = require('../../../assets/elements/home/home_pickup.png');
 const deliverIcon = require('../../../assets/elements/home/home_delivery.png');
-const pepperoni = require('../../../assets/images/promo_pizza1.png');
-const cheese = require('../../../assets/images/promo_pizza1.png');
 const gift = require('../../../assets/elements/home/recharge_gift.png');
 
 // Sample carousel images - replace with your actual promotional images
@@ -169,7 +167,7 @@ export default function HomeScreen() {
       fetchCustomerProfile();
     }
 
-  }, [router, authToken, customerData?.id])
+  }, [router, authToken, customerData])
 
   const handleOrderTypeSelect = (type) => {
     setOrderTypeModalVisible(false);
@@ -259,11 +257,14 @@ export default function HomeScreen() {
                       )}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => setQRModalVisible(true)}>
+                  <TouchableOpacity style={{ width: '30%', height: '100%', alignItems: 'flex-end', justifyContent: 'flex-start', padding: 5 }} onPress={() => setQRModalVisible(true)}>
                     {qrValue && qrValue.trim() !== "" ? (
-                      <QRCode value={qrValue} size={40} />
+                      <QRCode
+                        value={qrValue.trim()}
+                        size={width < 440 ? width < 375 ? 50 : 55 : 60}
+                      />
                     ) : (
-                      <Text style={{ color: "#C2000E" }}>No QR Available</Text>
+                      <Text style={{ color: '#C2000E', fontSize: 14 }}>No QR Available</Text>
                     )}
                   </TouchableOpacity>
                 </View>

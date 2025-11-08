@@ -100,7 +100,7 @@ export const textStyles = StyleSheet.create({
     color: '#0a7ea4',
   },
 });
-
+// console.log(Platform.OS);
 export const commonStyles = StyleSheet.create({
   container: {
     flex: 1,
@@ -119,14 +119,14 @@ export const commonStyles = StyleSheet.create({
   },
   containerStyle: {
   paddingBottom: width === 390 && height === 844
-    ? height * 0.18
+    ? Platform.OS === 'android' || Platform.OS === 'ios' ? height * 0.12 : height * 0.18
     : width <= 425
     ? Platform.OS === 'android'
       ? height * 0.16
       : Platform.OS === 'ios' ? height * 0.12 : height * 0.18
     : width > 440
     ? height * 0.14
-    : height * 0.15,
+    : Platform.OS === 'android' || Platform.OS === 'ios' ? height * 0.11 : height * 0.15,
     width: Math.min(width, 440),
     alignSelf: "center",
   },

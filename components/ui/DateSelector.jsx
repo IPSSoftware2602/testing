@@ -75,11 +75,35 @@ if (Platform.OS === 'web') {
 }
 
 // ✅ Safe date utility
+const toLocalISODateString = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const safeDate = (input) => {
   if (!input) return new Date();
+  if (input instanceof Date && !isNaN(input.getTime())) {
+    return input;
+  }
+
   try {
-    const parsed = new Date(String(input).replace(/-/g, '/'));
-    if (isNaN(parsed.getTime())) return new Date();
+    const normalized = typeof input === 'string' ? input.split('T')[0] : input;
+    if (typeof normalized === 'string') {
+      const parts = normalized.split('-');
+      if (parts.length === 3) {
+        const [year, month, day] = parts.map((part) => Number(part));
+        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+          return new Date(year, month - 1, day);
+        }
+      }
+    }
+
+    const parsed = new Date(normalized);
+    if (isNaN(parsed.getTime())) {
+      return new Date();
+    }
     return parsed;
   } catch {
     return new Date();
@@ -89,8 +113,8 @@ const safeDate = (input) => {
 // ✅ Safe parse for web DatePicker
 const safeParseDate = (dateStr) => {
   if (!dateStr) return null;
-  const parsed = new Date(dateStr);
-  return isNaN(parsed.getTime()) ? null : parsed;
+  const base = safeDate(dateStr);
+  return isNaN(base.getTime()) ? null : base;
 };
 
 const DateSelector = ({
@@ -102,13 +126,16 @@ const DateSelector = ({
   isDisabled = false,
 }) => {
   const [showPicker, setShowPicker] = useState(false);
-  const [tempDate, setTempDate] = useState(value || new Date().toISOString().split('T')[0]);
+  const initialDate = value || toLocalISODateString(new Date());
+  const [tempDate, setTempDate] = useState(initialDate);
   const colorScheme = useColorScheme();
   const colors = colorScheme === 'dark' ? Colors.dark : Colors.light;
 
   useEffect(() => {
-    console.log('Theme:', colorScheme);
-  }, [colorScheme]);
+    if (value) {
+      setTempDate(value);
+    }
+  }, [value]);
 
   const formatDate = (date) => {
   if (!date) return '';
@@ -130,11 +157,11 @@ const DateSelector = ({
     if (Platform.OS === 'android') {
       setShowPicker(false);
       if (selectedDate) {
-        onDateChange(selectedDate.toISOString().split('T')[0]);
+        onDateChange(toLocalISODateString(selectedDate));
       }
     } else {
       if (selectedDate) {
-        setTempDate(selectedDate.toISOString().split('T')[0]);
+        setTempDate(toLocalISODateString(selectedDate));
       }
     }
   };
@@ -145,12 +172,13 @@ const DateSelector = ({
   };
 
   const handleCancel = () => {
-    setTempDate(value || new Date().toISOString().split('T')[0]);
+    setTempDate(value || toLocalISODateString(new Date()));
     setShowPicker(false);
   };
 
   const openPicker = () => {
-    setTempDate(value || new Date().toISOString().split('T')[0]);
+    if (isDisabled) return;
+    setTempDate(value || toLocalISODateString(new Date()));
     setShowPicker(true);
   };
 

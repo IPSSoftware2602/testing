@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet, Text, View, Dimensions, TextInput, Image, FlatList, TouchableOpacity, Alert, Linking, Platform } from 'react-native';
@@ -40,13 +40,13 @@ export default function OutletSelection() {
         </View>
     );
 
-    useEffect(() => {
-    if (typeof window !== "undefined") {
-        window.addEventListener("pageshow", (e) => {
-        if (e.persisted) window.location.reload();
-        });
-    }
-    }, []);
+    // useEffect(() => {
+    // if (typeof window !== "undefined") {
+    //     window.addEventListener("pageshow", (e) => {
+    //     if (e.persisted) window.location.reload();
+    //     });
+    // }
+    // }, []);
 
     useEffect(() => {
         const getStoredData = async () => {
@@ -70,72 +70,82 @@ export default function OutletSelection() {
         // console.log(lat, lng);
     }, [router])
 
-    useEffect(() => {
-        const loadOutlets = async () => {
-            try {
-                // Step 1: Load stored info
-                const token = await AsyncStorage.getItem('authToken');
-                const orderTypeStored = await AsyncStorage.getItem('orderType');
-                const address = await AsyncStorage.getItem('deliveryAddressDetails');
-                const parsedAddress = address ? JSON.parse(address) : null;
+    const loadOutlets = useCallback(async () => {
+        try {
+            const token = await AsyncStorage.getItem('authToken');
+            const orderTypeStored = await AsyncStorage.getItem('orderType');
+            const address = await AsyncStorage.getItem('deliveryAddressDetails');
+            const parsedAddress = address ? JSON.parse(address) : null;
 
-                setAuthToken(token);
-                setOrderType(orderTypeStored);
+            setAuthToken(token);
+            setOrderType(orderTypeStored);
 
-                let lat = null;
-                let lng = null;
-
-                // Step 2: Determine location source
-                if (orderTypeStored && orderTypeStored !== 'delivery') {
-                    try {
-                        const { status } = await Location.requestForegroundPermissionsAsync();
-                        if (orderTypeStored !== 'delivery' && status !== 'granted') {
-                            setLocationPermissionDenied(true);
-                            return;
-                        }
-                        if (status === 'granted') {
-                            const currentLocation = await Location.getCurrentPositionAsync({});
-                            lat = currentLocation.coords.latitude;
-                            lng = currentLocation.coords.longitude;
-                        } else {
-                            console.log('Location permission denied, using default location');
-                        }
-                    } catch (error) {
-                        console.warn('Error getting current location:', error);
+            const updateLocationIfChanged = (latValue, lngValue) => {
+                if (latValue == null || lngValue == null) {
+                    return;
+                }
+                setLocation(prev => {
+                    if (prev.lat === latValue && prev.lng === lngValue) {
+                        return prev;
                     }
-                } else if (parsedAddress) {
-                    lat = parseFloat(parsedAddress.latitude);
-                    lng = parseFloat(parsedAddress.longitude);
+                    return { lat: latValue, lng: lngValue };
+                });
+            };
+
+            let lat = location.lat;
+            let lng = location.lng;
+
+            if (orderTypeStored && orderTypeStored !== 'delivery' && (lat == null || lng == null)) {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                    setLocationPermissionDenied(true);
+                    return;
                 }
 
-                // Step 4: Fetch outlet data
-                const response = await axios.get(
-                    `${apiUrl}outlets/nearest/${orderTypeStored}/${lat}/${lng}`,
-                    {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
-                        },
-                    }
-                );
-
-                let outletList = response.data.result || [];
-
-                // Sort open first
-                outletList = outletList.sort((a, b) => {
-                    const aStatus = getOutletStatus(a.operating_schedule || {});
-                    const bStatus = getOutletStatus(b.operating_schedule || {});
-                    return (bStatus.isOpen ? 1 : 0) - (aStatus.isOpen ? 1 : 0);
-                });
-
-                setOutletData(outletList);
-            } catch (error) {
-                console.error('Error loading outlets:', error.message);
+                const currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+                lat = currentLocation.coords.latitude;
+                lng = currentLocation.coords.longitude;
+                updateLocationIfChanged(lat, lng);
+                setLocationPermissionDenied(false);
+            } else if (orderTypeStored === 'delivery' && parsedAddress && (lat == null || lng == null)) {
+                const parsedLat = parseFloat(parsedAddress.latitude);
+                const parsedLng = parseFloat(parsedAddress.longitude);
+                lat = parsedLat;
+                lng = parsedLng;
+                updateLocationIfChanged(parsedLat, parsedLng);
             }
-        };
 
+            if (lat == null || lng == null || !orderTypeStored) {
+                return;
+            }
+
+            const response = await axios.get(
+                `${apiUrl}outlets/nearest/${orderTypeStored}/${lat}/${lng}`,
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                }
+            );
+
+            let outletList = response.data.result || [];
+
+            outletList = outletList.sort((a, b) => {
+                const aStatus = getOutletStatus(a.operating_schedule || {});
+                const bStatus = getOutletStatus(b.operating_schedule || {});
+                return (bStatus.isOpen ? 1 : 0) - (aStatus.isOpen ? 1 : 0);
+            });
+
+            setOutletData(outletList);
+        } catch (error) {
+            console.error('Error loading outlets:', error.message);
+        }
+    }, [location.lat, location.lng]);
+
+    useEffect(() => {
         loadOutlets();
-    }, [router]);
+    }, [loadOutlets]);
 
 
 
@@ -149,7 +159,6 @@ export default function OutletSelection() {
 
         let currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
         if (!currentLocation?.coords && !retry) {
-        console.log('Retrying location fetch...');
         setTimeout(() => getCoordinates(true), 1000); // retry after 1s
         return;
         }
@@ -159,6 +168,7 @@ export default function OutletSelection() {
         lng: currentLocation.coords.longitude
         });
         setLocationPermissionDenied(false);
+        loadOutlets();
     } catch (error) {
         console.error('Error getting location:', error);
     }
@@ -196,7 +206,6 @@ export default function OutletSelection() {
         // 🕒 If still no location after 3s, retry once
         const timeout = setTimeout(() => {
         if (!location.lat || !location.lng) {
-            console.log("Still no location after 3s, retrying...");
             getCoordinates(true);
         }
         }, 3000);

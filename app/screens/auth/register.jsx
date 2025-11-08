@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import React, { useState, useEffect } from "react";
-import { Text, TextInput, View, Dimensions, Platform } from "react-native";
+import { Text, TextInput, View, Dimensions, Platform, BackHandler, ScrollView } from "react-native";
+import { usePreventRemove } from '@react-navigation/native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, commonStyles } from "../../../styles/common";
 import TopNavigation from "../../../components/ui/TopNavigation";
@@ -13,7 +14,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiUrl } from "../../constant/constants";
 // import { useToast } from 'react-native-toast-notifications';
 import { useToast } from "../../../hooks/useToast";
-import { ScrollView } from "react-native";
 
 const { width } = Dimensions.get("window");
 
@@ -29,6 +29,30 @@ export default function Register() {
   const [authToken, setAuthToken] = useState("");
   const [referralId, setReferralId] = useState("");
   const toast = useToast();
+  const [allowNavigation, setAllowNavigation] = useState(false);
+
+  useEffect(() => {
+    const handleBackPress = () => {
+      if (allowNavigation) {
+        return false;
+      }
+      BackHandler.exitApp();
+      return true;
+    };
+
+    const backHandlerSubscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackPress
+    );
+
+    return () => {
+      backHandlerSubscription.remove();
+    };
+  }, [allowNavigation]);
+
+  usePreventRemove(!allowNavigation, () => {
+    BackHandler.exitApp();
+  });
 
   useEffect(() => {
     const checkStoredData = async () => {
@@ -114,12 +138,11 @@ export default function Register() {
           data: { title: "Successfully", status: "success" },
         });
 
-        // setTimeout(() => {
-        //   router.replace('(tabs)');
-        // }, 2000);
-        // Alert.alert('Successful', 'Profile updated successfully')
         await AsyncStorage.removeItem("referralId");
-        router.replace("(tabs)");
+        setAllowNavigation(true);
+        requestAnimationFrame(() => {
+          router.replace('(tabs)');
+        });
       }
     } catch (err) {
       // console.log(err.message);

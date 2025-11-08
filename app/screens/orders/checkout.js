@@ -21,7 +21,8 @@ import {
   View,
   Alert,
   Linking,
-  Dimensions
+  Dimensions,
+  ActivityIndicator
 } from 'react-native';
 import MapView from '../../../components/order/MapView';
 import { WebView } from 'react-native-webview';
@@ -392,6 +393,29 @@ export default function CheckoutScreen({ navigation }) {
   const [pendingVoucherData, setPendingVoucherData] = useState(null);
   const [showVoucherConfirmModal, setShowVoucherConfirmModal] = useState(false);
   const [queuedSelectedVoucherJSON, setQueuedSelectedVoucherJSON] = useState(null);
+  const [loadingCount, setLoadingCount] = useState(0);
+
+  const showLoading = useCallback(() => {
+    setLoadingCount((prev) => prev + 1);
+  }, []);
+
+  const hideLoading = useCallback(() => {
+    setLoadingCount((prev) => Math.max(prev - 1, 0));
+  }, []);
+
+  const runWithLoading = useCallback(
+    async (fn) => {
+      showLoading();
+      try {
+        return await fn();
+      } finally {
+        hideLoading();
+      }
+    },
+    [showLoading, hideLoading]
+  );
+
+  const isLoading = loadingCount > 0;
 
 
   const { vip } = useLocalSearchParams();
@@ -508,35 +532,37 @@ export default function CheckoutScreen({ navigation }) {
     return false;
   }
 
-  const token = (await AsyncStorage.getItem('authToken')) || '';
+  return runWithLoading(async () => {
+    const token = (await AsyncStorage.getItem('authToken')) || '';
 
-  try {
-    const res = await axios.post(
-      `${apiUrl}redeem-voucher/${customerId}`,
-      {
-        promo_code: voucherId ? '' : (voucherCode || '').trim(),
-        voucher_id: voucherId || '',
-        cart_id: parseInt(cartData.id),
-        outlet_id: parseInt(cartData.outlet_id),
-        order_type: orderType
-      },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    try {
+      const res = await axios.post(
+        `${apiUrl}redeem-voucher/${customerId}`,
+        {
+          promo_code: voucherId ? '' : (voucherCode || '').trim(),
+          voucher_id: voucherId || '',
+          cart_id: parseInt(cartData.id),
+          outlet_id: parseInt(cartData.outlet_id),
+          order_type: orderType
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-    const data = res.data?.data || {};
-    const hasFreeItems =
-      (Array.isArray(data.free_items) && data.free_items.length > 0) ||
-      data?.promo_settings?.promo_type === 'free_item';
+      const data = res.data?.data || {};
+      const hasFreeItems =
+        (Array.isArray(data.free_items) && data.free_items.length > 0) ||
+        data?.promo_settings?.promo_type === 'free_item';
 
-    if (hasFreeItems) {
-      await handleRemoveVoucher(); // cleanup dry run
+      if (hasFreeItems) {
+        await handleRemoveVoucher(); // cleanup dry run
+      }
+
+      return hasFreeItems;
+    } catch (err) {
+      console.warn('⚠️ Voucher pre-check failed:', err?.response?.data || err.message);
+      return false;
     }
-
-    return hasFreeItems;
-  } catch (err) {
-    console.warn('⚠️ Voucher pre-check failed:', err?.response?.data || err.message);
-    return false;
-  }
+  });
 };
 
 const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
@@ -622,6 +648,7 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
 }, [voucherToApply, cartData]);
 
   const handleRemoveVoucher = async () => {
+  return runWithLoading(async () => {
     const token = await AsyncStorage.getItem('authToken') || '';
     try {
       const response = await axios.post(
@@ -648,6 +675,7 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
     } catch (err) {
       console.log(err);
     }
+  });
   }
 
   function limitDecimals(value, maxDecimals = 7) {
@@ -657,6 +685,7 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
   }
 
   const refreshCartData = async () => {
+  return runWithLoading(async () => {
     const token = await AsyncStorage.getItem('authToken') || '';
     try {
       const res = await axios.get(`${apiUrl}cart/get`, {
@@ -735,84 +764,87 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
         });
       }
     }
+  });
   };
 
   useEffect(() => {
     if (!customerId) return;
 
     const fetchCart = async () => {
-      const token = await AsyncStorage.getItem('authToken') || '';
+      await runWithLoading(async () => {
+        const token = await AsyncStorage.getItem('authToken') || '';
 
-      try {
-        const res = await axios.get(`${apiUrl}cart/get`, {
-          params: {
-            customer_id: customerId,
-            outlet_id: selectedOutlet.outletId,
-            address: deliveryAddress ? deliveryAddress.address : "",
-            order_type: orderType,
-            latitude: deliveryAddress ? limitDecimals(deliveryAddress.latitude) : "",
-            longitude: deliveryAddress ? limitDecimals(deliveryAddress.longitude) : "",
-            selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
-            selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
-          },
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-        });
+        try {
+          const res = await axios.get(`${apiUrl}cart/get`, {
+            params: {
+              customer_id: customerId,
+              outlet_id: selectedOutlet.outletId,
+              address: deliveryAddress ? deliveryAddress.address : "",
+              order_type: orderType,
+              latitude: deliveryAddress ? limitDecimals(deliveryAddress.latitude) : "",
+              longitude: deliveryAddress ? limitDecimals(deliveryAddress.longitude) : "",
+              selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
+              selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
+            },
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`,
+            },
+          });
 
-        if (res.data.status === 200) {
-          // console.log("fetch cart");
-          const responseData = res.data.data;
-          setCartData(responseData);
+          if (res.data.status === 200) {
+            // console.log("fetch cart");
+            const responseData = res.data.data;
+            setCartData(responseData);
 
-          if(responseData.order_summary?.item_count === 0) {
-            router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
+            if(responseData.order_summary?.item_count === 0) {
+              router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
+            }
+            if ((responseData.order_summary.voucher_discount_amount !== 0 || responseData.order_summary.promo_discount_amount !== 0) && (responseData.order_summary.promo_code || responseData.order_summary.voucher_code)) {
+              setPromoDiscount(parseFloat(responseData.order_summary?.promo_discount_amount || responseData.order_summary?.voucher_discount_amount));
+              setVoucherCode((responseData.order_summary.promo_code || responseData.order_summary.voucher_code));
+              setVoucherToast(true);
+            }
+            if(responseData.free_item_list && responseData.free_item_list.length > 0 && responseData.bool_free_item && voucherCode) {
+              setShowFreeItemsModal(true);
+              setFreeItems(responseData.free_item_list);
+            }
+          } else {
+            console.warn('Failed to load cart:', res.data);
           }
-          if ((responseData.order_summary.voucher_discount_amount !== 0 || responseData.order_summary.promo_discount_amount !== 0) && (responseData.order_summary.promo_code || responseData.order_summary.voucher_code)) {
-            setPromoDiscount(parseFloat(responseData.order_summary?.promo_discount_amount || responseData.order_summary?.voucher_discount_amount));
-            setVoucherCode((responseData.order_summary.promo_code || responseData.order_summary.voucher_code));
-            setVoucherToast(true);
+        } catch (error) {
+          if (error?.response?.status === 400) {
+            if (error?.response?.data?.status === 405) {
+              router.push({ pathname: '(tabs)', params: { setErrorModal: true } });
+              checkoutClearStorage();
+            }
+            const message = error?.response?.data?.message;
+            // console.log(message);
+            if (message === "Two eligible items required for this promo code.") {
+              setVoucherToast(false);
+
+              setTimeout(() => {
+                toast.show("Please add at least two eligible items to your cart to use this promo code.", {
+                  type: 'custom_toast',
+                  data: { title: 'Failed to apply voucher', status: 'danger' },
+                  duration: 4000 // Longer duration to ensure visibility
+                });
+              }, 100);
+
+              setTimeout(() => {
+                setVoucherCode('');
+                setVoucherToApply(null);
+              }, 100);
+            }
+
+            refreshCartData();
           }
-          if(responseData.free_item_list && responseData.free_item_list.length > 0 && responseData.bool_free_item && voucherCode) {
-            setShowFreeItemsModal(true);
-            setFreeItems(responseData.free_item_list);
-          }
-        } else {
-          console.warn('Failed to load cart:', res.data);
         }
-      } catch (error) {
-        if (error?.response?.status === 400) {
-          if (error?.response?.data?.status === 405) {
-            router.push({ pathname: '(tabs)', params: { setErrorModal: true } });
-            checkoutClearStorage();
-          }
-          const message = error?.response?.data?.message;
-          // console.log(message);
-          if (message === "Two eligible items required for this promo code.") {
-            setVoucherToast(false);
-
-            setTimeout(() => {
-              toast.show("Please add at least two eligible items to your cart to use this promo code.", {
-                type: 'custom_toast',
-                data: { title: 'Failed to apply voucher', status: 'danger' },
-                duration: 4000 // Longer duration to ensure visibility
-              });
-            }, 100);
-
-            setTimeout(() => {
-              setVoucherCode('');
-              setVoucherToApply(null);
-            }, 100);
-          }
-
-          refreshCartData();
-        }
-      }
+      });
     };
 
     fetchCart();
-  }, [customerId]);
+  }, [customerId, runWithLoading]);
 
   useEffect(() => {
     if (voucherToApply && cartData && !hasAppliedPromo.current) {
@@ -824,62 +856,64 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
 
 
   const handleAddPWPItemToCart = async (item) => {
-    // const customerData = await getCustomerData();
-    const outletDetails = await AsyncStorage.getItem('outletDetails');
-    // if (outletDetails) {
-    const token = await AsyncStorage.getItem('authToken');
-    const parsedOutletDetails = JSON.parse(outletDetails);
-    // }
-    if (!customerData || !customerData.id || !outletDetails) {
-      console.error("Customer data not found");
-      toast.show('Customer data not found', { type: 'error' });
-      return;
-    }
-
-    const payload = {
-      customer_id: Number(customerData.id),
-      // outlet_id: menuItem?.outlet_id || 1,
-      outlet_id: parsedOutletDetails.outletId,
-      menu_item_id: Number(item.id),
-      // variation_id: selectedCrustId ? Number(selectedCrustId) : null,
-      // option: optionPayload,
-      quantity: 1,
-      is_pwp: true,
-    };
-    // console.log('freeee', payload);
-
-    try {
-      const response = await axios.post(`${apiUrl}cart/add`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      console.log(response);
-
-      if (response.data.status === 200) {
-        toast.show('Item added to cart', {
-          type: 'custom_toast',
-          data: { title: '', status: 'success' }
-
-        });
-
-        refreshCartData();
-
-        // setTimeout(() => {
-        //   router.push('/menu');
-        // }, 1000);
+    await runWithLoading(async () => {
+      // const customerData = await getCustomerData();
+      const outletDetails = await AsyncStorage.getItem('outletDetails');
+      // if (outletDetails) {
+      const token = await AsyncStorage.getItem('authToken');
+      const parsedOutletDetails = outletDetails ? JSON.parse(outletDetails) : null;
+      // }
+      if (!customerData || !customerData.id || !parsedOutletDetails) {
+        console.error("Customer data not found");
+        toast.show('Customer data not found', { type: 'error' });
+        return;
       }
-      else if (response.data.status === 400) {
-        const message = response.data.message;
-        toast.show(message, {
-          type: 'custom_toast',
-          data: { title: 'Failed to add item.', status: 'danger' }
 
+      const payload = {
+        customer_id: Number(customerData.id),
+        // outlet_id: menuItem?.outlet_id || 1,
+        outlet_id: parsedOutletDetails.outletId,
+        menu_item_id: Number(item.id),
+        // variation_id: selectedCrustId ? Number(selectedCrustId) : null,
+        // option: optionPayload,
+        quantity: 1,
+        is_pwp: true,
+      };
+      // console.log('freeee', payload);
+
+      try {
+        const response = await axios.post(`${apiUrl}cart/add`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
         });
+        console.log(response);
+
+        if (response.data.status === 200) {
+          toast.show('Item added to cart', {
+            type: 'custom_toast',
+            data: { title: '', status: 'success' }
+
+          });
+
+          refreshCartData();
+
+          // setTimeout(() => {
+          //   router.push('/menu');
+          // }, 1000);
+        }
+        else if (response.data.status === 400) {
+          const message = response.data.message;
+          toast.show(message, {
+            type: 'custom_toast',
+            data: { title: 'Failed to add item.', status: 'danger' }
+
+          });
+        }
+      } catch (err) {
+        console.error('Failed to add to cart!');
+        console.error(err?.response?.data || err.message);
+        toast.show('Failed to add to cart', { type: 'error' });
       }
-    } catch (err) {
-      console.error('Failed to add to cart!');
-      console.error(err?.response?.data || err.message);
-      toast.show('Failed to add to cart', { type: 'error' });
-    }
+    });
   };
 
   const checkoutClearStorage = async () => {
@@ -918,272 +952,282 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
   };
 
   const handleCheckout = async () => {
-    try {
-      const token = await AsyncStorage.getItem('authToken') || '';
+    await runWithLoading(async () => {
+      try {
+        const token = await AsyncStorage.getItem('authToken') || '';
 
-      const payload = {
-        customer_id: Number(cartData?.customer_id),
-        // customer_id: Number(165),
-        outlet_id: selectedOutlet.outletId,
-        customer_address_id: deliveryAddress.addressId,
-        order_type: orderType,
-        // order_type: 'delivery',
-        payment_method: paymentMethod,
-        expected_ready_time: '',
-        placed_at: '',
-        selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
-        selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
-        notes: ''
-      };
+        const payload = {
+          customer_id: Number(cartData?.customer_id),
+          // customer_id: Number(165),
+          outlet_id: selectedOutlet.outletId,
+          customer_address_id: deliveryAddress.addressId,
+          order_type: orderType,
+          // order_type: 'delivery',
+          payment_method: paymentMethod,
+          expected_ready_time: '',
+          placed_at: '',
+          selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
+          selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
+          notes: ''
+        };
 
-      // console.log('Sending checkout payload:', payload);
+        // console.log('Sending checkout payload:', payload);
 
-      const res = await axios.post(`${apiUrl}order/create`, payload, {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-
-      if (res.data?.status === 200) {
-        toast.show('Your order has been placed!', {
-          type: 'custom_toast',
-          data: { title: '', status: 'success' }
+        const res = await axios.post(`${apiUrl}order/create`, payload, {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
         });
-        // checkoutClearStorage();
 
-        await AsyncStorage.setItem('orderId', res.data?.order?.id);
-        // console.log(res.data?.order?.id);
-        const clearanceSuccess = await checkoutClearStorage();
-
-        if (!clearanceSuccess) {
-          toast.show('Order placed but cache cleanup failed', {
+        if (res.data?.status === 200) {
+          toast.show('Your order has been placed!', {
             type: 'custom_toast',
-            data: { title: 'Warning', status: 'warning' }
+            data: { title: '', status: 'success' }
+          });
+          // checkoutClearStorage();
+
+          await AsyncStorage.setItem('orderId', res.data?.order?.id);
+          // console.log(res.data?.order?.id);
+          const clearanceSuccess = await checkoutClearStorage();
+
+          if (!clearanceSuccess) {
+            toast.show('Order placed but cache cleanup failed', {
+              type: 'custom_toast',
+              data: { title: 'Warning', status: 'warning' }
+            });
+          }
+
+
+          const redirectUrl = res.data.redirect_url;
+
+          // handlePaymentCallBack();
+          if (redirectUrl) {
+            if (Platform.OS === 'web') {
+              // Web solution
+              window.location.href = redirectUrl;
+            } else {
+              setPaymentUrl(redirectUrl);
+              setShowPaymentScreen(true);
+              return;
+            }
+
+            // 4. Setup return URL handler (mobile only)
+            if (Platform.OS !== 'web') {
+              const subscription = Linking.addEventListener('url', (event) => {
+                // handlePaymentReturn(event.url);
+                subscription.remove(); // Cleanup
+              });
+            }
+          } else {
+            router.push('/orders');
+          }
+
+        } else {
+          console.error('Order failed:', res.data);
+          toast.show('Failed to place order. Please try again.', {
+            type: 'custom_toast',
+            data: { title: '', status: 'warning' }
           });
         }
 
+      } catch (err) {
+        if (err?.response?.data?.status === 400) {
+          if (err?.response?.data?.status === 405) {
+            router.push({ pathname: '(tabs)', params: { setErrorModal: true } });
+            checkoutClearStorage();
+          }
+          else if (err?.response?.data?.status === 400) {
+            const message = err?.response?.data?.messages.error ?? "";
+            if (message === "Insufficient Wallet Balance") {
+              toast.show("Please top up your wallet balance or change a payment method.", {
+                type: 'custom_toast',
+                data: { title: 'Insufficient Wallet Balance', status: 'warning' }
+              });
+            }else{
+              toast.show(message, {
+                type: 'custom_toast',
+                data: { title: '', status: 'warning' }
+              });
+            }
 
-        const redirectUrl = res.data.redirect_url;
+            // console.log('Error fetching cart total:', error?.response?.data?.message ?? "Outlet not available for this order type");
+          }
+          else {
+            toast.show('Failed to place order. Please try again.', {
+              type: 'custom_toast',
+              data: { title: 'Order Failed', status: 'warning' }
+            });
+          }
 
-        // handlePaymentCallBack();
-        if (redirectUrl) {
-          if (Platform.OS === 'web') {
-            // Web solution
-            window.location.href = redirectUrl;
-          } else {
-            setPaymentUrl(redirectUrl);
-            setShowPaymentScreen(true);
+        }
+      }
+    });
+  }
+  // console.log('ID:', item.menu_item_id);
+  const confirmDelete = async (item) => {
+    await runWithLoading(async () => {
+      try {
+        const token = await AsyncStorage.getItem('authToken') || '';
+        // console.log('Deleting item with ID:', item.cart_item_id || item.id);
+
+        const res = await axios.post(`${apiUrl}cart/update`, {
+          customer_id: customerId,
+          outlet_id: item.outletId,
+          action: 3,
+          cart_item_id: item.cart_item_id || item.id
+        }, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          }
+        });
+
+        if (res.data.status === 200) {
+          toast.show('Item Removed', {
+            type: 'custom_toast',
+            data: { title: '', status: 'success' }
+          });
+          refreshCartData(); // Call the callback to refresh cart data
+        } else {
+          toast.show(res.data.message || 'Failed to delete item.', { type: 'error' });
+        }
+      } catch (err) {
+        console.error('Delete error:', err);
+        toast.show('Something went wrong. Please try again.', { type: 'error' });
+      }
+    });
+  };
+
+  const handleApplyVoucher = async () => {
+    if (applyingVoucher) return;
+
+    setApplyingVoucher(true);
+
+    try {
+      await runWithLoading(async () => {
+        const token = (await AsyncStorage.getItem('authToken')) || '';
+
+        // ✅ Always prioritize new voucher from URL param if available
+        const newVoucherCode = voucherToApply || voucherCode;
+        const code = voucherId ? '' : (newVoucherCode || '').trim();
+
+        if (!voucherId && !code) {
+          toast.show('Please enter a voucher code.', {
+            type: 'custom_toast',
+            data: { title: '', status: 'warning' }
+          });
+          return;
+        }
+        if (!cartData) {
+          toast.show('Please wait a moment.', {
+            type: 'custom_toast',
+            data: { title: '', status: 'info' }
+          });
+          return;
+        }
+
+        try {
+          if (voucherCode) {
+            console.log('Removing old voucher:', voucherCode);
+            await handleRemoveVoucher();
+
+            // ✅ Wait a moment to ensure backend fully updates before applying new one
+            await new Promise((r) => setTimeout(r, 300));
+
+            setVoucherCode('');
+          }
+
+          console.log('Applying new voucher:', code || voucherId);
+          const res = await axios.post(
+            `${apiUrl}redeem-voucher/${customerId}`,
+            {
+              promo_code: voucherId ? '' : code,
+              voucher_id: voucherId || '',
+              cart_id: parseInt(cartData.id),
+              outlet_id: parseInt(cartData.outlet_id),
+              order_type: orderType
+            },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+
+          if (res.data.status === 400 || res.data.data?.status === 400) {
+            const message = res.data.result || res.data.message;
+            toast.show(message, {
+              type: 'custom_toast',
+              data: { title: 'Failed to apply voucher', status: 'warning' }
+            });
+            setVoucherCode('');
+            setVoucherToApply(null);
             return;
           }
 
-          // 4. Setup return URL handler (mobile only)
-          if (Platform.OS !== 'web') {
-            const subscription = Linking.addEventListener('url', (event) => {
-              // handlePaymentReturn(event.url);
-              subscription.remove(); // Cleanup
-            });
-          }
-        } else {
-          router.push('/orders');
-        }
+          if (res.data.status === 200) {
+            // console.log('New voucher applied successfully:', code || voucherId);
+            const promoSettings = res.data.data.promo_settings;
+            setPromoSettings(promoSettings);
 
-      } else {
-        console.error('Order failed:', res.data);
-        toast.show('Failed to place order. Please try again.', {
-          type: 'custom_toast',
-          data: { title: '', status: 'warning' }
-        });
-      }
+            if (promoSettings?.promo_type === "free_item" && promoSettings?.amount) {
+              await AsyncStorage.setItem("freeItemMaxQuantity", String(promoSettings.amount));
+            }
 
-    } catch (err) {
-      if (err?.response?.data?.status === 400) {
-        if (err?.response?.data?.status === 405) {
-          router.push({ pathname: '(tabs)', params: { setErrorModal: true } });
-          checkoutClearStorage();
-        }
-        else if (err?.response?.data?.status === 400) {
-          const message = err?.response?.data?.messages.error ?? "";
-          if (message === "Insufficient Wallet Balance") {
-            toast.show("Please top up your wallet balance or change a payment method.", {
-              type: 'custom_toast',
-              data: { title: 'Insufficient Wallet Balance', status: 'warning' }
-            });
-          }else{
-            toast.show(message, {
+            let items = [];
+            const freeItemsData = res.data.data.free_items;
+
+            if (Array.isArray(freeItemsData)) {
+              items = freeItemsData;
+            } else if (typeof freeItemsData === "object" && freeItemsData !== null) {
+              items = Object.values(freeItemsData).flat();
+            }
+
+            if (items.length > 0) {
+              const normalized = items.map(it => ({
+                id: String(it.id),
+                variation_id: String(it.variation_id),
+                title: it.title,
+                image:
+                  Array.isArray(it.image_url) && it.image_url[0]?.image_url
+                    ? it.image_url[0].image_url
+                    : undefined
+              }));
+              setFreeItems(normalized);
+              setSelectedFreeItemId(normalized[0]?.id || null);
+              setShowFreeItemsModal(true);
+            } else {
+              setVoucherCode(code); // ✅ use the new one from param
+              await refreshCartData();
+
+              if (voucherToast && (cartData?.order_summary?.promo_code || cartData?.order_summary?.voucher_code) !== "") {
+                toast.show('Voucher applied successfully!', {
+                  type: 'custom_toast',
+                  data: { title: '', status: 'success' }
+                });
+                setVoucherToast(false);
+              }
+            }
+          } else {
+            toast.show(res.data.message || 'Failed to apply voucher.', {
               type: 'custom_toast',
               data: { title: '', status: 'warning' }
             });
           }
-
-          // console.log('Error fetching cart total:', error?.response?.data?.message ?? "Outlet not available for this order type");
-        }
-        else {
-          toast.show('Failed to place order. Please try again.', {
+        } catch (err) {
+          console.error('Promo apply error:', err?.response?.data || err.message);
+          const msg =
+            err?.response?.data?.messages?.error ||
+            err?.response?.data?.message ||
+            'Something went wrong. Try again.';
+          toast.show(msg, {
             type: 'custom_toast',
-            data: { title: 'Order Failed', status: 'warning' }
+            data: { title: '', status: 'warning' }
           });
         }
-
-      }
-    }
-  }
-  // console.log('ID:', item.menu_item_id);
-  const confirmDelete = async (item) => {
-    try {
-      const token = await AsyncStorage.getItem('authToken') || '';
-      // console.log('Deleting item with ID:', item.cart_item_id || item.id);
-
-      const res = await axios.post(`${apiUrl}cart/update`, {
-        customer_id: customerId,
-        outlet_id: item.outletId,
-        action: 3,
-        cart_item_id: item.cart_item_id || item.id
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        }
       });
-
-      if (res.data.status === 200) {
-        toast.show('Item Removed', {
-          type: 'custom_toast',
-          data: { title: '', status: 'success' }
-        });
-        refreshCartData(); // Call the callback to refresh cart data
-      } else {
-        toast.show(res.data.message || 'Failed to delete item.', { type: 'error' });
-      }
     } catch (err) {
-      console.error('Delete error:', err);
-      toast.show('Something went wrong. Please try again.', { type: 'error' });
+      console.error('Voucher apply error:', err);
+    } finally {
+      setApplyingVoucher(false);
     }
   };
-
-  const handleApplyVoucher = async () => {
-  const token = (await AsyncStorage.getItem('authToken')) || '';
-
-  if (applyingVoucher) return;
-
-  // ✅ Always prioritize new voucher from URL param if available
-  const newVoucherCode = voucherToApply || voucherCode;
-  const code = voucherId ? '' : (newVoucherCode || '').trim();
-
-  if (!voucherId && !code) {
-    toast.show('Please enter a voucher code.', {
-      type: 'custom_toast',
-      data: { title: '', status: 'warning' }
-    });
-    return;
-  }
-  if (!cartData) {
-    toast.show('Please wait a moment.', {
-      type: 'custom_toast',
-      data: { title: '', status: 'info' }
-    });
-    return;
-  }
-
-  setApplyingVoucher(true);
-
-  try {
-    if (voucherCode) {
-      console.log('Removing old voucher:', voucherCode);
-      await handleRemoveVoucher();
-
-      // ✅ Wait a moment to ensure backend fully updates before applying new one
-      await new Promise((r) => setTimeout(r, 300));
-
-      setVoucherCode('');
-    }
-
-    console.log('Applying new voucher:', code || voucherId);
-    const res = await axios.post(
-      `${apiUrl}redeem-voucher/${customerId}`,
-      {
-        promo_code: voucherId ? '' : code,
-        voucher_id: voucherId || '',
-        cart_id: parseInt(cartData.id),
-        outlet_id: parseInt(cartData.outlet_id),
-        order_type: orderType
-      },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    if (res.data.status === 400 || res.data.data?.status === 400) {
-      const message = res.data.result || res.data.message;
-      toast.show(message, {
-        type: 'custom_toast',
-        data: { title: 'Failed to apply voucher', status: 'warning' }
-      });
-      setVoucherCode('');
-      setVoucherToApply(null);
-      return;
-    }
-
-    if (res.data.status === 200) {
-      // console.log('New voucher applied successfully:', code || voucherId);
-      const promoSettings = res.data.data.promo_settings;
-      setPromoSettings(promoSettings);
-
-      if (promoSettings?.promo_type === "free_item" && promoSettings?.amount) {
-        await AsyncStorage.setItem("freeItemMaxQuantity", String(promoSettings.amount));
-      }
-
-      let items = [];
-      const freeItemsData = res.data.data.free_items;
-
-      if (Array.isArray(freeItemsData)) {
-        items = freeItemsData;
-      } else if (typeof freeItemsData === "object" && freeItemsData !== null) {
-        items = Object.values(freeItemsData).flat();
-      }
-
-      if (items.length > 0) {
-        const normalized = items.map(it => ({
-          id: String(it.id),
-          variation_id: String(it.variation_id),
-          title: it.title,
-          image:
-            Array.isArray(it.image_url) && it.image_url[0]?.image_url
-              ? it.image_url[0].image_url
-              : undefined
-        }));
-        setFreeItems(normalized);
-        setSelectedFreeItemId(normalized[0]?.id || null);
-        setShowFreeItemsModal(true);
-      } else {
-        setVoucherCode(code); // ✅ use the new one from param
-        await refreshCartData();
-
-        if (voucherToast && (cartData?.order_summary?.promo_code || cartData?.order_summary?.voucher_code) !== "") {
-          toast.show('Voucher applied successfully!', {
-            type: 'custom_toast',
-            data: { title: '', status: 'success' }
-          });
-          setVoucherToast(false);
-        }
-      }
-    } else {
-      toast.show(res.data.message || 'Failed to apply voucher.', {
-        type: 'custom_toast',
-        data: { title: '', status: 'warning' }
-      });
-    }
-  } catch (err) {
-    console.error('Promo apply error:', err?.response?.data || err.message);
-    const msg =
-      err?.response?.data?.messages?.error ||
-      err?.response?.data?.message ||
-      'Something went wrong. Try again.';
-    toast.show(msg, {
-      type: 'custom_toast',
-      data: { title: '', status: 'warning' }
-    });
-  } finally {
-    setApplyingVoucher(false);
-  }
-};
 
 
   const formatEstimatedTime = (estimatedTime) => {
@@ -1197,63 +1241,65 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
   }
 
   const handleAddFreeItemToCart = async (item) => {
-    // const customerData = await getCustomerData();
-    const outletDetails = await AsyncStorage.getItem('outletDetails');
-    // if (outletDetails) {
-    const token = await AsyncStorage.getItem('authToken');
-    const parsedOutletDetails = JSON.parse(outletDetails);
-    // }
-    if (!customerData || !customerData.id || !outletDetails) {
-      console.error("Customer data not found");
-      toast.show('Customer data not found', { type: 'error' });
-      return;
-    }
-
-    const payload = {
-      customer_id: Number(customerData.id),
-      // outlet_id: menuItem?.outlet_id || 1,
-      outlet_id: parsedOutletDetails.outletId,
-      menu_item_id: Number(item.id),
-      variation_id: Number(item.variation_id),
-      // variation_id: selectedCrustId ? Number(selectedCrustId) : null,
-      // option: optionPayload,
-      quantity: 1,
-      is_free_item: 1,
-    };
-    // console.log('freeee', payload);
-
-    try {
-      const response = await axios.post(`${apiUrl}cart/add`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      // console.log(response);
-
-      if (response.data.status === 200) {
-        toast.show('Item added to cart', {
-          type: 'custom_toast',
-          data: { title: '', status: 'success' }
-
-        });
-
-        router.replace('/screens/orders/checkout');
-
-        // setTimeout(() => {
-        //   router.push('/menu');
-        // }, 1000);
+    await runWithLoading(async () => {
+      // const customerData = await getCustomerData();
+      const outletDetails = await AsyncStorage.getItem('outletDetails');
+      // if (outletDetails) {
+      const token = await AsyncStorage.getItem('authToken');
+      const parsedOutletDetails = outletDetails ? JSON.parse(outletDetails) : null;
+      // }
+      if (!customerData || !customerData.id || !parsedOutletDetails) {
+        console.error("Customer data not found");
+        toast.show('Customer data not found', { type: 'error' });
+        return;
       }
-      else if (response.data.status === 400) {
-        const message = response.data.message;
-        toast.show(message, {
-          type: 'custom_toast',
-          data: { title: 'Failed to add item.', status: 'danger' }
 
+      const payload = {
+        customer_id: Number(customerData.id),
+        // outlet_id: menuItem?.outlet_id || 1,
+        outlet_id: parsedOutletDetails.outletId,
+        menu_item_id: Number(item.id),
+        variation_id: Number(item.variation_id),
+        // variation_id: selectedCrustId ? Number(selectedCrustId) : null,
+        // option: optionPayload,
+        quantity: 1,
+        is_free_item: 1,
+      };
+      // console.log('freeee', payload);
+
+      try {
+        const response = await axios.post(`${apiUrl}cart/add`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
         });
+        // console.log(response);
+
+        if (response.data.status === 200) {
+          toast.show('Item added to cart', {
+            type: 'custom_toast',
+            data: { title: '', status: 'success' }
+
+          });
+
+          router.replace('/screens/orders/checkout');
+
+          // setTimeout(() => {
+          //   router.push('/menu');
+          // }, 1000);
+        }
+        else if (response.data.status === 400) {
+          const message = response.data.message;
+          toast.show(message, {
+            type: 'custom_toast',
+            data: { title: 'Failed to add item.', status: 'danger' }
+
+          });
+        }
+      } catch (err) {
+        console.error('Failed to add to cart!');
+        console.error(err?.response?.data || err.message);
+        toast.show('Failed to add to cart', { type: 'error' });
       }
-    } catch (err) {
-      console.error('Failed to add to cart!');
-      console.error(err?.response?.data || err.message);
-      toast.show('Failed to add to cart', { type: 'error' });
-    }
+    });
   };
 
   const renderFreeItemsModal = () => (
@@ -1407,7 +1453,9 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
               </TouchableOpacity>
             </View>
 
-            {cartData?.pwp_menu.length !== 0 ? <> <View style={styles.separator} />
+            {cartData?.pwp_menu.length !== 0 ? (
+              <>
+              <View style={styles.separator} />
 
               {/* Popular */}
               <View style={styles.section}>
@@ -1434,7 +1482,9 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
                     />
                   ))}
                 </ScrollView>
-              </View></> : null}
+              </View>
+              </>
+            ) : null}
 
             <View style={styles.separator} />
             </>
@@ -1657,6 +1707,20 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
             />
           </Modal>
         )}
+
+        <Modal
+          transparent
+          visible={isLoading}
+          animationType="fade"
+          statusBarTranslucent
+        >
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingCard}>
+              <ActivityIndicator size="large" color="#C2000E" />
+              <Text style={styles.loadingText}>Loading...</Text>
+            </View>
+          </View>
+        </Modal>
 
       </SafeAreaView>
     </ResponsiveBackground >
@@ -2185,4 +2249,25 @@ const styles = StyleSheet.create({
   },
   map: { flex: 1, height: 250, borderRadius: 12 },
   driverIcon: { width: 50, height: 50 },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 24,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 160,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontFamily: 'Route159-Bold',
+    fontSize: 16,
+    color: '#C2000E',
+  },
 });

@@ -78,7 +78,6 @@ export default function GeneralReceipt() {
         /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
       if (isIOSWeb) {
-        // 🧠 Safari iOS workaround — fetch with headers, then share or open
         const response = await fetch(downloadUrl, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -91,7 +90,6 @@ export default function GeneralReceipt() {
         });
 
         if (navigator.share) {
-          // ✅ Use Web Share API if available (iOS 15+)
           await navigator.share({
             title: 'US PIZZA Receipt',
             text: 'Here’s your receipt PDF',

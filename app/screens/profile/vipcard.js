@@ -78,10 +78,6 @@ export default function VipCard() {
   }, [])
 
   const handleSubscribe = async () => {
-    console.log("Subscribed successfully");
-    console.log({
-      "customer_id": customerData.id
-    });
     try {
       const response = await axios.post(
         `${apiUrl}order/vip`,
@@ -186,7 +182,10 @@ export default function VipCard() {
               ))}
             </View>
             <View style={{ marginTop: '2%' }}>
-              <Text style={styles.benefitTextPerk2}>All these ultra-sedap rewards for just RM55/year.<br />Don’t miss out—join the Ultra VIP Club today!</Text>
+              <Text style={styles.benefitTextPerk2}>
+                All these ultra-sedap rewards for just RM55/year.{"\n"}
+                Don’t miss out—join the Ultra VIP Club today!
+              </Text>
 
             </View>
           </View>

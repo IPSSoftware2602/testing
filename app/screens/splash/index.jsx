@@ -15,7 +15,7 @@ export default function Splash() {
   useAuthGuard();
   const router = useRouter();
   const { referral_id } = useLocalSearchParams();
-  console.log(referral_id);
+  // console.log(referral_id);
   useEffect(() => {
     const checkStoredData = async () => {
       try {
@@ -27,9 +27,6 @@ export default function Splash() {
         const customerJson = await AsyncStorage.getItem('customerData');
         // const customerJson = null;
         const customerData = customerJson ? JSON.parse(customerJson) : null;
-
-        console.log('Stored token:', authToken);
-        console.log('Stored customer:', customerData);
 
         if (authToken && customerData) {
           setTimeout(async () => {

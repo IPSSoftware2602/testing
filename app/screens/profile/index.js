@@ -24,7 +24,7 @@ const { width } = Dimensions.get('window');
 export default function Profile() {
   useAuthGuard();
   useCheckValidOrderType();
-  const [qrValue, setQrValue] = useState(" ");
+  const [qrValue, setQrValue] = useState("");
   const router = useRouter();
   const [isQRModalVisible, setQRModalVisible] = useState(false);
   const [authToken, setAuthToken] = useState("");
@@ -332,11 +332,15 @@ export default function Profile() {
                   ) : null}
                 </View>
               </View>
-              <TouchableOpacity style={{ width: '30%', height: '100%', alignItems: 'flex-end', justifyContent: 'flex-start', padding: 5 }} onPress={() => setQRModalVisible(true)}>
-                <QRCode
-                  value={qrValue}
-                  size={width < 440 ? width < 375 ? 50 : 55 : 60}
-                />
+              <TouchableOpacity style={{ width: '30%', height: '100%', alignItems: 'flex-end', justifyContent: 'flex-start', padding: 5 }} onPress={() => qrValue && qrValue.trim() !== '' ? setQRModalVisible(true) : null}>
+                {qrValue && qrValue.trim() !== '' ? (
+                  <QRCode
+                    value={qrValue.trim()}
+                    size={width < 440 ? width < 375 ? 50 : 55 : 60}
+                  />
+                ) : (
+                  <Text style={{ color: '#C2000E', fontSize: 14 }}>No QR Available</Text>
+                )}
               </TouchableOpacity>
             </View>
             <Image source={require('../../../assets/elements/profile/uspizza_card_background.png')} style={styles.vipCardWatermark} />

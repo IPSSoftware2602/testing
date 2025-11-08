@@ -1,7 +1,8 @@
 import { AntDesign } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useState, useEffect, useMemo } from 'react';
-import { Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, FlatList, Modal, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomTabBarBackground } from '../../../components/ui/CustomTabBarBackground';
 import PolygonButton from '../../../components/ui/PolygonButton';
@@ -17,127 +18,53 @@ import PropTypes from 'prop-types'
 import useAuthGuard from '../../auth/check_token_expiry';
 
 const { width } = Dimensions.get('window');
+const OPTIONS_VIRTUALIZATION_THRESHOLD = 12; // Use FlatList when options > 12
 
 const OptionCard = React.memo(({
   item,
   parents,
   type = 'option',
-  selectedOptions,
-  setSelectedOptions,
-  optionGroups,
-  itemPrice,
-  setItemPrice,
-  selectedCrustId,
-  setSelectedCrustId,
-  variationPrice,
-  setVariationPrice,
+  onOptionToggle,
+  group,
+  selected,
+  selectedCount,
+  maxQ,
+  minQ,
   toast
 }) => {
-  const tags = item.tags || [];
-  const selected = selectedOptions.find(option => option.parents === parents)?.options.includes(item.id);
-  const group = optionGroups.find(g => g.id === parents);
-  const minQ = Number(group?.min_quantity || 0);
-  const rawMaxQ = Number(group?.max_quantity || 0);
-  const maxQ = (minQ === 0 && rawMaxQ === 0) ? Infinity : (rawMaxQ || 99);
-
-  const selectedOptionGroup = selectedOptions.find(option => option.parents === parents);
-  const selectedCount = selectedOptionGroup?.options.length || 0;
-
-  const imageSource = item.image
-    ? { uri: item.image }
-    : require('../../../assets/images/menu_default.jpg');
-
-  const handlePress = () => {
-    if (parents === 0) {
-      if (selected) {
-        setSelectedOptions(selectedOptions.filter(option => option.parents !== parents));
-        setItemPrice(itemPrice - item.price);
-        setSelectedCrustId(null);
-        setVariationPrice(0);
-      } else {
-        setSelectedOptions([
-          ...selectedOptions.filter(option => option.parents !== parents),
-          {
-            parents: parents,
-            options: [item.id],
-            group_id: group?.id
-          }
-        ]);
-        setItemPrice(itemPrice + item.price);
-        setSelectedCrustId(item.id);
-        setVariationPrice(item.price);
-      }
-    } else {
-      // Original logic for other options
-      if (selected) {
-        const isRequired = Number(group?.is_required) === 1;
-        if(isRequired && maxQ === 1 && minQ === 1 || (group?.title === 'Takeaway Packaging' && isRequired)){
-          toast.show('This option is required', {
-            type: 'custom_toast',
-            data: { title: '', status: 'info' }
-          });
-          return;
-        }
-        setSelectedOptions(selectedOptions.map(option =>
-          option.parents === parents
-            ? { ...option, options: option.options.filter(id => id !== item.id) }
-            : option
-        ));
-        setItemPrice(itemPrice - item.price);
-      } else {
-        console.log(maxQ);
-        if(maxQ === 1){
-          const existingOption = selectedOptions.find(option => option.parents === parents);
-          if (existingOption) {
-            setSelectedOptions(selectedOptions.map(option =>
-              option.parents === parents
-                ? { ...option,options: [item.id] }
-                : option
-            ));
-            setItemPrice(itemPrice + item.price);
-          }else{
-            setSelectedOptions([...selectedOptions, {
-              parents: parents,
-              options: [item.id],
-              group_id: group?.id
-            }]);
-          }
-          return;
-        }
-        if (selectedCount >= maxQ) {
-          toast.show(`You can only select up to ${maxQ} options for ${group?.title ?? parents}`, {
-            type: 'custom_toast',
-            data: { title: '', status: 'info' }
-          });
-          return;
-        }
-        const existingOption = selectedOptions.find(option => option.parents === parents);
-        if (existingOption) {
-          setSelectedOptions(selectedOptions.map(option =>
-            option.parents === parents
-              ? { ...option, options: [...option.options, item.id] }
-              : option
-          ));
-        } else {
-          setSelectedOptions([...selectedOptions, {
-            parents: parents,
-            options: [item.id],
-            group_id: group?.id
-          }]);
-        }
-        setItemPrice(itemPrice + item.price);
-      }
+  const imageSource = useMemo(() => {
+    if (!item.image) {
+      return require('../../../assets/images/menu_default.jpg');
     }
-  };
+    // Image is already a full URL from the data preparation
+    return { uri: item.image, cachePolicy: 'memory-disk' };
+  }, [item.image]);
 
-  const imageStyle = type === 'variation'
-    ? {
-      width: '100%',
-      height: 80,
-      borderTopLeftRadius: 8,
-      borderTopRightRadius: 8,
-    }
-    : styles.optionImageLeft;
+  const handlePress = useCallback(() => {
+    onOptionToggle(item.id, item.price, selected, selectedCount, maxQ, minQ, group);
+  }, [item.id, item.price, selected, selectedCount, maxQ, minQ, group, onOptionToggle]);
+
+  const imageStyle = useMemo(() => 
+    type === 'variation'
+      ? {
+          width: '100%',
+          height: 80,
+          borderTopLeftRadius: 8,
+          borderTopRightRadius: 8,
+        }
+      : styles.optionImageLeft,
+    [type]
+  );
+
+  const priceText = useMemo(() => 
+    item.price > 0 ? `+RM ${item.price.toFixed(2)}` : `RM ${item.price.toFixed(2)}`,
+    [item.price]
+  );
+
+  const discountPriceText = useMemo(() => 
+    item.discount_price > 0 ? `-RM ${item.discount_price.toFixed(2)}` : null,
+    [item.discount_price]
+  );
 
   return (
     <TouchableOpacity
@@ -149,16 +76,23 @@ const OptionCard = React.memo(({
         { borderColor: selected ? '#C2000E' : '#eee' }
       ]}
     >
-      <Image source={imageSource} style={imageStyle} />
+      <Image 
+        source={imageSource} 
+        style={imageStyle}
+        contentFit="cover"
+        transition={100}
+        cachePolicy="memory-disk"
+        recyclingKey={String(item.id)}
+        priority={selected ? "high" : "low"}
+        placeholder={require('../../../assets/images/menu_default.jpg')}
+      />
       <View style={styles.optionDetails}>
         <Text style={styles.optionName}>{item.name}</Text>
         <View style={styles.optionRow}>
-          <Text style={styles.optionPrice}>
-            {item.price > 0 ? `+RM ${item.price.toFixed(2)}` : `RM ${item.price.toFixed(2)}`}
-          </Text>
-          <Text style={styles.optionDiscountPrice}>
-            {item.discount_price > 0 ? `-RM ${item.discount_price.toFixed(2)}` : null}
-          </Text>
+          <Text style={styles.optionPrice}>{priceText}</Text>
+          {discountPriceText && (
+            <Text style={styles.optionDiscountPrice}>{discountPriceText}</Text>
+          )}
           <TouchableOpacity
             onPress={handlePress}
             activeOpacity={0.8}
@@ -171,6 +105,21 @@ const OptionCard = React.memo(({
       </View>
     </TouchableOpacity>
   );
+}, (prevProps, nextProps) => {
+  // Custom comparison function for better memoization
+  return (
+    prevProps.item.id === nextProps.item.id &&
+    prevProps.item.name === nextProps.item.name &&
+    prevProps.item.price === nextProps.item.price &&
+    prevProps.item.discount_price === nextProps.item.discount_price &&
+    prevProps.item.image === nextProps.item.image &&
+    prevProps.selected === nextProps.selected &&
+    prevProps.selectedCount === nextProps.selectedCount &&
+    prevProps.maxQ === nextProps.maxQ &&
+    prevProps.minQ === nextProps.minQ &&
+    prevProps.parents === nextProps.parents &&
+    prevProps.type === nextProps.type
+  );
 });
 
 OptionCard.propTypes = {
@@ -178,41 +127,245 @@ OptionCard.propTypes = {
     id: PropTypes.number.isRequired,
     name: PropTypes.string.isRequired,
     price: PropTypes.number.isRequired,
+    discount_price: PropTypes.number,
     image: PropTypes.string,
     tags: PropTypes.array
   }).isRequired,
   parents: PropTypes.number.isRequired,
   type: PropTypes.oneOf(['option', 'variation']),
-  selectedOptions: PropTypes.array.isRequired,
-  setSelectedOptions: PropTypes.func.isRequired,
-  optionGroups: PropTypes.array.isRequired,
-  itemPrice: PropTypes.number.isRequired,
-  setItemPrice: PropTypes.func.isRequired,
-  selectedCrustId: PropTypes.number,
-  setSelectedCrustId: PropTypes.func.isRequired,
-  variationPrice: PropTypes.number.isRequired,
-  setVariationPrice: PropTypes.func.isRequired,
+  onOptionToggle: PropTypes.func.isRequired,
+  group: PropTypes.object,
+  selected: PropTypes.bool.isRequired,
+  selectedCount: PropTypes.number.isRequired,
+  maxQ: PropTypes.number.isRequired,
+  minQ: PropTypes.number.isRequired,
   toast: PropTypes.object.isRequired
 };
 
-// Add default props (optional)
 OptionCard.defaultProps = {
   type: 'option',
-  selectedCrustId: null
+  group: null
 };
 OptionCard.displayName = 'OptionCard';
+
+// Optimized Option Group Component with FlatList support
+const OptionGroup = React.memo(({ 
+  group, 
+  selectedOptions, 
+  handleOptionToggle, 
+  toast 
+}) => {
+  // Pre-compute selected states and counts for all options in this group
+  const optionData = useMemo(() => {
+    const selectedOptionGroup = selectedOptions.find(opt => opt.parents === group.id);
+    const selectedIds = new Set(selectedOptionGroup?.options || []);
+    const selectedCount = selectedIds.size;
+    const minQ = Number(group?.min_quantity || 0);
+    const rawMaxQ = Number(group?.max_quantity || 0);
+    const maxQ = (minQ === 0 && rawMaxQ === 0) ? Infinity : (rawMaxQ || 99);
+
+            return (group.options || []).map(opt => {
+      let imageUri = '';
+      if (opt.images_compressed || opt.images) {
+        const imgPath = opt.images_compressed || opt.images;
+        imageUri = imgPath.startsWith('http') 
+          ? imgPath 
+          : `${imageUrl}menu_options/${imgPath}`;
+      }
+      return {
+        id: opt.id,
+        name: opt.title,
+        price: Number(opt.price_adjustment ?? opt.price ?? 0),
+        discount_price: Number(opt.discount_price || 0),
+        image: imageUri,
+        selected: selectedIds.has(opt.id),
+        selectedCount,
+        maxQ,
+        minQ,
+      };
+    });
+  }, [group, selectedOptions]);
+
+  const minQ = Number(group?.min_quantity || 0);
+  const rawMaxQ = Number(group?.max_quantity || 0);
+  const maxQ = (minQ === 0 && rawMaxQ === 0) ? Infinity : (rawMaxQ || 99);
+  const selectedOptionGroup = selectedOptions.find(opt => opt.parents === group.id);
+  const selectedCount = selectedOptionGroup?.options?.length || 0;
+
+  // Use FlatList for large option lists, regular map for small ones
+  const shouldUseFlatList = optionData.length > OPTIONS_VIRTUALIZATION_THRESHOLD;
+
+  const renderOption = useCallback(({ item: optData }) => (
+    <OptionCard
+      item={optData}
+      parents={group.id}
+      type="option"
+      onOptionToggle={handleOptionToggle}
+      group={group}
+      selected={optData.selected}
+      selectedCount={selectedCount}
+      maxQ={maxQ}
+      minQ={minQ}
+      toast={toast}
+    />
+  ), [group, selectedCount, maxQ, minQ, handleOptionToggle, toast]);
+
+  const renderOptionItem = useCallback((optData, index) => (
+    <OptionCard
+      key={optData.id}
+      item={optData}
+      parents={group.id}
+      type="option"
+      onOptionToggle={handleOptionToggle}
+      group={group}
+      selected={optData.selected}
+      selectedCount={selectedCount}
+      maxQ={maxQ}
+      minQ={minQ}
+      toast={toast}
+    />
+  ), [group, selectedCount, maxQ, minQ, handleOptionToggle, toast]);
+
+  const keyExtractor = useCallback((item) => String(item.id), []);
+
+  return (
+    <View style={styles.optionsSection}>
+      <Text style={styles.sectionTitle}>
+        {group.title}
+        {String(group.is_required) === "1" ? <Text style={{ color: '#C2000E' }}> *</Text> : null}
+      </Text>
+      {optionData.length > 0 ? (
+        shouldUseFlatList ? (
+          <FlatList
+            data={optionData}
+            renderItem={renderOption}
+            keyExtractor={keyExtractor}
+            numColumns={2}
+            scrollEnabled={false}
+            contentContainerStyle={styles.optionsGrid}
+            removeClippedSubviews={true}
+            initialNumToRender={8}
+            maxToRenderPerBatch={6}
+            windowSize={3}
+            nestedScrollEnabled={false}
+            updateCellsBatchingPeriod={50}
+          />
+        ) : (
+          <View style={styles.optionsGrid}>
+            {optionData.map(optData => renderOptionItem(optData))}
+          </View>
+        )
+      ) : (
+        <Text style={{ color: '#bbb', fontStyle: 'italic', margin: 8 }}>
+          No options available for this Item
+        </Text>
+      )}
+    </View>
+  );
+}, (prevProps, nextProps) => {
+  // Only re-render if group or selectedOptions changed
+  if (prevProps.group.id !== nextProps.group.id) return false;
+  if (prevProps.group.options?.length !== nextProps.group.options?.length) return false;
+  
+  const prevSelected = prevProps.selectedOptions.find(opt => opt.parents === prevProps.group.id);
+  const nextSelected = nextProps.selectedOptions.find(opt => opt.parents === nextProps.group.id);
+  
+  if (!prevSelected && !nextSelected) return true;
+  if (!prevSelected || !nextSelected) return false;
+  
+  if (prevSelected.options.length !== nextSelected.options.length) return false;
+  
+  const prevSet = new Set(prevSelected.options);
+  const nextSet = new Set(nextSelected.options);
+  if (prevSet.size !== nextSet.size) return false;
+  
+  for (const id of prevSet) {
+    if (!nextSet.has(id)) return false;
+  }
+  
+  return true;
+});
+
+OptionGroup.displayName = 'OptionGroup';
+
+// Optimized Crust Options Component
+const CrustOptionsGroup = React.memo(({ 
+  crustOptions, 
+  selectedOptions, 
+  handleOptionToggle, 
+  optionGroups, 
+  toast 
+}) => {
+  const selectedCrustId = useMemo(() => {
+    const crustGroup = selectedOptions.find(opt => opt.parents === 0);
+    return crustGroup?.options[0] || null;
+  }, [selectedOptions]);
+
+  const crustData = useMemo(() => {
+    const minQ = 0;
+    const maxQ = 1;
+    const selectedCount = selectedCrustId ? 1 : 0;
+
+    return crustOptions.map(opt => ({
+      ...opt,
+      selected: opt.id === selectedCrustId,
+      selectedCount,
+      maxQ,
+      minQ,
+    }));
+  }, [crustOptions, selectedCrustId]);
+
+  const selectedCount = selectedCrustId ? 1 : 0;
+  const maxQ = 1;
+  const minQ = 0;
+  const group = { id: 0, title: 'Choice of Pizza Size' };
+
+  return (
+    <View style={styles.optionsSection}>
+      <Text style={styles.sectionTitle}>Choice of Pizza Size</Text>
+      <View style={styles.optionsGrid}>
+        {crustData.map(item => (
+          <OptionCard
+            key={item.id}
+            item={item}
+            parents={0}
+            type="variation"
+            onOptionToggle={handleOptionToggle}
+            group={group}
+            selected={item.selected}
+            selectedCount={selectedCount}
+            maxQ={maxQ}
+            minQ={minQ}
+            toast={toast}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}, (prevProps, nextProps) => {
+  if (prevProps.crustOptions.length !== nextProps.crustOptions.length) return false;
+  
+  const prevSelected = prevProps.selectedOptions.find(opt => opt.parents === 0);
+  const nextSelected = nextProps.selectedOptions.find(opt => opt.parents === 0);
+  
+  if (!prevSelected && !nextSelected) return true;
+  if (!prevSelected || !nextSelected) return false;
+  if (prevSelected.options[0] !== nextSelected.options[0]) return false;
+  
+  return true;
+});
+
+CrustOptionsGroup.displayName = 'CrustOptionsGroup';
 
 export default function MenuItemScreen() {
   useAuthGuard();
   const router = useRouter();
   const toast = useToast();
   const { id, source, cart_item_id, is_free_item, amount } = useLocalSearchParams();
-  // console.log('amount', amount);
   const [token, setToken] = useState('');
   const [itemPrice, setItemPrice] = useState(66);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [menuItem, setMenuItem] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [optionGroups, setOptionGroups] = useState([]);
   const [crustOptions, setCrustOptions] = useState([]);
   const [selectedCrustId, setSelectedCrustId] = useState(null);
@@ -222,6 +375,29 @@ export default function MenuItemScreen() {
   const [optionTotal, setOptionTotal] = useState(0);
   const [baseOptionGroupIds, setBaseOptionGroupIds] = useState([]);
   const [note, setNote] = useState('');
+  const [loadingCount, setLoadingCount] = useState(0);
+
+  const showLoading = useCallback(() => {
+    setLoadingCount((prev) => prev + 1);
+  }, []);
+
+  const hideLoading = useCallback(() => {
+    setLoadingCount((prev) => Math.max(prev - 1, 0));
+  }, []);
+
+  const runWithLoading = useCallback(
+    async (fn) => {
+      showLoading();
+      try {
+        return await fn();
+      } finally {
+        hideLoading();
+      }
+    },
+    [showLoading, hideLoading]
+  );
+
+  const isLoading = loadingCount > 0;
 
   const isFree = String(is_free_item) === '1' || String(is_free_item).toLowerCase() === 'true';
   const maxQuantity = isFree ? Number(amount) || 1 : null;
@@ -236,80 +412,82 @@ export default function MenuItemScreen() {
   useEffect(() => {
     if (!cart_item_id || !token) return;
     const fetchCartItem = async () => {
-      const res = await axios.get(`${apiUrl}cart/items/${cart_item_id}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.data.data) {
-        const item = res.data.data;
-        //setup variation
-        setSelectedCrustId(item.variation_id);
-        // setVariationPrice(item.variation.price.toFixed(2));
-        //setup options
-        // Fix: Properly handle option payload and avoid duplicate crust option if already present
-        // Group options by group_id and aggregate option_ids
-        const optionPayload = Array.isArray(item.options)
-          ? [
-            ...Object.values(
-              item.options.reduce((acc, opt) => {
-                const groupId = opt.option_group_id;
-                if (!acc[groupId]) {
-                  acc[groupId] = {
-                    group_id: groupId,
-                    // parents: opt.option_group_title,
-                    parents: groupId,
-                    options: []
-                  };
+      await runWithLoading(async () => {
+        try {
+          const res = await axios.get(`${apiUrl}cart/items/${cart_item_id}`, { headers: { Authorization: `Bearer ${token}` } });
+          if (res.data.data) {
+            const item = res.data.data;
+            //setup variation
+            setSelectedCrustId(item.variation_id);
+            //setup options
+            const optionPayload = Array.isArray(item.options)
+              ? [
+                ...Object.values(
+                  item.options.reduce((acc, opt) => {
+                    const groupId = opt.option_group_id;
+                    if (!acc[groupId]) {
+                      acc[groupId] = {
+                        group_id: groupId,
+                        parents: groupId,
+                        options: []
+                      };
+                    }
+                    if (opt.option_id) {
+                      acc[groupId].options.push(opt.option_id);
+                    }
+                    return acc;
+                  }, {})
+                ),
+                {
+                  group_id: 0,
+                  parents: 0,
+                  options: item.variation_id ? [item.variation_id] : []
                 }
-                // Add the option_id to the options array (as number)
-                if (opt.option_id) {
-                  acc[groupId].options.push(opt.option_id);
-                }
-                return acc;
-              }, {})
-            ),
-            {
-              group_id: 0,
-              parents: 0,
-              options: item.variation_id ? [item.variation_id] : []
-            }
-          ]
-          : [];
+              ]
+              : [];
 
-        setSelectedOptions(optionPayload);
-        setItemPrice(item.line_subtotal);
-        setQuantity(item.quantity);
-        setVariationPrice(item?.variation?.price);
-        //set note
-        item?.note !== '' ? setNote(item?.note).slice(0, 30) : setNote('');
-      }
+            setSelectedOptions(optionPayload);
+            setItemPrice(item.line_subtotal);
+            setQuantity(item.quantity);
+            setVariationPrice(item?.variation?.price);
+            if (item?.note) {
+              setNote(item.note.slice(0, 30));
+            } else {
+              setNote('');
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load cart item:', err?.response?.data || err.message);
+        }
+      });
     };
     fetchCartItem();
-  }, [cart_item_id, token]);
+  }, [cart_item_id, token, runWithLoading]);
 
   useEffect(() => {
     if (!id || !token) return;
-    setLoading(true);
 
     const fetchMenuItem = async () => {
-      try {
-        const outletDetails = await AsyncStorage.getItem('outletDetails');
-        const outletId = outletDetails ? JSON.parse(outletDetails).outletId : 0;
+      await runWithLoading(async () => {
+        try {
+          const outletDetails = await AsyncStorage.getItem('outletDetails');
+          const outletId = outletDetails ? JSON.parse(outletDetails).outletId : 0;
 
-        const res = await axios.get(`${apiUrl}menu-items/${id}/${outletId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setMenuItem(res.data.data[0]);
-        // setItemPrice(Number(res.data.data[0]?.price) || 0);
-        setBasePrice(Number(res.data.data[0]?.price) || 0);
-        setBaseOptionGroupIds(res.data.data[0]?.menu_option_group?.map(g => g.id) || []);
-      } catch (err) {
-        console.log(err);
-        setMenuItem(null);
-      } finally {
-        setLoading(false);
-      }
+          const res = await axios.get(`${apiUrl}menu-items/${id}/${outletId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setMenuItem(res.data.data[0]);
+          setBasePrice(Number(res.data.data[0]?.price) || 0);
+          setBaseOptionGroupIds(res.data.data[0]?.menu_option_group?.map(g => g.id) || []);
+        } catch (err) {
+          console.error('Failed to load menu item:', err?.response?.data || err.message);
+          setMenuItem(null);
+        }
+      });
     };
 
     fetchMenuItem();
-  }, [id, token]);
+  }, [id, token, runWithLoading]);
 
   useEffect(() => {
     // Early return if missing required data
@@ -355,71 +533,75 @@ export default function MenuItemScreen() {
 
     // Fetch option groups
     const fetchOptionGroups = async () => {
-  try {
-    const promises = validGroups.map(group =>
-      axios.get(`${apiUrl}option/${group.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 5000
-      }).catch(err => {
-        console.warn(`Option group ${group.id} not found`);
-        return null;
-      })
-    );
+      await runWithLoading(async () => {
+        try {
+          const promises = validGroups.map(group =>
+            axios.get(`${apiUrl}option/${group.id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 5000
+            }).catch(err => {
+              console.warn(`Option group ${group.id} not found`);
+              return null;
+            })
+          );
 
-    const results = await Promise.all(promises);
-    const successfulResults = results.filter(res => res !== null);
+          const results = await Promise.all(promises);
+          const successfulResults = results.filter(res => res !== null);
 
-    if (successfulResults.length > 0) {
-      const groupsData = successfulResults.map(res => res.data.data);
-      const orderType = await AsyncStorage.getItem('orderType');
-      if (orderType === 'delivery' || orderType === 'pickup') {
-        if(groupsData.some(group => group.title === 'Takeaway Packaging')){
-          groupsData.forEach(group => {
-            if (group.title === 'Takeaway Packaging') {
-              group.is_required = 1;
-            }
-          });
-        }
-      }else{
-        if(groupsData.some(group => group.title === 'Takeaway Packaging')){
-          groupsData.forEach(group => {
-            if (group.title === 'Takeaway Packaging') {
-              group.is_required = 0;
-            }
-          });
-        }
-      }
-
-      // console.log(groupsData);
-      setOptionGroups(groupsData);
-
-      // 👇 Auto-select logic for required groups
-      groupsData.forEach(group => {
-        if (String(group.is_required) === "1" && group.options?.length === 1) {
-          const alreadySelected = selectedOptions.find(opt => opt.group_id === group.id);
-          if (!alreadySelected) {
-            setSelectedOptions(prev => [
-              ...prev,
-              {
-                parents: group.id,
-                options: [group.options[0].id],
-                group_id: group.id
+          if (successfulResults.length > 0) {
+            const groupsData = successfulResults.map(res => res.data.data);
+            const orderType = await AsyncStorage.getItem('orderType');
+            if (orderType === 'delivery' || orderType === 'pickup') {
+              if(groupsData.some(group => group.title === 'Takeaway Packaging')){
+                groupsData.forEach(group => {
+                  if (group.title === 'Takeaway Packaging') {
+                    group.is_required = 1;
+                  }
+                });
               }
-            ]);
-            setItemPrice(prev => prev + Number(group.options[0].price_adjustment || 0));
+            }else{
+              if(groupsData.some(group => group.title === 'Takeaway Packaging')){
+                groupsData.forEach(group => {
+                  if (group.title === 'Takeaway Packaging') {
+                    group.is_required = 0;
+                  }
+                });
+              }
+            }
+
+            setOptionGroups(groupsData);
+
+            // 👇 Auto-select logic for required groups
+            groupsData.forEach(group => {
+              if (String(group.is_required) === "1" && group.options?.length === 1) {
+                setSelectedOptions(prev => {
+                  const alreadySelected = prev.find(opt => opt.group_id === group.id);
+                  if (!alreadySelected) {
+                    setItemPrice(currentPrice => currentPrice + Number(group.options[0].price_adjustment || 0));
+                    return [
+                      ...prev,
+                      {
+                        parents: group.id,
+                        options: [group.options[0].id],
+                        group_id: group.id
+                      }
+                    ];
+                  }
+                  return prev;
+                });
+              }
+            });
+          } else {
+            setOptionGroups([]);
           }
+        } catch (err) {
+          console.error('Failed to load option groups:', err);
+          setOptionGroups([]);
         }
       });
-    } else {
-      setOptionGroups([]);
-    }
-  } catch (err) {
-    console.error('Failed to load option groups:', err);
-    setOptionGroups([]);
-  }
-};
+    };
     fetchOptionGroups();
-  }, [menuItem, token, selectedCrustId, baseOptionGroupIds]);
+  }, [menuItem, token, selectedCrustId, baseOptionGroupIds, runWithLoading]);
   useEffect(() => {
   if (!menuItem || !token) return;
 
@@ -440,53 +622,71 @@ export default function MenuItemScreen() {
   if (!groupList.length) return;
 
   const fetchOptionGroups = async () => {
-    try {
-      const results = await Promise.all(
-        groupList.map(group =>
-          axios.get(`${apiUrl}option/${group.id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          }).catch(() => null)
-        )
-      );
-      const orderType = await AsyncStorage.getItem('orderType');
-      const successful = results.filter(Boolean).map(r => r.data.data);
-      // loop through successful groups and set is_required to 0 if title is 'Takeaway Packaging'
-      successful.forEach(group => {
-        if (group.title === 'Takeaway Packaging' && orderType === 'dinein') {
-          group.is_required = 0;
-        }else if (group.title === 'Takeaway Packaging' && orderType === 'dinein'){
-          group.is_required = 1;
-        }
-      });
-      setOptionGroups(successful);
-    } catch (err) {
-      console.error("Failed to load option groups:", err);
-    }
+    await runWithLoading(async () => {
+      try {
+        const results = await Promise.all(
+          groupList.map(group =>
+            axios.get(`${apiUrl}option/${group.id}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            }).catch(() => null)
+          )
+        );
+        const orderType = await AsyncStorage.getItem('orderType');
+        const successful = results.filter(Boolean).map(r => r.data.data);
+        // loop through successful groups and set is_required to 0 if title is 'Takeaway Packaging'
+        successful.forEach(group => {
+          if (group.title === 'Takeaway Packaging' && orderType === 'dinein') {
+            group.is_required = 0;
+          }else if (group.title === 'Takeaway Packaging' && orderType === 'dinein'){
+            group.is_required = 1;
+          }
+        });
+        setOptionGroups(successful);
+      } catch (err) {
+        console.error("Failed to load option groups:", err);
+      }
+    });
   };
 
   fetchOptionGroups();
-}, [menuItem, token, selectedCrustId]);
+}, [menuItem, token, selectedCrustId, runWithLoading]);
 
   useEffect(() => {
     if (!menuItem) return;
     if (Array.isArray(menuItem.variation) && menuItem.variation.length > 0) {
       setCrustOptions(
-        menuItem.variation.map(v => ({
-          id: v.variation.id,
-          name: v.variation.title,
-          price: Number(v.variation.price),
-          discount_price: Number(v.variation.discount_price),
-          image: v.variation.images || v.variation.images_compressed || '',
-          tags: v.tags || []
-        }))
+        menuItem.variation.map(v => {
+          let imageUri = '';
+          const imgPath = v.variation.images || v.variation.images_compressed || '';
+          if (imgPath) {
+            imageUri = imgPath.startsWith('http') 
+              ? imgPath 
+              : `${imageUrl}menu_variations/${imgPath}`;
+          }
+          return {
+            id: v.variation.id,
+            name: v.variation.title,
+            price: Number(v.variation.price),
+            discount_price: Number(v.variation.discount_price),
+            image: imageUri,
+            tags: v.tags || []
+          };
+        })
       );
     } else if (menuItem.variation && menuItem.variation.id) {
+      let imageUri = '';
+      const imgPath = menuItem.variation.images || menuItem.variation.images_compressed || '';
+      if (imgPath) {
+        imageUri = imgPath.startsWith('http') 
+          ? imgPath 
+          : `${imageUrl}menu_variations/${imgPath}`;
+      }
       setCrustOptions([{
         id: menuItem.variation.id,
         name: menuItem.variation.title,
         price: Number(menuItem.variation.price),
         discount_price: Number(menuItem.variation.discount_price),
-        image: '',
+        image: imageUri,
       }]);
     } else {
       setCrustOptions([]);
@@ -504,6 +704,96 @@ export default function MenuItemScreen() {
     });
     setOptionTotal(total);
   }, [selectedOptions, optionGroups]);
+
+  // Memoized option toggle handler for better performance
+  const handleOptionToggle = useCallback((optionId, optionPrice, isSelected, selectedCount, maxQ, minQ, group) => {
+    const parents = group?.id || 0;
+    
+    if (parents === 0) {
+      // Handle crust/variation selection
+      if (isSelected) {
+        setSelectedOptions(prev => prev.filter(option => option.parents !== parents));
+        setItemPrice(prev => prev - optionPrice);
+        setSelectedCrustId(null);
+        setVariationPrice(0);
+      } else {
+        setSelectedOptions(prev => [
+          ...prev.filter(option => option.parents !== parents),
+          {
+            parents: parents,
+            options: [optionId],
+            group_id: group?.id
+          }
+        ]);
+        setItemPrice(prev => prev + optionPrice);
+        setSelectedCrustId(optionId);
+        setVariationPrice(optionPrice);
+      }
+    } else {
+      // Handle regular option selection
+      if (isSelected) {
+        const isRequired = Number(group?.is_required) === 1;
+        if (isRequired && maxQ === 1 && minQ === 1 || (group?.title === 'Takeaway Packaging' && isRequired)) {
+          toast.show('This option is required', {
+            type: 'custom_toast',
+            data: { title: '', status: 'info' }
+          });
+          return;
+        }
+        setSelectedOptions(prev => prev.map(option =>
+          option.parents === parents
+            ? { ...option, options: option.options.filter(id => id !== optionId) }
+            : option
+        ));
+        setItemPrice(prev => prev - optionPrice);
+      } else {
+        if (maxQ === 1) {
+          setSelectedOptions(prev => {
+            const existingOption = prev.find(option => option.parents === parents);
+            if (existingOption) {
+              return prev.map(option =>
+                option.parents === parents
+                  ? { ...option, options: [optionId] }
+                  : option
+              );
+            } else {
+              return [...prev, {
+                parents: parents,
+                options: [optionId],
+                group_id: group?.id
+              }];
+            }
+          });
+          setItemPrice(prev => prev + optionPrice);
+          return;
+        }
+        if (selectedCount >= maxQ) {
+          toast.show(`You can only select up to ${maxQ} options for ${group?.title ?? parents}`, {
+            type: 'custom_toast',
+            data: { title: '', status: 'info' }
+          });
+          return;
+        }
+        setSelectedOptions(prev => {
+          const existingOption = prev.find(option => option.parents === parents);
+          if (existingOption) {
+            return prev.map(option =>
+              option.parents === parents
+                ? { ...option, options: [...option.options, optionId] }
+                : option
+            );
+          } else {
+            return [...prev, {
+              parents: parents,
+              options: [optionId],
+              group_id: group?.id
+            }];
+          }
+        });
+        setItemPrice(prev => prev + optionPrice);
+      }
+    }
+  }, [toast]);
 
   const getCustomerData = async () => {
     try {
@@ -544,10 +834,12 @@ export default function MenuItemScreen() {
     };
 
     try {
-      await axios.post(`${apiUrl}cart/update`, payload, {
-        headers: { Authorization: `Bearer ${token}` },
+      await runWithLoading(async () => {
+        await axios.post(`${apiUrl}cart/update`, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       });
-
+  
       toast.show('Cart updated', {
         type: 'custom_toast',
         data: { title: '', status: 'success' },
@@ -603,10 +895,12 @@ export default function MenuItemScreen() {
     // console.log('freeee', payload);
 
     try {
-      const response = await axios.post(`${apiUrl}cart/add`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await runWithLoading(async () => {
+        const res = await axios.post(`${apiUrl}cart/add`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        return res;
       });
-      // console.log(response);
 
       if (response.data.status === 200) {
         toast.show('Item added to cart', {
@@ -640,15 +934,30 @@ export default function MenuItemScreen() {
     <ResponsiveBackground>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
         <TopNavigation title="MENU" isBackButton={true} />
-        <ScrollView contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={{ paddingBottom: 20 }} 
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          scrollEventThrottle={16}
+          decelerationRate="normal"
+        >
           <View style={styles.imageContainer}>
             <Image
-              source={{
-                uri: menuItem?.image?.[0]?.image_url
-                  ? menuItem.image[0].image_url
-                  : require('../../../assets/images/menu_default.jpg'),
-              }}
+              source={
+                menuItem?.image?.[0]?.image_url
+                  ? {
+                      uri: String(menuItem.image[0].image_url).startsWith('http')
+                        ? String(menuItem.image[0].image_url)
+                        : imageUrl + 'menu_images/' + String(menuItem.image[0].image_url),
+                      cachePolicy: 'memory-disk'
+                    }
+                  : require('../../../assets/images/menu_default.jpg')
+              }
               style={styles.mainImage}
+              contentFit="cover"
+              transition={200}
+              cachePolicy="memory-disk"
+              priority="high"
             />
           </View>
 
@@ -678,68 +987,24 @@ export default function MenuItemScreen() {
           </View>
 
           <View style={styles.separator} />
-          {crustOptions.length > 0 ? (
-            <View style={styles.optionsSection}>
-              <Text style={styles.sectionTitle}>Choice of Pizza Size</Text>
-              <View style={styles.optionsGrid}>
-                {crustOptions.map((item, index) => (
-                  <OptionCard
-                    key={item.id}
-                    item={item}
-                    // parents="Choice of Pizza Crust(P)"
-                    parents={0}
-                    type="variation"
-                    selectedOptions={selectedOptions}
-                    setSelectedOptions={setSelectedOptions}
-                    optionGroups={optionGroups}
-                    itemPrice={itemPrice}
-                    setItemPrice={setItemPrice}
-                    selectedCrustId={selectedCrustId}
-                    setSelectedCrustId={setSelectedCrustId}
-                    setVariationPrice={setVariationPrice}
-                    toast={toast}
-                  />
-
-                ))}
-              </View>
-            </View>
-          ) : null}
+          {crustOptions.length > 0 && (
+            <CrustOptionsGroup
+              crustOptions={crustOptions}
+              selectedOptions={selectedOptions}
+              handleOptionToggle={handleOptionToggle}
+              optionGroups={optionGroups}
+              toast={toast}
+            />
+          )}
           <View style={styles.separator} />
           {optionGroups.map(group => (
-            <View key={group.id} style={styles.optionsSection}>
-              <Text style={styles.sectionTitle}>
-                {group.title}
-                {String(group.is_required) === "1" ? <Text style={{ color: '#C2000E' }}> *</Text> : null}
-              </Text>
-              <View style={styles.optionsGrid}>
-                {group.options && group.options.length > 0 ? (
-                  group.options.map(opt => (
-                    <OptionCard
-                      key={opt.id}
-                      item={{
-                        id: opt.id,
-                        name: opt.title,
-                        price: Number(opt.price_adjustment ?? opt.price ?? 0),
-                        image: opt.images_compressed || opt.images || '',
-                      }}
-                      parents={group.id}
-                      type="option"
-                      selectedOptions={selectedOptions}
-                      setSelectedOptions={setSelectedOptions}
-                      optionGroups={optionGroups}
-                      itemPrice={itemPrice}
-                      setItemPrice={setItemPrice}
-                      selectedCrustId={selectedCrustId}
-                      setSelectedCrustId={setSelectedCrustId}
-                      setVariationPrice={setVariationPrice}
-                      toast={toast}
-                    />
-                  ))
-                ) : (
-                  <Text style={{ color: '#bbb', fontStyle: 'italic', margin: 8 }}>No options available for this Item</Text>
-                )}
-              </View>
-            </View>
+            <OptionGroup
+              key={group.id}
+              group={group}
+              selectedOptions={selectedOptions}
+              handleOptionToggle={handleOptionToggle}
+              toast={toast}
+            />
           ))}
           <View style={styles.noteSection}>
             <Text style={styles.sectionNote}>Note to restaurant</Text>
@@ -827,6 +1092,19 @@ export default function MenuItemScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+      <Modal
+        transparent
+        visible={isLoading}
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#C2000E" />
+            <Text style={styles.loadingText}>Loading...</Text>
+          </View>
+        </View>
+      </Modal>
     </ResponsiveBackground>
   );
 }
@@ -1133,5 +1411,26 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 12 : 12) : 18) : 18,
     fontFamily: 'Route159-HeavyItalic',
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 24,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 160,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontFamily: 'Route159-Bold',
+    fontSize: 16,
+    color: '#C2000E',
   },
 });

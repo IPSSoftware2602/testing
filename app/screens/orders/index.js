@@ -86,7 +86,7 @@ export default function Orders() {
         const orderData = await response.data;
         setCustomerOrder(orderData.data);
 
-        console.log(orderData.data);
+        // console.log(orderData.data);
       } catch (err) {
         console.log(err);
       }
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 16,
+    marginHorizontal: 10,
     marginTop: 12,
     marginBottom: 12,
     alignSelf: 'center',
@@ -334,7 +334,11 @@ const styles = StyleSheet.create({
     height: 50,
   },
   tabBtnInactive: {
-    backgroundColor: '#fff',
+    color: '#B0B0B0',
+    fontWeight: 'bold',
+    fontSize: 16,
+    fontFamily: 'Route159-HeavyItalic',
+    marginHorizontal: 0,
   },
   orderCard: {
     backgroundColor: '#fff',

@@ -1,7 +1,7 @@
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
+import { Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View, Modal, ActivityIndicator } from 'react-native';
 import PolygonButton from '../../../components/ui/PolygonButton';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import { commonStyles } from '../../../styles/common';
@@ -72,101 +72,172 @@ export default function MenuScreen() {
   const [customer, setCustomer] = useState('');
   const isProgrammaticScroll = useRef(false);
   const [listReady, setListReady] = useState(false);
+  // Scroll position preservation
+  const scrollOffsetRef = useRef(0);
+  const shouldRestoreScrollRef = useRef(false);
+  const pendingResetRef = useRef(false);
   //modal for confirm order type change
   const [confirmOrderTypeModalVisible, setConfirmOrderTypeModalVisible] = useState(false);
   const [pendingOrderType, setPendingOrderType] = useState(null);
   const { orderType, outletId } = useLocalSearchParams();
   const fromQR = !!orderType && !!outletId;
+  const [loadingCount, setLoadingCount] = useState(0);
+
+  const showLoading = useCallback(() => {
+    setLoadingCount((prev) => prev + 1);
+  }, []);
+
+  const hideLoading = useCallback(() => {
+    setLoadingCount((prev) => Math.max(prev - 1, 0));
+  }, []);
+
+  const runWithLoading = useCallback(
+    async (fn) => {
+      showLoading();
+      try {
+        return await fn();
+      } finally {
+        hideLoading();
+      }
+    },
+    [showLoading, hideLoading]
+  );
+
+  const isLoading = loadingCount > 0;
+
+  const fetchMenuData = useCallback(
+    async ({ resetList = false } = {}) => {
+      if (!selectedOutlet?.outletId) return;
+
+      return runWithLoading(async () => {
+        try {
+          const shouldResetList = resetList && !isWeb && !shouldRestoreScrollRef.current;
+          if (shouldResetList) {
+            categoryLockRef.current = false;
+            isProgrammaticScroll.current = false;
+            setCategoryLock(false);
+            scrollOffsetRef.current = 0;
+            pendingResetRef.current = true;
+          }
+
+          const token = await AsyncStorage.getItem('authToken');
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}`, { headers });
+
+          const fetchedCategories = (response.data.Categories || []).map(cat => ({
+            key: String(cat.id),
+            label: cat.title,
+            icon: cat.image_url
+              ? { uri: imageUrl + "menu_categories/" + String(cat.image_url) }
+              : require('../../../assets/icons/burger.png'),
+          }));
+          setCategories(fetchedCategories);
+
+          const fetchedItems = (response.data.Items || []).map(item => {
+            const rawImageUrl = item.images && item.images.length > 0 ? item.images[0].image_url : null;
+            const imageUrlFull = rawImageUrl
+              ? (String(rawImageUrl).startsWith('http')
+                ? String(rawImageUrl)
+                : imageUrl + 'menu_images/' + String(rawImageUrl))
+              : null;
+
+            const mappedTags = (item.tags || []).map(tag => ({
+              id: tag.id,
+              title: tag.title,
+              icon: tag.icon_url
+                ? { uri: String(tag.icon_url).startsWith('http') ? String(tag.icon_url) : imageUrl + 'tags/' + String(tag.icon_url) }
+                : require('../../../assets/icons/burger.png'),
+            }));
+
+            return {
+              id: item.id,
+              name: item.title,
+              description: item.short_description,
+              price: item.price,
+              discount_price: item.discount_price,
+              image: imageUrlFull,
+              categoryIds: (item.category_ids || []).map(id => String(id)),
+              tags: mappedTags,
+              is_available: item.is_available,
+              membership_tier: item.membership_tier,
+            };
+          });
+          setMenuItems(fetchedItems);
+          setListReady(fetchedItems.length > 0);
+
+          if (fetchedCategories.length > 0) {
+            setActiveCategory(prev => {
+              const prevKey = prev != null ? String(prev) : '';
+              if (prevKey && fetchedCategories.some(cat => cat.key === prevKey)) {
+                return prevKey;
+              }
+              return fetchedCategories[0].key;
+            });
+          } else {
+            setActiveCategory('');
+          }
+        } catch (_err) {
+          setListReady(menuItemsRef.current.length > 0);
+        }
+      });
+    },
+    [selectedOutlet?.outletId, runWithLoading]
+  );
 
   useEffect(() => {
   const handleQR = async () => {
   if (!orderType || !outletId) return;
 
-  // console.log("QR scanned:", orderType, outletId);
-  await checkoutClearStorage();
+  await runWithLoading(async () => {
+    await checkoutClearStorage();
 
-  await AsyncStorage.setItem("orderType", String(orderType));
+    await AsyncStorage.setItem("orderType", String(orderType));
 
-  try {
-    const token = await AsyncStorage.getItem("authToken");
-    const res = await axios.get(`${apiUrl}outlets/${outletId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const outlet = res.data?.result || res.data?.data || res.data;
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      const res = await axios.get(`${apiUrl}outlets/${outletId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const outlet = res.data?.result || res.data?.data || res.data;
 
-    if (!outlet?.id) {
-      console.error("Outlet not found", res.data);
-      return;
+      if (!outlet?.id) {
+        return;
+      }
+
+      const outletObj = {
+        outletId: String(outlet.id),
+        outletTitle: outlet.title,
+        distanceFromUserLocation: outlet.distance_km ?? "0.00",
+        isOperate: outlet.operating_schedule
+          ? outlet.operating_schedule[new Date().toLocaleString("en-US", { weekday: "long" })]?.is_operated ?? true
+          : true,
+        operatingHours: outlet.operating_schedule ?? {},
+      };
+
+      await AsyncStorage.setItem("outletDetails", JSON.stringify(outletObj));
+      setSelectedOutlet(outletObj);
+
+      setTimeout(() => {
+        fetchMenuData({ resetList: true });
+      }, 200);
+
+      if (orderType === "dinein" && outletObj.isOperate === false) {
+        setShowDateTimePicker(true);
+      }
+
+    } catch (_err) {
     }
-
-    const outletObj = {
-      outletId: String(outlet.id),
-      outletTitle: outlet.title,
-      distanceFromUserLocation: outlet.distance_km ?? "0.00",
-      isOperate: outlet.operating_schedule
-        ? outlet.operating_schedule[new Date().toLocaleString("en-US", { weekday: "long" })]?.is_operated ?? true
-        : true,
-      operatingHours: outlet.operating_schedule ?? {},
-    };
-
-    await AsyncStorage.setItem("outletDetails", JSON.stringify(outletObj));
-    setSelectedOutlet(outletObj);
-
-    setTimeout(() => {
-      fetchMenuData({ resetList: true });
-    }, 200);
-
-    if (orderType === "dinein" && outletObj.isOperate === false) {
-      setShowDateTimePicker(true);
-    }
-
-    // console.log("✅ Outlet info fetched:", outletObj);
-  } catch (err) {
-    console.error("❌ Error fetching outlet info:", err.response?.data || err.message);
-  }
+  });
 };
 
 
   handleQR();
-}, [orderType, outletId]);
+}, [orderType, outletId, fetchMenuData, runWithLoading]);
 
 
 
 
-  const fetchOutletInfo = async (id) => {
-    try {
-      const token = await AsyncStorage.getItem("authToken");
 
-      const res = await axios.get(`${apiUrl}outlets/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      if (res.data?.status === 200) {
-        const outlet = res.data.data;
-
-        const outletObj = {
-          outletId: String(outlet.id),
-          outletTitle: outlet.title,
-          distanceFromUserLocation: outlet.distance_km ?? "0.00",
-          isOperate: outlet.is_operated ?? true
-        };
-
-        await AsyncStorage.setItem("outletDetails", JSON.stringify(outletObj));
-        setSelectedOutlet(outletObj);
-
-        const orderType = await AsyncStorage.getItem("orderType");
-        if (orderType === "dinein" && outletObj.isOperate === false) {
-          setShowDateTimePicker(true);
-        }
-
-        console.log("Outlet info:", outletObj);
-      }
-    } catch (err) {
-      console.log("error:", err?.response?.data || err.message);
-    }
-  };
 
 
 
@@ -216,8 +287,7 @@ export default function MenuScreen() {
     try {
       await AsyncStorage.setItem('orderType', orderType);
     }
-    catch (err) {
-      console.log(err.response.data.message);
+    catch (_err) {
     }
   }
 
@@ -254,8 +324,7 @@ export default function MenuScreen() {
     try {
       await AsyncStorage.setItem('estimatedTime', JSON.stringify(estimatedTimeDetail));
     }
-    catch (err) {
-      console.log(err.response.data.message);
+    catch (_err) {
     }
   }
 
@@ -265,7 +334,6 @@ export default function MenuScreen() {
         if (fromQR) return;
         const outletDetails = await AsyncStorage.getItem('outletDetails');
         const estimatedTime = await AsyncStorage.getItem('estimatedTime');
-        console.log(!estimatedTime);
         let is_over = false;
         //check now over estimated time
         if (estimatedTime) {
@@ -278,24 +346,16 @@ export default function MenuScreen() {
         }
         if (outletDetails) {
           const parsedOutletDetails = JSON.parse(outletDetails);
-          console.log(parsedOutletDetails);
-          if (parsedOutletDetails.isHQ === undefined) {
-            // console.log(outletDetails.outletId); 
-            setSelectedOutlet(parsedOutletDetails);
-            if ((activeOrderType !== "dinein" && !estimatedTime) || is_over) {
-              setShowDateTimePicker(true);
-            }
-          } else {
-            router.push('/');
+          setSelectedOutlet(parsedOutletDetails);
+          if ((activeOrderType !== "dinein" && !estimatedTime) || is_over) {
+            setShowDateTimePicker(true);
           }
-        }
-        else {
+        } else {
           if (!outletDetails && !fromQR) {
             router.push('/screens/home/outlet_select');
           }
         }
-      } catch (err) {
-        console.log(err.response.data.message);
+      } catch (_err) {
       }
     }
     fetchOutletData();
@@ -312,8 +372,7 @@ export default function MenuScreen() {
         else {
           setSelectedDateTime("ASAP");
         }
-      } catch (err) {
-        console.log(err?.response?.data?.message);
+      } catch (_err) {
       }
     }
     fetchEstimatedTime();
@@ -329,21 +388,19 @@ export default function MenuScreen() {
         else if (!deliveryAddressDetails && activeOrderType === "delivery") {
           router.push('/screens/home/address_select');
         }
-      } catch (err) {
-        console.log(err.response.data.message);
+      } catch (_err) {
       }
     }
     fetchAddressData();
 
-  }, [router, activeOrderType, selectedDateTime])
+  }, [router, activeOrderType, selectedDateTime, fromQR])
 
   useEffect(() => {
     const fetchOrderType = async () => {
       try {
         const orderType = await AsyncStorage.getItem('orderType');
         setActiveOrderType(orderType);
-      } catch (err) {
-        console.log(err.response.data.message);
+      } catch (_err) {
       }
     }
     fetchOrderType();
@@ -367,6 +424,17 @@ export default function MenuScreen() {
   useEffect(() => {
     activeCategoryRef.current = activeCategory != null ? String(activeCategory) : '';
   }, [activeCategory]);
+
+  useEffect(() => {
+    if (listReady && pendingResetRef.current) {
+      pendingResetRef.current = false;
+      requestAnimationFrame(() => {
+        categoryListRef.current?.scrollToOffset({ offset: 0, animated: false });
+        menuListRef.current?.scrollToOffset({ offset: 0, animated: false });
+        scrollOffsetRef.current = 0;
+      });
+    }
+  }, [listReady, menuItems.length, categories.length]);
 
   const handleViewableItemsChanged = useCallback(({ viewableItems }) => {
     if (categoryLockRef.current || isProgrammaticScroll.current) return; // 🔒 skip updates while lock is active
@@ -410,8 +478,15 @@ export default function MenuScreen() {
     return !items[index - 1].categoryIds?.includes(activeCat);
   }, []);
 
+  // Track scroll position
+  const handleScroll = useCallback((event) => {
+    scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+  }, []);
+
   // Memoized callback functions to prevent recreation on every render
   const handleMenuItemPress = useCallback((itemId) => {
+    // Mark that we should restore scroll position when returning
+    shouldRestoreScrollRef.current = true;
     router.push({
       pathname: '/screens/menu/menu_item',
       params: { id: itemId },
@@ -447,8 +522,7 @@ export default function MenuScreen() {
           viewPosition: 0.5,
           animated: true,
         });
-      } catch (err) {
-        // soft fallback
+      } catch (_err) {
         categoryListRef.current.scrollToOffset({
           offset: Math.max(0, catIdx * 90 - 90),
           animated: true,
@@ -472,12 +546,10 @@ export default function MenuScreen() {
           viewPosition: 0,      // align the category title at the top
           viewOffset: 0,
         });
-      } catch (err) {
-        // If not measured yet, do an approximate offset first…
+      } catch (_err) {
         const roughOffset = Math.max(0, index * APPROX_ITEM_HEIGHT - APPROX_ITEM_HEIGHT);
         menuListRef.current.scrollToOffset({ offset: roughOffset, animated: false });
 
-        // …then retry the precise jump shortly after
         setTimeout(() => {
           try {
             menuListRef.current.scrollToIndex({
@@ -485,8 +557,9 @@ export default function MenuScreen() {
               animated: true,
               viewPosition: 0,
             });
-          } catch {
-            // give up gracefully — user can still scroll manually
+          } catch (_innerErr) {
+          } finally {
+            setTimeout(releaseCategoryLock, LOCK_RELEASE_MS);
           }
         }, 120);
       } finally {
@@ -499,10 +572,6 @@ export default function MenuScreen() {
   const categoryKeyExtractor = useCallback((item, index) => `${item.key}_${index}`, []);
   const menuKeyExtractor = useCallback((item, index) => `${item.id}_${index}`, []);
   // Memoized render functions
-  const disabledCategoryStyle = useMemo(
-    () => (!listReady ? styles.categoryDisabled : undefined),
-    [listReady]
-  );
 
   const categoriesWithActive = useMemo(
     () =>
@@ -561,127 +630,76 @@ export default function MenuScreen() {
     ];
 
     try {
-      console.log('Attempting to clear:', keysToRemove);
 
-      // First verify what's actually in storage
-      const currentStorage = await AsyncStorage.multiGet(keysToRemove);
-      console.log('Current storage before clear:', currentStorage);
-
-      // Perform the removal
       await AsyncStorage.multiRemove(keysToRemove);
 
-      // Verify removal was successful
       const clearedStorage = await AsyncStorage.multiGet(keysToRemove);
       const wereCleared = clearedStorage.every(([_, value]) => value === null);
 
       if (!wereCleared) {
-        console.error('Failed to clear these keys:',
-          clearedStorage.filter(([_, value]) => value !== null)
-        );
         throw new Error('Storage clearance failed');
       }
 
-      console.log('Storage cleared successfully');
       return true;
-    } catch (err) {
-      console.error('Clearance error:', err);
+    } catch (_err) {
       return false;
     }
   };
 
-  const fetchMenuData = useCallback(
-    async ({ resetList = false } = {}) => {
-      if (!selectedOutlet?.outletId) return;
-
-      try {
-        const shouldResetList = resetList && !isWeb;
-        if (shouldResetList) {
-          categoryLockRef.current = false;
-          isProgrammaticScroll.current = false;
-          setCategoryLock(false);
-          setListReady(false);
-
-          requestAnimationFrame(() => {
-            categoryListRef.current?.scrollToOffset({ offset: 0, animated: false });
-            menuListRef.current?.scrollToOffset({ offset: 0, animated: false });
-          });
-        }
-
-        const token = await AsyncStorage.getItem('authToken');
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}`, { headers });
-
-        const fetchedCategories = (response.data.Categories || []).map(cat => ({
-          key: String(cat.id),
-          label: cat.title,
-          icon: cat.image_url
-            ? { uri: imageUrl + "menu_categories/" + cat.image_url }
-            : require('../../../assets/icons/burger.png'),
-        }));
-        setCategories(fetchedCategories);
-
-        const fetchedItems = (response.data.Items || []).map(item => {
-          const imageUrlFull =
-            item.images && item.images.length > 0 && item.images[0].image_url
-              ? imageUrl + "menu_images/" + item.images[0].image_url
-              : null;
-
-          const mappedTags = (item.tags || []).map(tag => ({
-            id: tag.id,
-            title: tag.title,
-            icon: tag.icon_url
-              ? { uri: imageUrl + "tags/" + tag.icon_url }
-              : require('../../../assets/icons/burger.png'),
-          }));
-          // console.log(item);
-
-          return {
-            id: item.id,
-            name: item.title,
-            description: item.short_description,
-            price: item.price,
-            discount_price: item.discount_price,
-            image: imageUrlFull,
-            categoryIds: (item.category_ids || []).map(id => String(id)),
-            tags: mappedTags,
-            is_available: item.is_available,
-            membership_tier: item.membership_tier,
-          };
-        });
-        setMenuItems(fetchedItems);
-        setListReady(fetchedItems.length > 0);
-
-        if (fetchedCategories.length > 0) {
-          setActiveCategory(prev => {
-            const prevKey = prev != null ? String(prev) : '';
-            if (prevKey && fetchedCategories.some(cat => cat.key === prevKey)) {
-              return prevKey;
-            }
-            return fetchedCategories[0].key;
-          });
-        } else {
-          setActiveCategory('');
-        }
-      } catch (err) {
-        console.log('Error fetching menu data:', err.response?.data || err.message);
-        setListReady(menuItemsRef.current.length > 0);
-      }
-    },
-    [selectedOutlet?.outletId]
-  );
-
   useFocusEffect(
     useCallback(() => {
+      const needsRestore = shouldRestoreScrollRef.current && scrollOffsetRef.current > 0;
+      
       if (isWeb) {
         fetchMenuData({ resetList: false });
       } else {
-        fetchMenuData({ resetList: true });
+        // Don't reset list if we need to restore scroll position
+        fetchMenuData({ resetList: !needsRestore });
       }
-    }, [fetchMenuData])
+
+      // Restore scroll position if we're returning from a detail page
+      if (needsRestore) {
+        // Mark that we're restoring (so fetchMenuData won't reset scroll)
+        const savedOffset = scrollOffsetRef.current;
+        shouldRestoreScrollRef.current = false; // Clear flag immediately to prevent multiple restorations
+        
+        // Wait for list to be ready before restoring scroll
+        const restoreScroll = () => {
+          if (menuListRef.current && listReady && savedOffset > 0) {
+            isProgrammaticScroll.current = true;
+            requestAnimationFrame(() => {
+              menuListRef.current?.scrollToOffset({
+                offset: savedOffset,
+                animated: false,
+              });
+              scrollOffsetRef.current = savedOffset;
+              // Release the programmatic scroll flag after a short delay
+              setTimeout(() => {
+                isProgrammaticScroll.current = false;
+              }, 200);
+            });
+          } else if (menuListRef.current && !listReady) {
+            // If list not ready yet, try again after a short delay
+            setTimeout(restoreScroll, 150);
+          }
+        };
+
+        // Small delay to ensure list is rendered and data is loaded
+        const timer = setTimeout(restoreScroll, 150);
+
+        return () => {
+          clearTimeout(timer);
+        };
+      }
+    }, [fetchMenuData, listReady])
   );
 
   useEffect(() => {
     if (selectedOutlet?.outletId) {
+      // Reset scroll position when outlet changes (not when returning from detail page)
+      if (!shouldRestoreScrollRef.current) {
+        scrollOffsetRef.current = 0;
+      }
       fetchMenuData({ resetList: !isWeb });
     }
   }, [selectedOutlet?.outletId, fetchMenuData]);
@@ -692,12 +710,7 @@ export default function MenuScreen() {
     return Math.floor(num * Math.pow(10, maxDecimals)) / Math.pow(10, maxDecimals);
   }
 
-  // console.log('Request params:', {
-  //   customer_id: customer.id,
-  //   outlet_id: selectedOutlet.outletId
-  // });
   const formatDateTime = useCallback(() => {
-    // console.log('selectedDateTime', selectedDateTime);
     if (!selectedDateTime) return;
 
     const now = new Date();
@@ -733,9 +746,6 @@ export default function MenuScreen() {
       const customer = customerData ? JSON.parse(customerData) : null;
       setCustomer(customer);
 
-      // if (!token || !customer?.id || !selectedOutlet?.outletId) {
-      //   return 0;
-      // }
       if (!token || !customer?.id) {
         return 0;
       }
@@ -744,35 +754,32 @@ export default function MenuScreen() {
         return 0;
       }
 
-      const estimatedTimeObj = formatDateTime();
-      // console.log('estimatedTimeObj', estimatedTimeObj);
-      const response = await axios.get(`${apiUrl}cart/get`, {
-        params: {
-          customer_id: customer.id,
-          outlet_id: selectedOutlet.outletId,
-          address: selectedDeliveryAddress ? selectedDeliveryAddress.address : "",
-          order_type: activeOrderType,
-          latitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.latitude) : "",
-          longitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.longitude) : "",
-          selected_date: estimatedTimeObj.estimatedTime === "ASAP" ? null : estimatedTimeObj.date,
-          selected_time: estimatedTimeObj.estimatedTime === "ASAP" ? null : estimatedTimeObj.time,
-          // selected_date: estimatedTimeObj.date,
-          // selected_time: estimatedTimeObj.time,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+      return await runWithLoading(async () => {
+        const estimatedTimeObj = formatDateTime();
+        const response = await axios.get(`${apiUrl}cart/get`, {
+          params: {
+            customer_id: customer.id,
+            outlet_id: selectedOutlet.outletId,
+            address: selectedDeliveryAddress ? selectedDeliveryAddress.address : "",
+            order_type: activeOrderType,
+            latitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.latitude) : "",
+            longitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.longitude) : "",
+            selected_date: estimatedTimeObj && estimatedTimeObj.estimatedTime === "ASAP" ? null : estimatedTimeObj?.date,
+            selected_time: estimatedTimeObj && estimatedTimeObj.estimatedTime === "ASAP" ? null : estimatedTimeObj?.time,
+          },
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
 
-      if (response.data?.status === 200 && response.data?.data?.order_summary) {
-        return parseFloat(response.data.data.order_summary.subtotal_amount) || 0;
-      }
-      return 0;
+        if (response.data?.status === 200 && response.data?.data?.order_summary) {
+          return parseFloat(response.data.data.order_summary.subtotal_amount) || 0;
+        }
+        return 0;
+      });
     } catch (error) {
-      // console.log(error);
       if (error?.response?.status === 400) {
 
-        // Skip redirect if cart is empty (likely first visit)
         if (error?.response?.data?.message?.includes("Cart is empty")) {
           return 0;
         }
@@ -784,7 +791,8 @@ export default function MenuScreen() {
       }
 
     }
-  }, [selectedOutlet, selectedDeliveryAddress, activeOrderType, router, formatDateTime]);
+    return 0;
+  }, [selectedOutlet, selectedDeliveryAddress, activeOrderType, router, formatDateTime, runWithLoading]);
 
   useEffect(() => {
     const loadCartTotal = async () => {
@@ -980,6 +988,8 @@ export default function MenuScreen() {
             contentContainerStyle={styles.menuList}
             viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs}
             renderItem={renderMenuItem}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
             onContentSizeChange={() => {
               if (menuItems.length > 0 && !listReady) {
                 setListReady(true);
@@ -1040,6 +1050,20 @@ export default function MenuScreen() {
           setSelectedDateTime={setSelectedDateTime}
           outletId={selectedOutlet.outletId}
         /> : null}
+
+        <Modal
+          transparent
+          visible={isLoading}
+          animationType="fade"
+          statusBarTranslucent
+        >
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingCard}>
+              <ActivityIndicator size="large" color="#C2000E" />
+              <Text style={styles.loadingText}>Loading...</Text>
+            </View>
+          </View>
+        </Modal>
 
       </SafeAreaView>
       {/* </View>
@@ -1421,5 +1445,26 @@ const styles = StyleSheet.create({
   modalBtnConfirmText: {
     color: '#fff',
     fontWeight: '700',
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 24,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 160,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontFamily: 'Route159-Bold',
+    fontSize: 16,
+    color: '#C2000E',
   },
 });
