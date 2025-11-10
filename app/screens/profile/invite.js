@@ -170,7 +170,12 @@ export default function Invite() {
                                 <Text style={styles.inviteSectionDescription}>This coupon is valid for 7 natural days from the day of receipt</Text>
                             </View>
                             {/* </TouchableOpacity> */}
+                            <View style={styles.inviteSection2}>
+                                <Text style={styles.inviteSectionTitle}> Get 1 free personal prize when your friend made a purchase</Text>
+                                <Text style={styles.inviteSectionDescription}>This coupon is valid for 7 natural days from the day of receipt</Text>
+                            </View>
                         </View>
+                        
 
                         <PolygonButton
                             text="INVITE NOW"
@@ -348,6 +353,16 @@ const styles = StyleSheet.create({
         // justifyContent: 'space-between',
         alignItems: 'center',
         // marginBottom: 10,
+    },
+    inviteSection2: {
+        backgroundColor: '#C2000E',
+        borderRadius: 10,
+        marginHorizontal: 16,
+        paddingHorizontal: '10%',
+        paddingVertical: '3%',
+        flexDirection: 'column',
+        alignItems: 'center',
+        marginTop: 10,
     },
     inviteList: {
         backgroundColor: 'transparent',

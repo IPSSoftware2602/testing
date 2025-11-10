@@ -115,8 +115,15 @@ export default function StudentCard() {
     return (
         <ResponsiveBackground>
             <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF' }}>
-                <TopNavigation title="STUDENT CARD" isBackButton={true} navigatePage={() => router.push('(tabs)/profile')} />
-                <ScrollView contentContainerStyle={[commonStyles.containerStyle]} showsVerticalScrollIndicator={false}>
+                <TopNavigation
+                    title="STUDENT CARD"
+                    isBackButton={true}
+                    navigatePage={() => router.push('(tabs)/profile')}
+                />
+                <ScrollView
+                    contentContainerStyle={[commonStyles.containerStyle, { paddingBottom: 140 }]}
+                    showsVerticalScrollIndicator={false}
+                >
                     <View style={styles.studentCardWrapper}>
                         <LinearGradient
                             colors={['#E60012', '#FFF2E2']}
@@ -130,68 +137,64 @@ export default function StudentCard() {
                                     source={require('../../../assets/elements/profile/studentCard/uspizza-studentcard.png')}
                                     style={styles.image}
                                 />
-                                <Text style={styles.title}>Present your student card to enjoy discounts</Text>
+                                <Text style={styles.title}>
+                                    Present your student card to enjoy discounts
+                                </Text>
                             </View>
                         </LinearGradient>
 
                         <View style={styles.callToAction}>
                             <Text style={styles.callToActionTitle}>First Time Activation</Text>
-                            {/* <TouchableOpacity> */}
                             <View style={styles.callToActionContainer}>
-
                                 <View style={styles.section}>
                                     <Text style={styles.sectionTitle}>Buy one get one free pizza</Text>
-                                    <Text style={styles.sectionDescription}>The coupon is valid for 7 natural days from the day of receipt</Text>
+                                    <Text style={styles.sectionDescription}>
+                                        The coupon is valid for 7 natural days from the day of receipt
+                                    </Text>
                                 </View>
                                 <Image
                                     source={require('../../../assets/elements/profile/studentCard/uspizza-pizza.png')}
                                     style={styles.pizzaImage}
                                 />
                             </View>
-                            {/* </TouchableOpacity> */}
-                        </View>
-                        <View style={styles.callToAction} >
-                            <Text style={styles.callToActionTitle}>Weekly Privileges</Text>
-                            {/* <TouchableOpacity> */}
-                            <View style={styles.callToActionContainer}>
-
-                                <View style={styles.section}>
-                                    <Text style={styles.sectionTitle}>Buy one get one free pizza</Text>
-                                    <Text style={styles.sectionDescription}>The coupon is valid for 7 natural days from the day of receipt</Text>
-                                </View>
-                                <Image
-                                    source={require('../../../assets/elements/profile/studentCard/uspizza-pizza.png')}
-                                    style={styles.pizzaImage}
-                                />
-                            </View>
-                            {/* </TouchableOpacity> */}
-                        </View>
-                        <View style={styles.wrapper} >
-                            <CustomPolygonButton
-                                width={Math.min(width, 440) * 0.68}
-                                label={buttonLabel}
-                                disabled={isActivated}
-                                onPress={() => {
-                                    if (!isActivated) {
-                                        router.push('/screens/profile/student-card-activation');
-                                    }
-                                }}
-                                labelStyle={{
-                                    fontSize: dynamicFontSize,
-                                    fontFamily: fonts.bold,
-                                    color: '#fff',
-                                    textAlign: 'center',
-                                }}
-                            />
                         </View>
                     </View>
                 </ScrollView>
+
+                <View style={styles.fixedBottom}>
+                    <CustomPolygonButton
+                        width={Math.min(width, 440) * 0.68}
+                        label={buttonLabel}
+                        disabled={isActivated}
+                        onPress={() => {
+                            if (!isActivated) {
+                                router.push('/screens/profile/student-card-activation');
+                            }
+                        }}
+                        labelStyle={{
+                            fontSize: dynamicFontSize,
+                            fontFamily: fonts.bold,
+                            color: '#fff',
+                            textAlign: 'center',
+                        }}
+                    />
+                </View>
             </SafeAreaView>
-        </ResponsiveBackground >
+        </ResponsiveBackground>
+
     );
 }
 
 const styles = StyleSheet.create({
+    fixedBottom: {
+        position: 'absolute',
+        bottom: 60,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10,
+    },
 
     wrapper: {
         position: "relative",
