@@ -20,15 +20,42 @@ export default function EditableDeliveryMapNative({
     const [mapError, setMapError] = useState(false);
     const [mapReady, setMapReady] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const isProgrammaticChange = useRef(false);
 
     // Reverse geocode when initial location changes
+    const prevInitialLatLng = useRef(initialLatLng);
     useEffect(() => {
         if (mapReady) {
-            reverseGeocode(initialLatLng.latitude, initialLatLng.longitude);
+            const hasChanged = 
+                prevInitialLatLng.current.latitude !== initialLatLng.latitude ||
+                prevInitialLatLng.current.longitude !== initialLatLng.longitude;
+            
+            if (hasChanged) {
+                prevInitialLatLng.current = initialLatLng;
+                isProgrammaticChange.current = true;
+                reverseGeocode(initialLatLng.latitude, initialLatLng.longitude);
+                
+                // Animate map to initial location
+                if (mapInstance.current) {
+                    mapInstance.current.animateToRegion({
+                        latitude: initialLatLng.latitude,
+                        longitude: initialLatLng.longitude,
+                        latitudeDelta: 0.005,
+                        longitudeDelta: 0.005,
+                    }, 500);
+                }
+            } else if (!selectedLocation.address) {
+                // If no address yet, reverse geocode
+                reverseGeocode(initialLatLng.latitude, initialLatLng.longitude);
+            }
         }
     }, [mapReady, initialLatLng]);
 
-    const reverseGeocode = (lat, lng) => {
+    const reverseGeocode = (lat, lng, skipMapUpdate = false) => {
+        if (!skipMapUpdate) {
+            isProgrammaticChange.current = true;
+        }
+        
         Geocoder.from(lat, lng)
             .then(json => {
                 const address = json.results[0]?.formatted_address || '';
@@ -45,6 +72,13 @@ export default function EditableDeliveryMapNative({
                 if (onLocationChange) {
                     onLocationChange(newLocation);
                 }
+                
+                if (!skipMapUpdate) {
+                    // Reset flag after a short delay
+                    setTimeout(() => {
+                        isProgrammaticChange.current = false;
+                    }, 300);
+                }
             })
             .catch(error => {
                 console.warn('Geocoding error:', error);
@@ -56,6 +90,12 @@ export default function EditableDeliveryMapNative({
                     streetName: ''
                 };
                 setSelectedLocation(newLocation);
+                
+                if (!skipMapUpdate) {
+                    setTimeout(() => {
+                        isProgrammaticChange.current = false;
+                    }, 300);
+                }
             });
     };
 
@@ -108,12 +148,6 @@ export default function EditableDeliveryMapNative({
                     latitudeDelta: 0.005,
                     longitudeDelta: 0.005,
                 }}
-                region={selectedLocation && {
-                    latitude: selectedLocation.latitude || initialLatLng.latitude,
-                    longitude: selectedLocation.longitude || initialLatLng.longitude,
-                    latitudeDelta: 0.005,
-                    longitudeDelta: 0.005,
-                }}
                 onError={(error) => {
                     console.error('MapView error:', error);
                     setMapError(true);
@@ -122,6 +156,23 @@ export default function EditableDeliveryMapNative({
                     console.log('MapView loaded successfully');
                     setMapReady(true);
                 }}
+                onRegionChangeComplete={(region) => {
+                    // Only update location when user pans the map (not programmatic)
+                    if (!isProgrammaticChange.current) {
+                        const newLat = region.latitude;
+                        const newLng = region.longitude;
+                        // Check if location changed significantly (avoid tiny drift)
+                        const latDiff = Math.abs(newLat - (selectedLocation.latitude || initialLatLng.latitude));
+                        const lngDiff = Math.abs(newLng - (selectedLocation.longitude || initialLatLng.longitude));
+                        if (latDiff > 0.0001 || lngDiff > 0.0001) {
+                            reverseGeocode(newLat, newLng, true);
+                        }
+                    }
+                }}
+                scrollEnabled={true}
+                zoomEnabled={true}
+                pitchEnabled={false}
+                rotateEnabled={false}
             >
 
                 <Marker
@@ -136,6 +187,7 @@ export default function EditableDeliveryMapNative({
                     }}
                     title="Selected Location"
                     description="Delivery Location"
+                    anchor={{ x: 0.5, y: 0.5 }}
                 />
 
             </MapView>
@@ -170,6 +222,7 @@ export default function EditableDeliveryMapNative({
                     onPress={(data, details) => {
                         setTimeout(() => {
                             if (details?.geometry?.location) {
+                                isProgrammaticChange.current = true;
                                 const location = {
                                     latitude: details.geometry.location.lat,
                                     longitude: details.geometry.location.lng,
@@ -177,6 +230,20 @@ export default function EditableDeliveryMapNative({
                                 };
                                 setSelectedLocation(location);
                                 onLocationChange?.(location);
+                                
+                                // Animate map to new location
+                                if (mapInstance.current) {
+                                    mapInstance.current.animateToRegion({
+                                        latitude: location.latitude,
+                                        longitude: location.longitude,
+                                        latitudeDelta: 0.005,
+                                        longitudeDelta: 0.005,
+                                    }, 500);
+                                }
+                                
+                                setTimeout(() => {
+                                    isProgrammaticChange.current = false;
+                                }, 600);
                             }
                         }, Platform.OS === 'ios' ? 100 : 0);
                     }}

@@ -89,7 +89,7 @@ export default function EditableDeliveryMapWeb({
             center,
             zoom: 15,
             disableDefaultUI: true,
-            gestureHandling: "none",  // Prevents zooming/panning by user
+            gestureHandling: "greedy",  // Allows zooming/panning by user
             fullscreenControl: false, // Explicitly hides the expand (fullscreen) button
             streetViewControl: false,
         });
@@ -125,6 +125,40 @@ export default function EditableDeliveryMapWeb({
                             longitude: lng,
                             address,          // Full formatted address
                             streetName       // Just the street name
+                        });
+                    }
+                }
+            });
+        });
+
+        // Listen for map drag/pan events to update marker position
+        map.addListener('dragend', () => {
+            const center = map.getCenter();
+            const lat = center.lat();
+            const lng = center.lng();
+
+            // Update marker position
+            if (markerRef.current) {
+                markerRef.current.setPosition({ lat, lng });
+            }
+
+            // Create geocoder if it doesn't exist
+            if (!geocoderRef.current) {
+                geocoderRef.current = new window.google.maps.Geocoder();
+            }
+
+            // Reverse geocode the position
+            geocoderRef.current.geocode({ location: { lat, lng } }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    const address = results[0].formatted_address;
+                    const streetName = getStreetName(results[0]);
+
+                    if (onLocationChange) {
+                        onLocationChange({
+                            latitude: lat,
+                            longitude: lng,
+                            address,
+                            streetName
                         });
                     }
                 }

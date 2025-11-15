@@ -111,6 +111,12 @@ export default function MenuScreen() {
     async ({ resetList = false } = {}) => {
       if (!selectedOutlet?.outletId) return;
 
+      //check selected outlet is hq outlet
+      if(selectedOutlet.isHQ === true) {
+        router.push('/screens/home/outlet_select');
+        return;
+      }
+
       return runWithLoading(async () => {
         // Allow menu viewing without authentication
         try {

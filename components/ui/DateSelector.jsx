@@ -74,18 +74,45 @@ if (Platform.OS === 'web') {
   `;
 }
 
-// ✅ Safe date utility
+// ✅ Safe date utility - ensures local date components (avoids timezone issues)
 const toLocalISODateString = (date) => {
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+  
+  // Use local date components to avoid timezone conversion issues
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
+// ✅ Convert Android picker date to local date (avoid timezone issues)
+const normalizeAndroidDate = (date) => {
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+    return new Date();
+  }
+  
+  // Extract local date components and create a new date at noon to avoid timezone edge cases
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  
+  // Create date at noon local time to avoid timezone boundary issues
+  return new Date(year, month, day, 12, 0, 0, 0);
 };
 
 const safeDate = (input) => {
-  if (!input) return new Date();
+  if (!input) {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
+  }
+  
   if (input instanceof Date && !isNaN(input.getTime())) {
-    return input;
+    // Normalize existing Date to ensure local date representation
+    return normalizeAndroidDate(input);
   }
 
   try {
@@ -95,18 +122,22 @@ const safeDate = (input) => {
       if (parts.length === 3) {
         const [year, month, day] = parts.map((part) => Number(part));
         if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-          return new Date(year, month - 1, day);
+          // Create date at noon local time to avoid timezone edge cases
+          return new Date(year, month - 1, day, 12, 0, 0, 0);
         }
       }
     }
 
     const parsed = new Date(normalized);
     if (isNaN(parsed.getTime())) {
-      return new Date();
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
     }
-    return parsed;
+    // Normalize parsed date to local representation
+    return normalizeAndroidDate(parsed);
   } catch {
-    return new Date();
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
   }
 };
 
@@ -157,11 +188,15 @@ const DateSelector = ({
     if (Platform.OS === 'android') {
       setShowPicker(false);
       if (selectedDate) {
-        onDateChange(toLocalISODateString(selectedDate));
+        // Normalize Android date to ensure correct local date representation
+        const normalizedDate = normalizeAndroidDate(selectedDate);
+        onDateChange(toLocalISODateString(normalizedDate));
       }
     } else {
       if (selectedDate) {
-        setTempDate(toLocalISODateString(selectedDate));
+        // Normalize iOS date to ensure correct local date representation
+        const normalizedDate = normalizeAndroidDate(selectedDate);
+        setTempDate(toLocalISODateString(normalizedDate));
       }
     }
   };

@@ -210,7 +210,7 @@ MapSection.displayName = 'MapSection';
 // Memoized order item component
 const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowDeleteModal, setDeleteItem, confirmDelete, vip }) => {
   const router = useRouter();
-
+  console.log(vip);
   const handleEdit = (item) => {
     router.push({
       pathname: '/screens/menu/menu_item',
@@ -1432,6 +1432,7 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
                 setShowDeleteModal={setShowDeleteModal}
                 setDeleteItem={setDeleteItem}
                 confirmDelete={confirmDelete}
+                vip={vip}
               />
             ))}
           </View>
@@ -1641,14 +1642,33 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
 
           <View style={styles.separator} />
 
-          <View style={styles.totalsSection}>
-            <View style={styles.totalRow}>
+          <View style={[styles.totalsSection, { paddingBottom: 0 }]}>
+            <View style={[styles.totalRow, { marginBottom: 0 }]}>
               <Text style={styles.grandtotalTitle}>Total(incl.fees and tax)</Text>
               <Text style={styles.grandtotalTitle}>
                 RM {parseFloat(cartData?.order_summary?.grand_total || 0).toFixed(2)}
               </Text>
             </View>
           </View>
+
+          {(parseFloat(cartData?.order_summary?.discount_amount) > 0 || parseFloat(cartData?.order_summary?.promo_discount_amount) > 0 ||
+              parseFloat(cartData?.order_summary?.voucher_discount_amount) > 0) ? (
+                <View style={{
+                  marginHorizontal: 10,
+                  padding: 5
+                }}>
+                  <Text style={{
+                    fontFamily: 'Route159-Regular',
+                    fontSize: 14,
+                    color: '#C2000E',
+                    textAlign: 'right',
+                    fontStyle: 'italic'
+                  }}>
+                    <Text style={{ fontSize: 17, marginRight: 3 }}>🎉</Text>
+                    You have saved RM {parseFloat(cartData?.order_summary?.discount_amount + cartData?.order_summary?.promo_discount_amount + cartData?.order_summary?.voucher_discount_amount).toFixed(2)} in this order!
+                  </Text>
+                </View>
+            ) : null}
         </ScrollView>
 
         {/* Bottom Bar */}
