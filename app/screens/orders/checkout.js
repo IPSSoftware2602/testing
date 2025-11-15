@@ -1401,7 +1401,7 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
     <ResponsiveBackground>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
         {renderFreeItemsModal()}
-        <TopNavigation title="MY ORDER" isBackButton={true} navigatePage={() => router.push('(tabs)/menu')} />
+        <TopNavigation title="MY ORDER" isBackButton={true} navigatePage={() => { if (vip === '1') { router.push('(tabs)/profile') } else { router.push('(tabs)/menu') } }} />
 
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
           <AddressCard orderType={orderType} address={orderType === "delivery" ? deliveryAddress.address : selectedOutlet.outletTitle} timeEstimate={formatEstimatedTime(selectedDateTime)} setShowDateTimePicker={setShowDateTimePicker} />

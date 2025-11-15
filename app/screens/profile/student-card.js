@@ -120,8 +120,10 @@ export default function StudentCard() {
                     isBackButton={true}
                     navigatePage={() => router.push('(tabs)/profile')}
                 />
+
+                {/* Scrollable content */}
                 <ScrollView
-                    contentContainerStyle={[commonStyles.containerStyle, { paddingBottom: 140 }]}
+                    contentContainerStyle={[commonStyles.containerStyle, { paddingBottom: 140 }]} // extra space for bottom button
                     showsVerticalScrollIndicator={false}
                 >
                     <View style={styles.studentCardWrapper}>
