@@ -12,7 +12,7 @@ import * as Location from 'expo-location';
 import { apiUrl } from '../../constant/constants';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import useAuthGuard from '../../auth/check_token_expiry';
+// Removed useAuthGuard import - outlet selection accessible without login (App Store requirement)
 // import { useToast } from 'react-native-toast-notifications';
 import { useToast } from '../../../hooks/useToast';
 import { Ellipse } from 'react-native-svg';
@@ -20,7 +20,7 @@ import { Ellipse } from 'react-native-svg';
 const { width, height } = Dimensions.get('window');
 
 export default function OutletSelection() {
-    useAuthGuard();
+    // Removed useAuthGuard - outlet selection accessible without login (App Store requirement)
     const toast = useToast();
     // const [selectedOutlet, setSelectedOutlet] = useState("");
     const [serachOulet, setSearchedOutlet] = useState("");

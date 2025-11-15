@@ -22,17 +22,6 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
     const [selectedTimeIndex, setSelectedTimeIndex] = useState(null);
 
     useEffect(() => {
-        const checkStoredData = async () => {
-            try {
-                const authToken = await AsyncStorage.getItem('authToken');
-                setAuthToken(authToken);
-            } catch (err) {
-                console.log(err);
-            }
-        };
-
-        checkStoredData();
-
 
         const fetchEstimatedTime = async () => {
             try {
@@ -53,11 +42,11 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
     }, [])
 
     useEffect(() => {
-        if (authToken && outletId) {
+        if (outletId) {
             // console.log(outletId);
             fetchOutlets();
         }
-    }, [authToken, outletId])
+    }, [outletId])
 
     // useEffect(() => {
     //     if (outlet) {
@@ -72,7 +61,6 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`,
                     },
                 });
 

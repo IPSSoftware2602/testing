@@ -13,6 +13,7 @@ import { CustomTabBarBackground } from "./CustomTabBarBackground";
 import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import LoginRequiredModal from './LoginRequiredModal';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -53,6 +54,7 @@ const TAB_ICONS = [
 ];
 export function CustomTabBar({ state, descriptors, navigation }) {
   const [orderTypeModalVisible, setOrderTypeModalVisible] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -62,6 +64,17 @@ export function CustomTabBar({ state, descriptors, navigation }) {
   }, [orderTypeModalVisible]);
 
   const handleTabPress = async (route, index) => {
+    // Market tab (index 2) and Order tab (index 3) require login
+    if (index === 3) {
+      const authToken = await AsyncStorage.getItem('authToken');
+      const customerData = await AsyncStorage.getItem('customerData');
+      
+      if (!authToken || !customerData) {
+        setShowLoginModal(true);
+        return;
+      }
+    }
+
     if (index === 1) {
       const orderType = await AsyncStorage.getItem('orderType');
       if (orderType === 'dinein' || orderType === 'pickup' || orderType === 'delivery') {
@@ -78,6 +91,11 @@ export function CustomTabBar({ state, descriptors, navigation }) {
     } else {
       navigation.navigate(route.name);
     }
+  };
+
+  const handleLoginModalConfirm = () => {
+    setShowLoginModal(false);
+    router.push('/screens/auth/login');
   };
 
   const handleSetOrderType = async (orderType) => {
@@ -215,6 +233,12 @@ export function CustomTabBar({ state, descriptors, navigation }) {
           </View>
         </SafeAreaView>
       </Modal>
+
+      <LoginRequiredModal
+        isVisible={showLoginModal}
+        onConfirm={handleLoginModalConfirm}
+        onCancel={() => setShowLoginModal(false)}
+      />
     </>
   );
 }

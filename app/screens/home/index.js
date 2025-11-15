@@ -1,7 +1,7 @@
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Modal, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
@@ -15,8 +15,9 @@ import NotificationModal from '../../../components/ui/NotificationModal';
 // import { useRoute } from '@react-navigation/native';
 import axios from 'axios'
 import { apiUrl } from '../../constant/constants';
-import useAuthGuard from '../../auth/check_token_expiry';
+// Removed useAuthGuard import - home screen accessible without login (App Store requirement)
 import useCheckValidOrderType from '../home/check_valid_order_type';
+import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
 
 const { width } = Dimensions.get('window');
 
@@ -33,7 +34,7 @@ const carouselImages = [
 ];
 
 export default function HomeScreen() {
-  useAuthGuard();
+  // Removed useAuthGuard - home screen accessible without login (App Store requirement)
   useCheckValidOrderType();
   // const route = useRoute();
   const { showModal, setErrorModal } = useLocalSearchParams();
@@ -48,6 +49,8 @@ export default function HomeScreen() {
   const [notificationVisible, setNotificationVisible] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');
   const [notificationTitle, setNotificationTitle] = useState('');
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const lastFetchedCustomerIdRef = useRef(null);
 
   const showError = (msg, title) => {
     setNotificationMessage(msg);
@@ -105,24 +108,29 @@ export default function HomeScreen() {
         const customerJson = await AsyncStorage.getItem('customerData');
         const customerData = customerJson ? JSON.parse(customerJson) : null;
 
-        // console.log('Stored token:', authToken);
-        // console.log('Stored customer:', customerData);
+        // Allow home screen to work without login (App Store requirement)
+        // Only set data if user is logged in, otherwise leave as null/empty
+        if (authToken && customerData) {
+          setAuthToken(authToken);
+          setCustomerData(customerData);
+          setQrValue(customerData.customer_referral_code || " ");
 
-        if (!authToken || !customerData) {
-          // alert("Invalid login");
-          router.push('/screens/auth/login');
-        }
-
-        setAuthToken(authToken);
-        setCustomerData(customerData);
-        setQrValue(customerData.customer_referral_code);
-
-        if(!customerData?.name) {
-          router.push('/screens/auth/register');
+          // Only redirect to register if logged in but name is missing
+          if(!customerData?.name) {
+            router.push('/screens/auth/register');
+          }
+        } else {
+          // User is not logged in - allow browsing without redirect
+          setAuthToken("");
+          setCustomerData(null);
+          setQrValue(" ");
         }
       } catch (err) {
         console.log(err);
-        router.push('/screens/auth/login');
+        // On error, allow browsing without login
+        setAuthToken("");
+        setCustomerData(null);
+        setQrValue(" ");
       }
     };
 
@@ -130,8 +138,12 @@ export default function HomeScreen() {
   }, [router])
 
   useEffect(() => {
-
     const fetchCustomerProfile = async () => {
+      if (!authToken || !customerData?.id) return;
+      
+      // Prevent duplicate fetches for the same customer ID
+      if (lastFetchedCustomerIdRef.current === customerData.id) return;
+      
       try {
         const response = await axios.get(
           `${apiUrl}customers/profile/${customerData.id}`,
@@ -142,34 +154,45 @@ export default function HomeScreen() {
             },
           });
 
-        const updatedCustomerData = response.data.data
+        const updatedCustomerData = response.data.data;
 
-        await AsyncStorage.setItem(
-          'customerData',
-          JSON.stringify({
-            ...customerData, // Existing data
-            ...updatedCustomerData, // New updates
-          })
-        );
-
-        setCustomerData((prev) => ({
-          ...prev,
-          ...updatedCustomerData,
-        }));
+        // Get current customerData from state to merge
+        setCustomerData((prev) => {
+          const mergedData = {
+            ...prev,
+            ...updatedCustomerData,
+          };
+          
+          // Update AsyncStorage with merged data
+          AsyncStorage.setItem('customerData', JSON.stringify(mergedData)).catch(console.error);
+          
+          // Track that we've fetched for this customer ID
+          lastFetchedCustomerIdRef.current = customerData.id;
+          
+          return mergedData;
+        });
 
       } catch (err) {
         console.log(err);
       }
+    };
 
+    fetchCustomerProfile();
+  }, [router, authToken, customerData?.id])
+
+  const handleOrderTypeSelect = async (type) => {
+    // Delivery method requires login
+    if (type === "delivery") {
+      const authToken = await AsyncStorage.getItem('authToken');
+      const customerData = await AsyncStorage.getItem('customerData');
+      
+      if (!authToken || !customerData) {
+        setOrderTypeModalVisible(false);
+        setShowLoginModal(true);
+        return;
+      }
     }
-
-    if (authToken && customerData?.id) {
-      fetchCustomerProfile();
-    }
-
-  }, [router, authToken, customerData])
-
-  const handleOrderTypeSelect = (type) => {
+    
     setOrderTypeModalVisible(false);
     // Clear the showModal parameter when modal is closed
     router.setParams({ showModal: undefined });
@@ -223,51 +246,64 @@ export default function HomeScreen() {
                           numberOfLines={1}
                           ellipsizeMode="tail"
                         >
-                          Unknown
+                          Guest
                         </Text>
                       )}
                     </Text>
                     <Text style={styles.welcome}><Text style={{ fontWeight: 'bold' }}>Welcome to <Text style={{ color: '#C2000E' }}>USPIZZA</Text></Text></Text>
                   </View>
-                  <PolygonButton
-                    text="MEMBER"
-                    width={width <= 440 ? (width <= 375 ? (width <= 360 ? 70 : 75) : 90) : 100}
-                    height={35}
-                    style={styles.memberBadge}
-                    textStyle={styles.memberText}
-                    onPress={() => router.push('(tabs)/profile')}
-                  />
+                  {authToken ? (
+                    <PolygonButton
+                      text="MEMBER"
+                      width={width <= 440 ? (width <= 375 ? (width <= 360 ? 70 : 75) : 90) : 100}
+                      height={35}
+                      style={styles.memberBadge}
+                      textStyle={styles.memberText}
+                      onPress={() => router.push('(tabs)/profile')}
+                    />
+                  ) : (
+                    <PolygonButton
+                      text="GUEST"
+                      width={width <= 440 ? (width <= 375 ? (width <= 360 ? 60 : 65) : 80) : 90}
+                      height={35}
+                      style={styles.memberBadge}
+                      textStyle={styles.memberText}
+                      onPress={() => router.push('(tabs)/profile')}
+                    />
+                  )}
                 </View>
-                <View style={styles.memberRow}>
-                  <View>
-                    <Text style={styles.points}>POINT:
-                      {/* <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>888 Sedap Points</Text> */}
-                      {customerData && customerData.customer_point ? (
-                        <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}> {parseInt(customerData.customer_point)} Sedap Points</Text>
+                {authToken && (
+                  <View style={styles.memberRow}>
+                    <View>
+                      <Text style={styles.points}>POINT:
+                        {/* <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>888 Sedap Points</Text> */}
+                        {customerData && customerData.customer_point ? (
+                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}> {parseInt(customerData.customer_point)} Sedap Points</Text>
+                        ) : (
+                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>  888 Sedap Points</Text>
+                        )}
+                      </Text>
+                      <Text style={styles.balance}>BALANCE:
+                        {/* <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>RM 666.00</Text> */}
+                        {customerData && customerData.customer_wallet ? (
+                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>  RM {customerData.customer_wallet}</Text>
+                        ) : (
+                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>  RM 666.00</Text>
+                        )}
+                      </Text>
+                    </View>
+                    <TouchableOpacity style={{ width: '30%', height: '100%', alignItems: 'flex-end', justifyContent: 'flex-start', padding: 5 }} onPress={() => setQRModalVisible(true)}>
+                      {qrValue && qrValue.trim() !== "" ? (
+                        <QRCode
+                          value={qrValue.trim()}
+                          size={width < 440 ? width < 375 ? 50 : 55 : 60}
+                        />
                       ) : (
-                        <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>  888 Sedap Points</Text>
+                        <Text style={{ color: '#C2000E', fontSize: 14 }}>No QR Available</Text>
                       )}
-                    </Text>
-                    <Text style={styles.balance}>BALANCE:
-                      {/* <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>RM 666.00</Text> */}
-                      {customerData && customerData.customer_wallet ? (
-                        <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>  RM {customerData.customer_wallet}</Text>
-                      ) : (
-                        <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>  RM 666.00</Text>
-                      )}
-                    </Text>
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity style={{ width: '30%', height: '100%', alignItems: 'flex-end', justifyContent: 'flex-start', padding: 5 }} onPress={() => setQRModalVisible(true)}>
-                    {qrValue && qrValue.trim() !== "" ? (
-                      <QRCode
-                        value={qrValue.trim()}
-                        size={width < 440 ? width < 375 ? 50 : 55 : 60}
-                      />
-                    ) : (
-                      <Text style={{ color: '#C2000E', fontSize: 14 }}>No QR Available</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
+                )}
                 <View style={styles.divider} />
                 <View style={styles.orderTypes}>
                   <TouchableOpacity
@@ -293,7 +329,16 @@ export default function HomeScreen() {
                   <View style={[styles.orderTypeDivider]} />
                   <TouchableOpacity
                     style={styles.orderType}
-                    onPress={() => {
+                    onPress={async () => {
+                      // Delivery method requires login
+                      const authToken = await AsyncStorage.getItem('authToken');
+                      const customerData = await AsyncStorage.getItem('customerData');
+                      
+                      if (!authToken || !customerData) {
+                        setShowLoginModal(true);
+                        return;
+                      }
+                      
                       handleSetOrderType("delivery")
                       router.push('/screens/home/address_select')
                     }
@@ -320,7 +365,18 @@ export default function HomeScreen() {
               {/* Recharge Section */}
               <TouchableOpacity
                 style={[styles.section, { margintTop: 5 }]}
-                onPress={() => router.push('(tabs)/market')}
+                onPress={async () => {
+                  // Recharge requires login
+                  const authToken = await AsyncStorage.getItem('authToken');
+                  const customerData = await AsyncStorage.getItem('customerData');
+                  
+                  if (!authToken || !customerData) {
+                    setShowLoginModal(true);
+                    return;
+                  }
+                  
+                  router.push('(tabs)/market');
+                }}
               >
                 <View style={styles.rechargeContainer}>
                   <Text style={styles.rechargeTitle}>Recharge with gifts</Text>
@@ -330,7 +386,18 @@ export default function HomeScreen() {
                     height={20}
                     textStyle={styles.rechargeBtnText}
                     icon={<FontAwesome6 name="arrow-right-long" size={12} color="#fff" />}
-                    onPress={() => router.push('(tabs)/market')}
+                    onPress={async () => {
+                      // Recharge requires login
+                      const authToken = await AsyncStorage.getItem('authToken');
+                      const customerData = await AsyncStorage.getItem('customerData');
+                      
+                      if (!authToken || !customerData) {
+                        setShowLoginModal(true);
+                        return;
+                      }
+                      
+                      router.push('(tabs)/market');
+                    }}
                   />
                 </View>
                 <Image source={gift} style={styles.giftIcon} />
@@ -448,6 +515,15 @@ export default function HomeScreen() {
             isVisible={isQRModalVisible}
             onClose={() => setQRModalVisible(false)}
             value={qrValue}
+          />
+
+          <LoginRequiredModal
+            isVisible={showLoginModal}
+            onConfirm={() => {
+              setShowLoginModal(false);
+              router.push('/screens/auth/login');
+            }}
+            onCancel={() => setShowLoginModal(false)}
           />
         </View>
 

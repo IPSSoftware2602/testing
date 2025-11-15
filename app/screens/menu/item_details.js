@@ -7,10 +7,10 @@ import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl, imageUrl } from '../../constant/constants';
-import useAuthGuard from '../../auth/check_token_expiry';
+// Removed useAuthGuard import - item details viewing accessible without login (App Store requirement)
 
 export default function ItemDetailsScreen() {
-  useAuthGuard();
+  // Removed useAuthGuard - item details viewing accessible without login (App Store requirement)
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const [menuItem, setMenuItem] = useState(null);

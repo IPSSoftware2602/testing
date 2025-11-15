@@ -1,7 +1,7 @@
 import { AntDesign } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, FlatList, Modal, ActivityIndicator } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, FlatList, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomTabBarBackground } from '../../../components/ui/CustomTabBarBackground';
@@ -14,8 +14,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // // import { useToast } from 'react-native-toast-notifications';
 // import { useToast } from '../../../hooks/useToast';
 import { useToast } from '../../../hooks/useToast';
+import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
 import PropTypes from 'prop-types'
-import useAuthGuard from '../../auth/check_token_expiry';
+// Removed useAuthGuard import - menu item viewing accessible without login (App Store requirement)
 
 const { width } = Dimensions.get('window');
 const OPTIONS_VIRTUALIZATION_THRESHOLD = 12; // Use FlatList when options > 12
@@ -358,7 +359,7 @@ const CrustOptionsGroup = React.memo(({
 CrustOptionsGroup.displayName = 'CrustOptionsGroup';
 
 export default function MenuItemScreen() {
-  useAuthGuard();
+  // Removed useAuthGuard - menu item viewing accessible without login (App Store requirement)
   const router = useRouter();
   const toast = useToast();
   const { id, source, cart_item_id, is_free_item, amount } = useLocalSearchParams();
@@ -376,6 +377,7 @@ export default function MenuItemScreen() {
   const [baseOptionGroupIds, setBaseOptionGroupIds] = useState([]);
   const [note, setNote] = useState('');
   const [loadingCount, setLoadingCount] = useState(0);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const showLoading = useCallback(() => {
     setLoadingCount((prev) => prev + 1);
@@ -410,7 +412,7 @@ export default function MenuItemScreen() {
 
   //get item details for edit
   useEffect(() => {
-    if (!cart_item_id || !token) return;
+    if (!cart_item_id ) return;
     const fetchCartItem = async () => {
       await runWithLoading(async () => {
         try {
@@ -465,7 +467,7 @@ export default function MenuItemScreen() {
   }, [cart_item_id, token, runWithLoading]);
 
   useEffect(() => {
-    if (!id || !token) return;
+    if (!id ) return;
 
     const fetchMenuItem = async () => {
       await runWithLoading(async () => {
@@ -491,7 +493,7 @@ export default function MenuItemScreen() {
 
   useEffect(() => {
     // Early return if missing required data
-    if (!menuItem || !token) {
+    if (!menuItem) {
       setOptionGroups([]);
       return;
     }
@@ -603,7 +605,7 @@ export default function MenuItemScreen() {
     fetchOptionGroups();
   }, [menuItem, token, selectedCrustId, baseOptionGroupIds, runWithLoading]);
   useEffect(() => {
-  if (!menuItem || !token) return;
+  if (!menuItem) return;
 
   // First preference: variation groups
   let groupList = [];
@@ -806,14 +808,17 @@ export default function MenuItemScreen() {
   };
 
   const handleUpdate = async () => {
-    const outletDetails = await AsyncStorage.getItem('outletDetails');
-    // if (outletDetails) {
-    const parsedOutletDetails = JSON.parse(outletDetails);
+    // Check if user is logged in - required for updating cart (order placement)
+    const authToken = await AsyncStorage.getItem('authToken');
     const customerData = await getCustomerData();
-    if (!customerData || !customerData.id) {
-      toast.show('Customer data not found', { type: 'error' });
+    
+    if (!authToken || !customerData || !customerData.id) {
+      setShowLoginModal(true);
       return;
     }
+
+    const outletDetails = await AsyncStorage.getItem('outletDetails');
+    const parsedOutletDetails = JSON.parse(outletDetails);
 
     const optionPayload = selectedOptions
       .filter(opt => opt.parents !== 0 && opt.options?.length > 0)
@@ -862,16 +867,24 @@ export default function MenuItemScreen() {
   };
 
   const handleAddToCart = async () => {
+    // Check if user is logged in - required for adding to cart (order placement)
+    const authToken = await AsyncStorage.getItem('authToken');
     const customerData = await getCustomerData();
-    const outletDetails = await AsyncStorage.getItem('outletDetails');
-    // if (outletDetails) {
-    const parsedOutletDetails = JSON.parse(outletDetails);
-    // }
-    if (!customerData || !customerData.id || !outletDetails) {
-      console.error("Customer data not found");
-      toast.show('Customer data not found', { type: 'error' });
+    
+    if (!authToken || !customerData || !customerData.id) {
+      setShowLoginModal(true);
       return;
     }
+
+    const outletDetails = await AsyncStorage.getItem('outletDetails');
+    if (!outletDetails) {
+      toast.show('Please select an outlet first', {
+        type: 'custom_toast',
+        data: { title: 'Outlet Required', status: 'warning' }
+      });
+      return;
+    }
+    const parsedOutletDetails = JSON.parse(outletDetails);
 
     const optionPayload = selectedOptions
       .filter(opt => opt.parents !== 0 && opt.options?.length > 0)
@@ -1092,19 +1105,23 @@ export default function MenuItemScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
-      <Modal
-        transparent
-        visible={isLoading}
-        animationType="fade"
-        statusBarTranslucent
-      >
-        <View style={styles.loadingOverlay}>
+      {isLoading ? (
+        <View style={styles.loadingOverlay} pointerEvents="auto">
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color="#C2000E" />
             <Text style={styles.loadingText}>Loading...</Text>
           </View>
         </View>
-      </Modal>
+      ) : null}
+
+      <LoginRequiredModal
+        isVisible={showLoginModal}
+        onConfirm={() => {
+          setShowLoginModal(false);
+          router.push('/screens/auth/login');
+        }}
+        onCancel={() => setShowLoginModal(false)}
+      />
     </ResponsiveBackground>
   );
 }
@@ -1413,10 +1430,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Route159-HeavyItalic',
   },
   loadingOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1000,
   },
   loadingCard: {
     backgroundColor: '#fff',

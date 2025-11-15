@@ -10,7 +10,7 @@ import axios from 'axios';
 import { imageUrl, apiUrl } from '../../constant/constants'
 import { useRouter } from 'expo-router';
 import useCheckValidOrderType from '../home/check_valid_order_type';
-import useAuthGuard from '../../auth/check_token_expiry';
+// Removed useAuthGuard import - market viewing now allowed without login (App Store requirement)
 
 const { width } = Dimensions.get('window');
 
@@ -19,7 +19,7 @@ export default function Market() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const router = useRouter();
-  useAuthGuard();
+  // Removed useAuthGuard - market viewing now allowed without login (App Store requirement)
   useCheckValidOrderType();
 
   const filteredItems = marketItems.filter(item =>
@@ -58,9 +58,11 @@ export default function Market() {
   useEffect(() => {
     const fetchMarketItems = async () => {
       try {
+        // Allow market viewing without authentication (App Store requirement)
         const token = await AsyncStorage.getItem('authToken');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const res = await axios.get(`${apiUrl}voucher-point/list`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers
         });
         if (res.data.status === 200 && Array.isArray(res.data.data)) {
 

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { Text, TextInput, View, Dimensions, ScrollView } from 'react-native';
+import { Text, TextInput, View, Dimensions, ScrollView, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '../../../styles/common';
 import TopNavigation from '../../../components/ui/TopNavigation';
@@ -8,6 +8,7 @@ import DateSelector from '../../../components/ui/DateSelector';
 import PolygonButton from '../../../components/ui/PolygonButton';
 import ImageUpload from '../../../components/ui/ImageUpload';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
+import ConfirmationModal from '../../../components/ui/ConfirmationModal';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl } from '../../constant/constants';
@@ -28,6 +29,7 @@ export default function UpdateProfile() {
   const [profileImage, setProfileImage] = useState(null);
   const [customerData, setCustomerData] = useState(null);
   const [authToken, setAuthToken] = useState("");
+  const [deleteAccountVisible, setDeleteAccountVisible] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -121,6 +123,92 @@ export default function UpdateProfile() {
       [field]: value,
     }));
   }
+
+  const handleDeleteAccount = async () => {
+    if (Platform.OS === 'web') {
+      setDeleteAccountVisible(true);
+    }
+    else {
+      Alert.alert(
+        'Delete Account',
+        'Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be lost.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteAccount();
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    }
+  };
+
+  const deleteAccount = async () => {
+    // try {
+    //   const response = await axios.delete(
+    //     `${apiUrl}customers/delete/${customerData.id}`,
+    //     {
+    //       headers: {
+    //         'Content-Type': 'application/json',
+    //         'Authorization': `Bearer ${authToken}`,
+    //       },
+    //     }
+    //   );
+
+    //   if (response.data?.status === 'success' || response.data?.status === 200) {
+    //     Alert.alert(
+    //       'Account Deleted',
+    //       'Your account has been successfully deleted.',
+    //       [
+    //         {
+    //           text: 'OK',
+    //           onPress: async () => {
+    //             await AsyncStorage.clear();
+    //             router.replace('/screens/auth/login');
+    //           },
+    //         },
+    //       ]
+    //     );
+    //   } else {
+    //     Alert.alert(
+    //       'Error',
+    //       response.data?.message || 'Please contact support at info@uspizza.my to request for account deletion.',
+    //       [{ text: 'OK' }]
+    //     );
+    //   }
+    // } catch (err) {
+    //   console.error('Delete account error:', err);
+    //   const errorMessage = err?.response?.data?.message || 'Failed to delete account. Please contact support at info@uspizza.my or visit our website.';
+    //   Alert.alert(
+    //     'Error',
+    //     errorMessage,
+    //     [
+    //       {
+    //         text: 'OK',
+    //       },
+    //       {
+    //         text: 'Contact Support',
+    //         onPress: () => {
+    //           Linking.openURL('mailto:info@uspizza.my');
+    //         },
+    //       },
+    //     ]
+    //   );
+    // }
+
+    Alert.alert(
+      'Account Deletion',
+      'Please contact support at info@uspizza.my to request for account deletion.',
+      [{ text: 'OK' }]
+    );
+  };
 
   const handleUpdateProfile = async () => {
     const formData = new FormData();
@@ -269,9 +357,31 @@ export default function UpdateProfile() {
             <View style={styles.loginContainer}>
               <Text style={styles.loginText}>Please complete your profile to proceed.</Text>
             </View>
+
+            <PolygonButton
+              text="DELETE ACCOUNT"
+              width={160}
+              height={25}
+              onPress={handleDeleteAccount}
+              color="#FF3B30"
+              textColor="#fff"
+              textStyle={{ fontSize: 12, fontWeight: 'bold' }}
+              style={{ marginTop: 20, alignSelf: 'center' }}
+            />
           </View>
         </ScrollView>
 
+        <ConfirmationModal
+          title={"Delete Account"}
+          subtitle={"Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be lost."}
+          confirmationText={"Delete"}
+          onCancel={() => setDeleteAccountVisible(false)}
+          onConfirm={() => {
+            setDeleteAccountVisible(false);
+            deleteAccount();
+          }}
+          isVisible={deleteAccountVisible}
+        />
       </SafeAreaView>
     </ResponsiveBackground>
   );

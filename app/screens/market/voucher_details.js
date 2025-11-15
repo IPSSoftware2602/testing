@@ -10,16 +10,17 @@ import { useEffect, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import useAuthGuard from '../../auth/check_token_expiry';
+// Removed useAuthGuard import - voucher details viewing now allowed without login (App Store requirement)
 // import { useToast } from 'react-native-toast-notifications';
 import { useToast } from '../../../hooks/useToast';
 import { useRouter } from 'expo-router';
+import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
 
 
 const { width } = Dimensions.get('window');
 
 export default function VoucherDetails() {
-  useAuthGuard();
+  // Removed useAuthGuard - voucher details viewing now allowed without login (App Store requirement)
   const params = useLocalSearchParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function VoucherDetails() {
   const [voucher, setVoucher] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const calculateExpiryDisplay = (voucher) => {
     const type = voucher?.voucher_expiry_type?.toLowerCase();
@@ -56,9 +58,11 @@ export default function VoucherDetails() {
           });
           return;
         }
+        // Allow voucher details viewing without authentication (App Store requirement)
         const token = await AsyncStorage.getItem('authToken');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const res = await axios.get(`${apiUrl}/voucher-point/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers
         });
 
         const payload = res?.data?.data;
@@ -92,17 +96,25 @@ export default function VoucherDetails() {
   }, [id, toast]);
 
   const handleRedeem = async () => {
-  try {
+    // Check if user is logged in - required for redeeming voucher
     const token = await AsyncStorage.getItem('authToken');
     const customerData = await AsyncStorage.getItem('customerData');
     const customer = customerData ? JSON.parse(customerData) : null;
-    if (!customer?.id || !voucher?.id) {
-      toast.show('Missing customer or voucher info', {
+    
+    if (!token || !customer || !customer.id) {
+      setShowLoginModal(true);
+      return;
+    }
+    
+    if (!voucher?.id) {
+      toast.show('Missing voucher info', {
         type: 'custom_toast',
         data: { title: 'Error', status: 'danger' }
       });
       return;
     }
+    
+  try {
     const res = await axios.post(
       `${apiUrl}voucher/claim`,
       {
@@ -240,17 +252,26 @@ export default function VoucherDetails() {
         </ScrollView>
         <View style={styles.bottomContainer}>
           <View style={styles.bottomBar}>
-            <TouchableOpacity style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}>
+            <TouchableOpacity 
+              style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}
+              onPress={handleRedeem}
+            >
               <CustomTabBarBackground />
-              <Text style={styles.placeOrderText}
-
-                onPress={handleRedeem}>
+              <Text style={styles.placeOrderText}>
                 Redeem Voucher
-
               </Text>
             </TouchableOpacity>
           </View>
         </View>
+
+        <LoginRequiredModal
+          isVisible={showLoginModal}
+          onConfirm={() => {
+            setShowLoginModal(false);
+            router.push('/screens/auth/login');
+          }}
+          onCancel={() => setShowLoginModal(false)}
+        />
       </SafeAreaView>
     </ResponsiveBackground>
   );

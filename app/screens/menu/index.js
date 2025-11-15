@@ -1,7 +1,7 @@
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View, Modal, ActivityIndicator } from 'react-native';
+import { Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Modal } from 'react-native';
 import PolygonButton from '../../../components/ui/PolygonButton';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import { commonStyles } from '../../../styles/common';
@@ -9,9 +9,10 @@ import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import { apiUrl, imageUrl } from '../../constant/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
 import { FontAwesome6 } from '@expo/vector-icons';
 import CustomDateTimePickerModal from '../../../components/ui/CustomDateTimePickerModal';
-import useAuthGuard from '../../auth/check_token_expiry';
+// Removed useAuthGuard import - menu viewing now allowed without login (App Store requirement)
 import MenuItem from '../../../components/menu/MenuItem';
 import CategoryItem from '../../../components/menu/CategoryItem';
 
@@ -47,7 +48,7 @@ const getCategoryToIndexMap = (items) => {
 
 
 export default function MenuScreen() {
-  useAuthGuard();
+  // Removed useAuthGuard to allow menu viewing without login (App Store requirement)
   // const [activeCategory, setActiveCategory] = useState(categories[0].key);
   // const { outletId, distance, outletTitle } = useLocalSearchParams();
   const [activeCategory, setActiveCategory] = useState('');
@@ -81,6 +82,7 @@ export default function MenuScreen() {
   const [pendingOrderType, setPendingOrderType] = useState(null);
   const { orderType, outletId } = useLocalSearchParams();
   const fromQR = !!orderType && !!outletId;
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [loadingCount, setLoadingCount] = useState(0);
 
   const showLoading = useCallback(() => {
@@ -110,6 +112,7 @@ export default function MenuScreen() {
       if (!selectedOutlet?.outletId) return;
 
       return runWithLoading(async () => {
+        // Allow menu viewing without authentication
         try {
           const shouldResetList = resetList && !isWeb && !shouldRestoreScrollRef.current;
           if (shouldResetList) {
@@ -837,9 +840,23 @@ export default function MenuScreen() {
     return [`${yyyy}-${mm}-${dd}`, `${hh}:${min}`];
   }
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
+    // Check if user is logged in - required for checkout (order placement)
+    const authToken = await AsyncStorage.getItem('authToken');
+    const customerData = await AsyncStorage.getItem('customerData');
+    
+    if (!authToken || !customerData) {
+      setShowLoginModal(true);
+      return;
+    }
+    
     formatDateTime();
     router.push('/screens/orders/checkout');
+  };
+
+  const handleLoginModalConfirm = () => {
+    setShowLoginModal(false);
+    router.push('/screens/auth/login');
   };
 
 
@@ -1051,19 +1068,20 @@ export default function MenuScreen() {
           outletId={selectedOutlet.outletId}
         /> : null}
 
-        <Modal
-          transparent
-          visible={isLoading}
-          animationType="fade"
-          statusBarTranslucent
-        >
-          <View style={styles.loadingOverlay}>
+        {isLoading ? (
+          <View style={styles.loadingOverlay} pointerEvents="auto">
             <View style={styles.loadingCard}>
               <ActivityIndicator size="large" color="#C2000E" />
               <Text style={styles.loadingText}>Loading...</Text>
             </View>
           </View>
-        </Modal>
+        ) : null}
+
+        <LoginRequiredModal
+          isVisible={showLoginModal}
+          onConfirm={handleLoginModalConfirm}
+          onCancel={() => setShowLoginModal(false)}
+        />
 
       </SafeAreaView>
       {/* </View>
@@ -1447,10 +1465,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   loadingOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1000,
   },
   loadingCard: {
     backgroundColor: '#fff',

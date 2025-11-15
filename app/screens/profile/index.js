@@ -1,8 +1,8 @@
 import { Entypo } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, Modal, Dimensions, Linking } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, Dimensions, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import BeansUpgradeIndicator from '../../../components/profile/BeansUpgradeIndicator';
@@ -10,26 +10,27 @@ import PolygonButton from '../../../components/ui/PolygonButton';
 import QRCodeModal from '../../../components/ui/QRCodeModal';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import USPizzaLogo from '../../../components/ui/USPizzaLogo';
-import { commonStyles, textStyles } from '../../../styles/common';
+import { commonStyles } from '../../../styles/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import ConfirmationModal from '../../../components/ui/ConfirmationModal';
 import axios from 'axios'
-import { imageUrl, apiUrl } from '../../constant/constants';
-import useAuthGuard from '../../auth/check_token_expiry';
-import useCheckValidOrderType from '../home/check_valid_order_type';
+import { apiUrl } from '../../constant/constants';
+import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
 
 const { width } = Dimensions.get('window');
 
 export default function Profile() {
-  useAuthGuard();
-  useCheckValidOrderType();
+  // useAuthGuard();
+  // useCheckValidOrderType();
   const [qrValue, setQrValue] = useState("");
   const router = useRouter();
   const [isQRModalVisible, setQRModalVisible] = useState(false);
   const [authToken, setAuthToken] = useState("");
   const [customerData, setCustomerData] = useState(null);
   const [logoutVisible, setLogoutVisible] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const lastFetchedCustomerIdRef = useRef(null);
   // const [nextTierInfo, setNextTierInfo] = useState(null);
 
   useEffect(() => {
@@ -41,7 +42,7 @@ export default function Profile() {
 
         if (!authToken || !customerData) {
           // alert("Invalid login");
-          router.push('/screens/auth/login');
+          // router.push('/screens/auth/login');
         }
 
         setAuthToken(authToken);
@@ -56,6 +57,11 @@ export default function Profile() {
 
   useEffect(() => {
     const fetchCustomerProfile = async () => {
+      if (!authToken || !customerData?.id) return;
+      
+      // Prevent duplicate fetches for the same customer ID
+      if (lastFetchedCustomerIdRef.current === customerData.id) return;
+      
       try {
         const response = await axios.get(
           `${apiUrl}customers/profile/${customerData.id}`,
@@ -66,31 +72,30 @@ export default function Profile() {
             },
           });
 
-        const updatedCustomerData = response.data.data
+        const updatedCustomerData = response.data.data;
 
-        await AsyncStorage.setItem(
-          'customerData',
-          JSON.stringify({
-            ...customerData, // Existing data
-            ...updatedCustomerData, // New updates
-          })
-        );
-
-        setCustomerData((prev) => ({
-          ...prev,
-          ...updatedCustomerData,
-        }));
+        // Get current customerData from state to merge
+        setCustomerData((prev) => {
+          const mergedData = {
+            ...prev,
+            ...updatedCustomerData,
+          };
+          
+          // Update AsyncStorage with merged data
+          AsyncStorage.setItem('customerData', JSON.stringify(mergedData)).catch(console.error);
+          
+          // Track that we've fetched for this customer ID
+          lastFetchedCustomerIdRef.current = customerData.id;
+          
+          return mergedData;
+        });
 
       } catch (err) {
         console.log(err);
       }
+    };
 
-    }
-
-    if (authToken && customerData?.id) {
-      fetchCustomerProfile();
-    }
-
+    fetchCustomerProfile();
   }, [router, authToken, customerData?.id])
 
   const logoutAction = async () => {
@@ -192,17 +197,18 @@ export default function Profile() {
                       style={styles.avatar}
                     />
                   )}
-
-                  <TouchableOpacity
-                    style={styles.editProfileIcon}
-                    onPress={() => router.push('/screens/profile/edit_profile')}
-                  >
-                    <Entypo name="edit" size={18} color="#C2000E" />
-                  </TouchableOpacity>
+                  {authToken && (
+                    <TouchableOpacity
+                      style={styles.editProfileIcon}
+                      onPress={() => router.push('/screens/profile/edit_profile')}
+                    >
+                      <Entypo name="edit" size={18} color="#C2000E" />
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
 
                 <View style={{ flex: 1, marginLeft: 5 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ flexDirection: authToken ? 'row' : 'column', alignItems: authToken ? 'center' : 'flex-start' }}>
                     {customerData && customerData.name ? (
                       <Text
                         style={styles.name}
@@ -212,25 +218,42 @@ export default function Profile() {
                         {customerData.name}
                       </Text>
                     ) : (
-                      <Text
-                        style={styles.name}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        Unknown
-                      </Text>
+                      <>
+                        <Text
+                          style={styles.name}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          Guest
+                        </Text>
+                        <PolygonButton
+                          text="Login/Register now"
+                          width={140}
+                          height={25}
+                          color="#C2000E"
+                          textColor="#fff"
+                          textStyle={{ fontSize: 12 }}
+                          style={{ marginTop: 8 }}
+                          onPress={() => router.push('/screens/auth/login')}
+                        />
+                      </>
                     )}
-                    <View style={styles.usPizzaBadge}>
-                      <USPizzaLogo width={32} height={20} color={customerData?.customer_tier_color} />
-                    </View>
+                    {authToken && (
+                     <View style={styles.usPizzaBadge}>
+                       <USPizzaLogo width={32} height={20} color={customerData?.customer_tier_color} />
+                     </View>
+                    )}
                   </View>
-                  <BeansUpgradeIndicator
-                    beansNeeded={customerData?.point_needed_for_next_tier}
-                    totalBeansForUpgrade={customerData?.next_tier_min_points}
-                    nextTierName={customerData?.next_tier}
-                    currentTierName={customerData?.customer_tier_name}
-                  />
+                  {authToken && (
+                   <BeansUpgradeIndicator
+                     beansNeeded={customerData?.point_needed_for_next_tier}
+                     totalBeansForUpgrade={customerData?.next_tier_min_points}
+                     nextTierName={customerData?.next_tier}
+                     currentTierName={customerData?.customer_tier_name}
+                   />
+                  )}
                 </View>
+                {authToken && (
                 <View style={{ alignItems: 'flex-start', width: '40%' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between', width: '100%' }}>
                     <TouchableOpacity
@@ -309,13 +332,15 @@ export default function Profile() {
                     />
                   )}
 
+                    </View>
                   </View>
-                </View>
+                )}
               </View>
             </LinearGradient>
           </View>
 
           {/* VIP Card */}
+          {authToken && (
           <View style={[styles.vipCard, { backgroundColor: getVipCardColor(customerData?.customer_tier_name) }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
               <View style={styles.vipCardHeader}>
@@ -345,8 +370,9 @@ export default function Profile() {
             </View>
             <Image source={require('../../../assets/elements/profile/uspizza_card_background.png')} style={styles.vipCardWatermark} />
           </View>
-
+          )}
           {/* My Order Button */}
+          {authToken && (
           <TouchableOpacity onPress={() => router.push('(tabs)/orders')}>
             <View style={styles.section}>
               <PolygonButton
@@ -362,9 +388,9 @@ export default function Profile() {
               </View>
             </View>
           </TouchableOpacity>
-
+          )}
           {/* Quick Actions Grid */}
-          <View style={styles.quickActionsGrid}>
+          <View style={[styles.quickActionsGrid, { marginTop: authToken ? 0 : 10 }]}>
             {services.map((item, idx) => (
               // <TouchableOpacity key={idx} style={styles.quickActionItem} onPress={() => router.push('(tabs)')}>
               <TouchableOpacity
@@ -372,6 +398,7 @@ export default function Profile() {
                 style={styles.quickActionItem}
                 // onPress={() => router.push(item.route)}
                 onPress={() => {
+                  // Service and Suggestion don't require login
                   if (item.label === 'Suggestion') {
                     Linking.openURL('mailto:info@uspizza.my');
                   } else if (item.label === 'Service') {
@@ -389,7 +416,12 @@ export default function Profile() {
                     }
                   }
                   else {
-                    router.push(item.route);
+                    // All other quick actions require login
+                    if (!authToken) {
+                      setShowLoginModal(true);
+                    } else {
+                      router.push(item.route);
+                    }
                   }
                 }}
               >
@@ -411,17 +443,18 @@ export default function Profile() {
               style={styles.memberBadge}
               textStyle={{ fontSize: 12 }}
             />
-
-            <PolygonButton
-              text="LOG OUT"
-              width={120}
-              height={25}
-              color="#C2000E"
-              textColor="#fff"
-              style={styles.memberBadge}
-              textStyle={{ fontSize: 14 }}
-              onPress={handleLogout}
-            />
+            {authToken && (
+              <PolygonButton
+                text="LOG OUT"
+                width={120}
+                height={25}
+                color="#C2000E"
+                textColor="#fff"
+                style={styles.memberBadge}
+                textStyle={{ fontSize: 14 }}
+                onPress={handleLogout}
+              />
+              )}
           </View>
 
         </ScrollView>
@@ -441,6 +474,15 @@ export default function Profile() {
             logoutAction();
           }}
           isVisible={logoutVisible}
+        />
+
+        <LoginRequiredModal
+          isVisible={showLoginModal}
+          onConfirm={() => {
+            setShowLoginModal(false);
+            router.push('/screens/auth/login');
+          }}
+          onCancel={() => setShowLoginModal(false)}
         />
       </SafeAreaView >
     </ResponsiveBackground>

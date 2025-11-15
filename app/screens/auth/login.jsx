@@ -87,7 +87,7 @@ export default function Login() {
 
         <SafeAreaView style={styles.safeArea}>
           {/* Top Bar */}
-          <TopNavigation title="USPIZZA" isBackButton={false} />
+          <TopNavigation title="USPIZZA" isBackButton={true} navigatePage={() => router.push('(tabs)')} />
 
           {/* Main Content */}
           <View style={styles.mainContent}>
