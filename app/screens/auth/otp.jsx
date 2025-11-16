@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Polygon, Svg } from 'react-native-svg';
@@ -19,9 +19,20 @@ const { width, height } = Dimensions.get('window');
 export default function OTP() {
   const [otp, setOtp] = useState('');
   const [retryCount, setRetryCount] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const router = useRouter();
   const { phone_number, send_via } = useLocalSearchParams();
   const toast = useToast();
+
+  // Countdown timer for resend button
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResendCooldown(resendCooldown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
 
   const handleOTPComplete = async (completedOTP) => {
     try {
@@ -100,6 +111,8 @@ export default function OTP() {
   };
 
   const handleResendOTP = async () => {
+    if (resendCooldown > 0) return; // Prevent resend if cooldown is active
+
     try {
       const response = await axios.post(
         apiUrl + "send-otp",
@@ -114,6 +127,9 @@ export default function OTP() {
         type: 'custom_toast',
         data: { title: 'OTP Resent', status: 'success' }
       });
+
+      // Start 60 second cooldown
+      setResendCooldown(60);
 
     } catch (err) {
       console.log(err);
@@ -189,10 +205,16 @@ export default function OTP() {
                 {/* Resend OTP */}
                 <View style={styles.resendContainer}>
                   <Text style={styles.resendText}>Didn&apos;t receive the code? </Text>
-                  <TouchableOpacity onPress={() => {
-                    handleResendOTP();
-                  }}>
-                    <Text style={styles.resendLink}>Resend</Text>
+                  <TouchableOpacity 
+                    onPress={handleResendOTP}
+                    disabled={resendCooldown > 0}
+                  >
+                    <Text style={[
+                      styles.resendLink,
+                      resendCooldown > 0 && styles.resendLinkDisabled
+                    ]}>
+                      {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'Resend'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -444,5 +466,9 @@ const styles = StyleSheet.create({
     fontSize: width <= 375 ? 15 : 17,
     marginLeft: 4,
     fontFamily: 'RobotoSlab-Bold',
+  },
+  resendLinkDisabled: {
+    color: '#999',
+    opacity: 0.6,
   },
 }); 
