@@ -57,11 +57,11 @@ export default function Login() {
           // Alert.alert('Internal Server Error', 'Please try again later');
         }
         else {
-          toast.show('Enter a valid phone number', {
+          console.log(err);
+          toast.show(err.response.data.messages.error, {
             type: 'custom_toast',
-            data: { title: 'Invalid Input', status: 'danger' }
+            data: { title: 'Error', status: 'danger' }
           });
-          // Alert.alert('Invalid Input', 'Enter a valid phone number');
         }
       }
     }
