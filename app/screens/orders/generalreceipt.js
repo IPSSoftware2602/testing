@@ -335,10 +335,10 @@ export default function GeneralReceipt() {
                 <Text>{formatCurrency(order.subtotal_amount)}</Text>
               </View>
               {/* dont display if amount is > 0 */}
-              {order.discount_amount > 0 && (
+              {order.voucher_discount_amount !== "0.00" || order.promo_discount_amount !== "0.00" && (
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
                   <Text>Total Discount </Text>
-                  <Text>-{formatCurrency(order.discount_amount)}</Text>
+                  <Text>-{formatCurrency(order.voucher_discount_amount !== "0.00" ? parseFloat(order?.voucher_discount_amount).toFixed(2) : parseFloat(order?.promo_discount_amount).toFixed(2))}</Text>
                 </View>
               )}
               {

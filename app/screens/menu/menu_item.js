@@ -540,8 +540,10 @@ export default function MenuItemScreen() {
         try {
           const outletDetails = await AsyncStorage.getItem('outletDetails');
           const outletId = outletDetails ? JSON.parse(outletDetails).outletId : 0;
-
-          const res = await axios.get(`${apiUrl}menu-items/${id}/${outletId}`, {
+          const customerJson = await AsyncStorage.getItem('customerData');
+          const customerData = customerJson ? JSON.parse(customerJson) : null;
+          const customerTier = customerData ? customerData.customer_tier_id : 0;
+          const res = await axios.get(`${apiUrl}menu-items/${id}/${outletId}/${customerTier}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           setMenuItem(res.data.data[0]);

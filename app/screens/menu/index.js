@@ -130,8 +130,11 @@ export default function MenuScreen() {
           }
 
           const token = await AsyncStorage.getItem('authToken');
+          const customerJson = await AsyncStorage.getItem('customerData');
+          const customerData = customerJson ? JSON.parse(customerJson) : null;
+          const customerTier = customerData ? customerData.customer_tier_id : 0;
           const headers = token ? { Authorization: `Bearer ${token}` } : {};
-          const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}`, { headers });
+          const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}/${customerTier}`, { headers });
 
           const fetchedCategories = (response.data.Categories || []).map(cat => ({
             key: String(cat.id),

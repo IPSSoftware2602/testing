@@ -1153,9 +1153,9 @@ export default function OrderDetails({ navigation }) {
               <Text style={styles.totalLabel}>Delivery Fee</Text>
               <Text style={styles.totalValue}>RM {order ? order.delivery_fee : "0.00"}</Text>
             </View> : null}
-            {order?.voucher_discount_amount !== "0.00" || order?.promo_discount_amount !== "0.00" || order?.discount_amount !== "0.00" ? (<><View style={styles.totalRow}>
+            {order?.voucher_discount_amount !== "0.00" || order?.promo_discount_amount !== "0.00" ? (<><View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total Discount</Text>
-              <Text style={styles.totalValue}>- RM {order?.voucher_discount_amount !== "0.00" ? (parseFloat(order?.voucher_discount_amount) + parseFloat(order?.discount_amount)).toFixed(2) : (parseFloat(order?.promo_discount_amount) + parseFloat(order?.discount_amount)).toFixed(2)}</Text>
+              <Text style={styles.totalValue}>- RM {order?.voucher_discount_amount !== "0.00" ? parseFloat(order?.voucher_discount_amount).toFixed(2) : parseFloat(order?.promo_discount_amount).toFixed(2)}</Text>
             </View></>) : null}
             {order?.packaging_charge !== 0 ? (<View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Packaging Charges</Text>
