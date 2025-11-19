@@ -17,11 +17,12 @@ import ConfirmationModal from '../../../components/ui/ConfirmationModal';
 import axios from 'axios'
 import { apiUrl } from '../../constant/constants';
 import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
+import useAuthGuard from '../../auth/check_token_expiry';
 
 const { width } = Dimensions.get('window');
 
 export default function Profile() {
-  // useAuthGuard();
+  useAuthGuard();
   // useCheckValidOrderType();
   const [qrValue, setQrValue] = useState("");
   const router = useRouter();

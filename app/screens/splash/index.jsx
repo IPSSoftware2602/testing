@@ -4,6 +4,7 @@ import React, { use, useEffect } from 'react';
 import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
+import useAuthGuard from '../../auth/check_token_expiry';
 // Removed useAuthGuard import - splash screen allows access without login (App Store requirement)
 
 const { width, height } = Dimensions.get('window');
@@ -13,6 +14,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function Splash() {
   // Removed useAuthGuard - splash screen allows access without login (App Store requirement)
+  useAuthGuard();
   const router = useRouter();
   const { referral_id } = useLocalSearchParams();
   // console.log(referral_id);

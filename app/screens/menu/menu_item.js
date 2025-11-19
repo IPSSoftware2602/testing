@@ -3,6 +3,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, FlatList, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
+import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomTabBarBackground } from '../../../components/ui/CustomTabBarBackground';
 import PolygonButton from '../../../components/ui/PolygonButton';
@@ -15,8 +17,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { useToast } from '../../../hooks/useToast';
 import { useToast } from '../../../hooks/useToast';
 import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
-import PropTypes from 'prop-types'
+import PropTypes from 'prop-types';
 // Removed useAuthGuard import - menu item viewing accessible without login (App Store requirement)
+
+const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
 
 const { width } = Dimensions.get('window');
 const OPTIONS_VIRTUALIZATION_THRESHOLD = 12; // Use FlatList when options > 12
@@ -33,6 +37,8 @@ const OptionCard = React.memo(({
   minQ,
   toast
 }) => {
+  const [imageLoading, setImageLoading] = useState(true);
+
   const imageSource = useMemo(() => {
     if (!item.image) {
       return require('../../../assets/images/menu_default.jpg');
@@ -67,6 +73,51 @@ const OptionCard = React.memo(({
     [item.discount_price]
   );
 
+  const imageContainerStyle = useMemo(() => 
+    type === 'variation'
+      ? {
+          width: '100%',
+          height: 80,
+          position: 'relative',
+          borderTopLeftRadius: 8,
+          borderTopRightRadius: 8,
+          overflow: 'hidden',
+        }
+      : {
+          ...styles.optionImageLeft,
+          position: 'relative',
+          overflow: 'hidden',
+        },
+    [type]
+  );
+
+  const shimmerStyle = useMemo(() => 
+    type === 'variation'
+      ? {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%',
+          height: 80,
+          borderTopLeftRadius: 8,
+          borderTopRightRadius: 8,
+        }
+      : {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: 60,
+          height: 70,
+          borderBottomLeftRadius: 8,
+          borderTopLeftRadius: 8,
+        },
+    [type]
+  );
+
   return (
     <TouchableOpacity
       onPress={handlePress}
@@ -77,16 +128,29 @@ const OptionCard = React.memo(({
         { borderColor: selected ? '#C2000E' : '#eee' }
       ]}
     >
-      <Image 
-        source={imageSource} 
-        style={imageStyle}
-        contentFit="cover"
-        transition={100}
-        cachePolicy="memory-disk"
-        recyclingKey={String(item.id)}
-        priority={selected ? "high" : "low"}
-        placeholder={require('../../../assets/images/menu_default.jpg')}
-      />
+      <View style={imageContainerStyle}>
+        <Image 
+          source={imageSource} 
+          style={imageStyle}
+          contentFit="cover"
+          transition={100}
+          cachePolicy="memory-disk"
+          recyclingKey={String(item.id)}
+          priority={selected ? "high" : "low"}
+          placeholder={require('../../../assets/images/menu_default.jpg')}
+          onLoadStart={() => setImageLoading(true)}
+          onLoadEnd={() => setImageLoading(false)}
+          onError={() => setImageLoading(false)}
+        />
+        {imageLoading && (
+          <ShimmerPlaceHolder
+            style={shimmerStyle}
+            shimmerColors={['#f0f0f0', '#e0e0e0', '#f0f0f0']}
+            autoRun={true}
+            duration={1500}
+          />
+        )}
+      </View>
       <View style={styles.optionDetails}>
         <Text style={styles.optionName}>{item.name}</Text>
         <View style={styles.optionRow}>
@@ -378,6 +442,7 @@ export default function MenuItemScreen() {
   const [note, setNote] = useState('');
   const [loadingCount, setLoadingCount] = useState(0);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [mainImageLoading, setMainImageLoading] = useState(true);
 
   const showLoading = useCallback(() => {
     setLoadingCount((prev) => prev + 1);
@@ -481,6 +546,7 @@ export default function MenuItemScreen() {
           setMenuItem(res.data.data[0]);
           setBasePrice(Number(res.data.data[0]?.price) || 0);
           setBaseOptionGroupIds(res.data.data[0]?.menu_option_group?.map(g => g.id) || []);
+          setMainImageLoading(true); // Reset loading state for new item
         } catch (err) {
           console.error('Failed to load menu item:', err?.response?.data || err.message);
           setMenuItem(null);
@@ -955,23 +1021,36 @@ export default function MenuItemScreen() {
           decelerationRate="normal"
         >
           <View style={styles.imageContainer}>
-            <Image
-              source={
-                menuItem?.image?.[0]?.image_url
-                  ? {
-                      uri: String(menuItem.image[0].image_url).startsWith('http')
-                        ? String(menuItem.image[0].image_url)
-                        : imageUrl + 'menu_images/' + String(menuItem.image[0].image_url),
-                      cachePolicy: 'memory-disk'
-                    }
-                  : require('../../../assets/images/menu_default.jpg')
-              }
-              style={styles.mainImage}
-              contentFit="cover"
-              transition={200}
-              cachePolicy="memory-disk"
-              priority="high"
-            />
+            <View style={styles.mainImageWrapper}>
+              <Image
+                source={
+                  menuItem?.image?.[0]?.image_url
+                    ? {
+                        uri: String(menuItem.image[0].image_url).startsWith('http')
+                          ? String(menuItem.image[0].image_url)
+                          : imageUrl + 'menu_images/' + String(menuItem.image[0].image_url),
+                        cachePolicy: 'memory-disk'
+                      }
+                    : require('../../../assets/images/menu_default.jpg')
+                }
+                style={styles.mainImage}
+                contentFit="cover"
+                transition={200}
+                cachePolicy="memory-disk"
+                priority="high"
+                onLoadStart={() => setMainImageLoading(true)}
+                onLoadEnd={() => setMainImageLoading(false)}
+                onError={() => setMainImageLoading(false)}
+              />
+              {mainImageLoading && (
+                <ShimmerPlaceHolder
+                  style={styles.shimmerMainImage}
+                  shimmerColors={['#f0f0f0', '#e0e0e0', '#f0f0f0']}
+                  autoRun={true}
+                  duration={1500}
+                />
+              )}
+            </View>
           </View>
 
           <View style={styles.detailsContainer}>
@@ -1219,10 +1298,27 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
   },
-  mainImage: {
+  mainImageWrapper: {
     marginHorizontal: 16,
-    borderRadius: 12,
+    position: 'relative',
     height: 180,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  mainImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+  },
+  shimmerMainImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
   },
   completedBadge: {
     position: 'absolute',

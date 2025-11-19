@@ -1,6 +1,10 @@
-import React, { memo } from 'react';
+import React, { memo, useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
+import { LinearGradient } from 'expo-linear-gradient';
 import PolygonButton from '../ui/PolygonButton';
+
+const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
 
 const { width } = Dimensions.get('window');
 
@@ -12,6 +16,25 @@ const MenuItem = memo(({
   customer, 
   onPress 
 }) => {
+  const [imageLoading, setImageLoading] = useState(true);
+  const imageSourceRef = useRef(item.image);
+  const hasLoadedRef = useRef(false);
+
+  // Memoize image source to prevent unnecessary re-renders
+  const imageSource = useMemo(() => {
+    return item.image
+      ? { uri: String(item.image) }
+      : require('../../assets/icons/burger.png');
+  }, [item.image]);
+
+  // Reset loading state only when image source actually changes
+  useEffect(() => {
+    if (imageSourceRef.current !== item.image) {
+      imageSourceRef.current = item.image;
+      hasLoadedRef.current = false;
+      setImageLoading(true);
+    }
+  }, [item.image]);
 
   const handlePress = () => {
     if (item.is_available) {
@@ -35,15 +58,31 @@ const MenuItem = memo(({
       >
         <View style={styles.menuItem}>
           <View style={styles.menuImageContainer}>
-            
             <Image
-              source={
-                item.image
-                  ? { uri: String(item.image) }
-                  : require('../../assets/icons/burger.png')
-              }
+              source={imageSource}
               style={styles.menuImage}
+              onLoadStart={() => {
+                if (!hasLoadedRef.current) {
+                  setImageLoading(true);
+                }
+              }}
+              onLoadEnd={() => {
+                setImageLoading(false);
+                hasLoadedRef.current = true;
+              }}
+              onError={() => {
+                setImageLoading(false);
+                hasLoadedRef.current = true;
+              }}
             />
+            {imageLoading && (
+              <ShimmerPlaceHolder
+                style={styles.shimmerOverlay}
+                shimmerColors={['#f0f0f0', '#e0e0e0', '#f0f0f0']}
+                autoRun={true}
+                duration={1500}
+              />
+            )}
             {(!item.is_available || item.membership_tier === customer?.customer_tier_id) && (
               <View style={styles.notAvailableOverlay}>
                 <View style={styles.notAvailableTextContainer}>
@@ -126,21 +165,39 @@ const styles = StyleSheet.create({
     width: width <= 360 ? 110 : 100,
     height: width <= 360 ? 110 : 100,
     borderRadius: 12,
-    margin: 8,
+  },
+  hiddenImage: {
+    opacity: 0,
   },
   menuImageContainer: {
     position: 'relative',
+    width: width <= 360 ? 110 : 100,
+    height: width <= 360 ? 110 : 100,
+    margin: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  shimmerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: width <= 360 ? 110 : 100,
+    height: width <= 360 ? 110 : 100,
+    borderRadius: 12,
   },
   notAvailableOverlay: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    right: 8,
-    bottom: 8,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 2,
   },
   notAvailableTextContainer: {
     transform: [{ rotate: '-45deg' }],
