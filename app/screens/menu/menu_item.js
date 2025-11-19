@@ -1,6 +1,6 @@
 import { AntDesign } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, FlatList, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
@@ -443,6 +443,7 @@ export default function MenuItemScreen() {
   const [loadingCount, setLoadingCount] = useState(0);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [mainImageLoading, setMainImageLoading] = useState(true);
+  const mainImageLoadingTimeoutRef = useRef(null);
 
   const showLoading = useCallback(() => {
     setLoadingCount((prev) => prev + 1);
@@ -550,12 +551,42 @@ export default function MenuItemScreen() {
         } catch (err) {
           console.error('Failed to load menu item:', err?.response?.data || err.message);
           setMenuItem(null);
+          setMainImageLoading(false); // Hide shimmer on error
         }
       });
     };
 
     fetchMenuItem();
   }, [id, token, runWithLoading]);
+
+  // Reset loading state when menuItem image changes
+  const menuItemImageUrl = menuItem?.image?.[0]?.image_url;
+  useEffect(() => {
+    // Clear any existing timeout
+    if (mainImageLoadingTimeoutRef.current) {
+      clearTimeout(mainImageLoadingTimeoutRef.current);
+      mainImageLoadingTimeoutRef.current = null;
+    }
+
+    if (menuItem && menuItemImageUrl !== undefined) {
+      setMainImageLoading(true);
+      // Fallback timeout to hide shimmer if image doesn't load within 3 seconds
+      mainImageLoadingTimeoutRef.current = setTimeout(() => {
+        setMainImageLoading(false);
+        mainImageLoadingTimeoutRef.current = null;
+      }, 3000);
+    } else if (!menuItem) {
+      // Hide shimmer if menuItem is null
+      setMainImageLoading(false);
+    }
+
+    return () => {
+      if (mainImageLoadingTimeoutRef.current) {
+        clearTimeout(mainImageLoadingTimeoutRef.current);
+        mainImageLoadingTimeoutRef.current = null;
+      }
+    };
+  }, [menuItem, menuItemImageUrl]);
 
   useEffect(() => {
     // Early return if missing required data
@@ -1038,9 +1069,27 @@ export default function MenuItemScreen() {
                 transition={200}
                 cachePolicy="memory-disk"
                 priority="high"
-                onLoadStart={() => setMainImageLoading(true)}
-                onLoadEnd={() => setMainImageLoading(false)}
-                onError={() => setMainImageLoading(false)}
+                onLoadStart={() => {
+                  setMainImageLoading(true);
+                  // Clear any existing timeout
+                  if (mainImageLoadingTimeoutRef.current) {
+                    clearTimeout(mainImageLoadingTimeoutRef.current);
+                  }
+                }}
+                onLoadEnd={() => {
+                  setMainImageLoading(false);
+                  // Clear timeout since image loaded successfully
+                  if (mainImageLoadingTimeoutRef.current) {
+                    clearTimeout(mainImageLoadingTimeoutRef.current);
+                  }
+                }}
+                onError={() => {
+                  setMainImageLoading(false);
+                  // Clear timeout on error
+                  if (mainImageLoadingTimeoutRef.current) {
+                    clearTimeout(mainImageLoadingTimeoutRef.current);
+                  }
+                }}
               />
               {mainImageLoading && (
                 <ShimmerPlaceHolder
