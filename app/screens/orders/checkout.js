@@ -669,15 +669,18 @@ export default function CheckoutScreen({ navigation }) {
             }
           });
 
-      if (response.data.status === 200) {
-        setVoucherCode('');
-        setPromoDiscount(0);
-        refreshCartData();
-        await AsyncStorage.removeItem('freeItemMaxQuantity');
-        toast.show('Voucher Applied', {
-          type: 'custom_toast',
-          data: { title: '', status: 'success' }
-        });
+        if (response.data.status === 200) {
+          setVoucherCode('');
+          setPromoDiscount(0);
+          refreshCartData();
+          await AsyncStorage.removeItem('freeItemMaxQuantity');
+          toast.show('Voucher Removed', {
+            type: 'custom_toast',
+            data: { title: '', status: 'success' }
+          });
+        }
+      } catch (err) {
+        console.log(err);
       }
     });
   }
@@ -1131,8 +1134,8 @@ export default function CheckoutScreen({ navigation }) {
         }
 
         try {
-          if (voucherCode) {
-            console.log('Removing old voucher:', voucherCode);
+          if (voucherCode && voucherCode !== code) {
+            // console.log('Removing old voucher:', voucherCode);
             await handleRemoveVoucher();
 
             // ✅ Wait a moment to ensure backend fully updates before applying new one
