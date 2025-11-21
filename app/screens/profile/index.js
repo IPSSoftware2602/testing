@@ -307,32 +307,33 @@ export default function Profile() {
                       )}
                       {/* <Text style={styles.pointsValue}>RM 666.00</Text> */}
                     </TouchableOpacity>
-                    {Platform.OS === 'web' ? (
-                    <div data-testid="recharge-balance-button">
-                      <PolygonButton
-                        text="Recharge"
-                        width={60}
-                        height={22}
-                        color="#C2000E"
-                        textColor="#fff"
-                        textStyle={styles.memberText2}
-                        style={{ marginLeft: 6 }}
-                        onPress={() => router.push('/screens/profile/topup')}
-                      />
-                    </div>
-                  ) : (
-                    <PolygonButton
-                      text="Recharge"
-                      width={60}
-                      height={22}
-                      color="#C2000E"
-                      textColor="#fff"
-                      textStyle={styles.memberText2}
-                      style={{ marginLeft: 6 }}
-                      onPress={() => router.push('/screens/profile/topup')}
-                    />
-                  )}
-
+                    {customerData?.enable_wallet && (
+                      Platform.OS === 'web' ? (
+                        <div data-testid="recharge-balance-button">
+                          <PolygonButton
+                            text="Recharge"
+                            width={60}
+                            height={22}
+                            color="#C2000E"
+                            textColor="#fff"
+                            textStyle={styles.memberText2}
+                            style={{ marginLeft: 6 }}
+                            onPress={() => router.push('/screens/profile/topup')}
+                          />
+                        </div>
+                      ) : (
+                        <PolygonButton
+                          text="Recharge"
+                          width={60}
+                          height={22}
+                          color="#C2000E"
+                          textColor="#fff"
+                          textStyle={styles.memberText2}
+                          style={{ marginLeft: 6 }}
+                          onPress={() => router.push('/screens/profile/topup')}
+                        />
+                      )
+                    )}
                     </View>
                   </View>
                 )}

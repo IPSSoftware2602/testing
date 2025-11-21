@@ -341,7 +341,7 @@ export default function OutletSelection() {
     const renderOutlet = ({ item }) => (
         <>
             <TouchableOpacity
-                onPress={() => {
+                onPress={async () => {
                     if (!getOutletStatus(item.operating_schedule).isOpen && orderType === 'dinein') {
                         toast.show('This outlet currently is closed, But you can still order for later', {
                             type: 'custom_toast',
@@ -351,6 +351,7 @@ export default function OutletSelection() {
                                 status: 'danger'
                             }
                         });
+                        await AsyncStorage.setItem('showDateTimePicker', 'true');
                         router.push('(tabs)/menu'); // proceed for  dine-in even is closed 
                     }
 

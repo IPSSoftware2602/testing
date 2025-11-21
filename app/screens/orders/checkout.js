@@ -75,15 +75,22 @@ const voucherHasFreeItems = (voucher) => {
 };
 
 
-const PaymentMethodButton = ({ selectedMethod, navigation, walletBalance }) => {
+const PaymentMethodButton = ({ selectedMethod, navigation, walletBalance, enableWallet }) => {
   const router = useRouter();
-
-  const paymentMethods = {
+  let paymentMethods = {
     wallet: { name: `US Pizza Balance (RM ${walletBalance})`, icon: 'wallet' },
     razerpay: { name: 'Online Payment', icon: 'card' }
   };
-  let currentMethod = selectedMethod ? paymentMethods[selectedMethod] : paymentMethods["wallet"];
+  if (!enableWallet) {
+    paymentMethods = {
+      razerpay: { name: 'Online Payment', icon: 'card' }
+    };
+  }
 
+  let currentMethod = selectedMethod ? paymentMethods[selectedMethod] : paymentMethods["wallet"];
+  if (!enableWallet) {
+    currentMethod = paymentMethods["razerpay"];
+  }
   // currentMethod = paymentMethods[selectedMethod];
 
   return (
@@ -135,29 +142,29 @@ const AddressCard = ({ orderType, address, timeEstimate, setShowDateTimePicker }
           {address ? address : "No.10, Pusat Teknologi Sinar Meranti, 3, Jalan IMP 1"}
         </Text>
       </View>
-      {orderType === 'dinein' ? 
-      <View style={styles.addressCardFooter}>
-        <View style={{ flexDirection: "row" }}>
-          <Text style={styles.changeAddressText}>{formatOrderTimeSlot(orderType, timeEstimate)}</Text>
-        </View>
-      </View> : 
-      <View style={styles.addressCardFooter}>
-        <TouchableOpacity
-          style={styles.changeAddressButton}
-          onPress={() => setShowDateTimePicker(true)}
-        >
+      {orderType === 'dinein' ?
+        <View style={styles.addressCardFooter}>
           <View style={{ flexDirection: "row" }}>
             <Text style={styles.changeAddressText}>{formatOrderTimeSlot(orderType, timeEstimate)}</Text>
-            <FontAwesome6
-              name={"edit"}
-              size={14}
-              color={'#C2000E'}
-              solid
-              style={{ marginLeft: 3 }}
-            />
           </View>
-        </TouchableOpacity>
-      </View>}
+        </View> :
+        <View style={styles.addressCardFooter}>
+          <TouchableOpacity
+            style={styles.changeAddressButton}
+            onPress={() => setShowDateTimePicker(true)}
+          >
+            <View style={{ flexDirection: "row" }}>
+              <Text style={styles.changeAddressText}>{formatOrderTimeSlot(orderType, timeEstimate)}</Text>
+              <FontAwesome6
+                name={"edit"}
+                size={14}
+                color={'#C2000E'}
+                solid
+                style={{ marginLeft: 3 }}
+              />
+            </View>
+          </TouchableOpacity>
+        </View>}
       {/* Decorative elements
       <View style={styles.addressCardDecoration1} />
       <View style={styles.addressCardDecoration2} /> */}
@@ -219,7 +226,7 @@ const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowD
         source: 'edit',
         cart_item_id: item.cart_item_id,
         is_free_item: item.is_free_item,
-        amount: item.is_free_item ? item.max_quantity : null, 
+        amount: item.is_free_item ? item.max_quantity : null,
       },
     });
   };
@@ -426,7 +433,7 @@ export default function CheckoutScreen({ navigation }) {
     });
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchPaymentMethod = async () => {
       try {
         const paymentMethod = await AsyncStorage.getItem('paymentMethod');
@@ -527,76 +534,76 @@ export default function CheckoutScreen({ navigation }) {
   }, []);
 
   const preCheckVoucherType = async (voucherId, voucherCode) => {
-  if (!customerId || !cartData?.id || !cartData?.outlet_id || !orderType) {
-    // console.log('🔒 preCheckVoucherType blocked — missing prereqs');
-    return false;
-  }
-
-  return runWithLoading(async () => {
-    const token = (await AsyncStorage.getItem('authToken')) || '';
-
-    try {
-      const res = await axios.post(
-        `${apiUrl}redeem-voucher/${customerId}`,
-        {
-          promo_code: voucherId ? '' : (voucherCode || '').trim(),
-          voucher_id: voucherId || '',
-          cart_id: parseInt(cartData.id),
-          outlet_id: parseInt(cartData.outlet_id),
-          order_type: orderType
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      const data = res.data?.data || {};
-      const hasFreeItems =
-        (Array.isArray(data.free_items) && data.free_items.length > 0) ||
-        data?.promo_settings?.promo_type === 'free_item';
-
-      if (hasFreeItems) {
-        await handleRemoveVoucher(); // cleanup dry run
-      }
-
-      return hasFreeItems;
-    } catch (err) {
-      console.warn('⚠️ Voucher pre-check failed:', err?.response?.data || err.message);
+    if (!customerId || !cartData?.id || !cartData?.outlet_id || !orderType) {
+      // console.log('🔒 preCheckVoucherType blocked — missing prereqs');
       return false;
     }
-  });
-};
 
-const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
-  try {
-    const parsedVoucher = JSON.parse(selectedVoucherJSON);
-    const code = parsedVoucher.voucher_code || '';
-    const triggerToken = code || String(parsedVoucher.id ?? '');
+    return runWithLoading(async () => {
+      const token = (await AsyncStorage.getItem('authToken')) || '';
 
-    setVoucherCode(code);
-    setVoucherId(parsedVoucher.id ?? '');
-    hasAppliedPromo.current = false;
+      try {
+        const res = await axios.post(
+          `${apiUrl}redeem-voucher/${customerId}`,
+          {
+            promo_code: voucherId ? '' : (voucherCode || '').trim(),
+            voucher_id: voucherId || '',
+            cart_id: parseInt(cartData.id),
+            outlet_id: parseInt(cartData.outlet_id),
+            order_type: orderType
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-    if (!customerId || !cartData?.id || !cartData?.outlet_id || !orderType) {
-      // console.log('⏳ Waiting for prerequisites before pre-check…');
-      return;
+        const data = res.data?.data || {};
+        const hasFreeItems =
+          (Array.isArray(data.free_items) && data.free_items.length > 0) ||
+          data?.promo_settings?.promo_type === 'free_item';
+
+        if (hasFreeItems) {
+          await handleRemoveVoucher(); // cleanup dry run
+        }
+
+        return hasFreeItems;
+      } catch (err) {
+        console.warn('⚠️ Voucher pre-check failed:', err?.response?.data || err.message);
+        return false;
+      }
+    });
+  };
+
+  const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
+    try {
+      const parsedVoucher = JSON.parse(selectedVoucherJSON);
+      const code = parsedVoucher.voucher_code || '';
+      const triggerToken = code || String(parsedVoucher.id ?? '');
+
+      setVoucherCode(code);
+      setVoucherId(parsedVoucher.id ?? '');
+      hasAppliedPromo.current = false;
+
+      if (!customerId || !cartData?.id || !cartData?.outlet_id || !orderType) {
+        // console.log('⏳ Waiting for prerequisites before pre-check…');
+        return;
+      }
+
+      const hasFreeItems = await preCheckVoucherType(parsedVoucher.id, code);
+
+      if (hasFreeItems) {
+        // console.log('🟢 Free-item voucher detected — applying directly');
+        setVoucherToApply(triggerToken);
+        setPendingVoucherData(null);
+        setShowVoucherConfirmModal(false);
+      } else {
+        // console.log('🟡 Normal voucher detected — showing confirmation');
+        setPendingVoucherData({ ...parsedVoucher, triggerToken });
+        setVoucherToApply(null);
+        setShowVoucherConfirmModal(true);
+      }
+    } catch (err) {
+      console.error('❌ processSelectedVoucher error:', err);
     }
-
-    const hasFreeItems = await preCheckVoucherType(parsedVoucher.id, code);
-
-    if (hasFreeItems) {
-      // console.log('🟢 Free-item voucher detected — applying directly');
-      setVoucherToApply(triggerToken);
-      setPendingVoucherData(null);
-      setShowVoucherConfirmModal(false);
-    } else {
-      // console.log('🟡 Normal voucher detected — showing confirmation');
-      setPendingVoucherData({ ...parsedVoucher, triggerToken });
-      setVoucherToApply(null);
-      setShowVoucherConfirmModal(true);
-    }
-  } catch (err) {
-    console.error('❌ processSelectedVoucher error:', err);
-  }
-}, [customerId, cartData?.id, cartData?.outlet_id, orderType]);
+  }, [customerId, cartData?.id, cartData?.outlet_id, orderType]);
 
 
   useEffect(() => {
@@ -610,11 +617,11 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
   }, [selectedVoucher, router]);
 
   useEffect(() => {
-  if (!queuedSelectedVoucherJSON) return;
-  if (!customerId || !cartData?.id || !cartData?.outlet_id || !orderType) return;
+    if (!queuedSelectedVoucherJSON) return;
+    if (!customerId || !cartData?.id || !cartData?.outlet_id || !orderType) return;
 
-  processSelectedVoucher(queuedSelectedVoucherJSON);
-}, [queuedSelectedVoucherJSON, customerId, cartData?.id, cartData?.outlet_id, orderType, processSelectedVoucher]);
+    processSelectedVoucher(queuedSelectedVoucherJSON);
+  }, [queuedSelectedVoucherJSON, customerId, cartData?.id, cartData?.outlet_id, orderType, processSelectedVoucher]);
 
 
 
@@ -625,8 +632,8 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
     hasAppliedPromo.current = false;
     setVoucherToApply(
       pendingVoucherData.triggerToken ||
-        pendingVoucherData.voucher_code ||
-        String(pendingVoucherData.id ?? '')
+      pendingVoucherData.voucher_code ||
+      String(pendingVoucherData.id ?? '')
     );
     setPendingVoucherData(null);
   }, [pendingVoucherData]);
@@ -640,42 +647,39 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
   }, []);
 
   useEffect(() => {
-  if (!voucherToApply || !cartData || hasAppliedPromo.current) return;
+    if (!voucherToApply || !cartData || hasAppliedPromo.current) return;
 
-  handleApplyVoucher();
-  hasAppliedPromo.current = true;
-  setVoucherToApply(null);
-}, [voucherToApply, cartData]);
+    handleApplyVoucher();
+    hasAppliedPromo.current = true;
+    setVoucherToApply(null);
+  }, [voucherToApply, cartData]);
 
   const handleRemoveVoucher = async () => {
-  return runWithLoading(async () => {
-    const token = await AsyncStorage.getItem('authToken') || '';
-    try {
-      const response = await axios.post(
-        `${apiUrl}remove-voucher/${customerId}`,
-        {
-          cart_id: parseInt(cartData.id),
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          }
-        });
+    return runWithLoading(async () => {
+      const token = await AsyncStorage.getItem('authToken') || '';
+      try {
+        const response = await axios.post(
+          `${apiUrl}remove-voucher/${customerId}`,
+          {
+            cart_id: parseInt(cartData.id),
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            }
+          });
 
       if (response.data.status === 200) {
         setVoucherCode('');
         setPromoDiscount(0);
         refreshCartData();
         await AsyncStorage.removeItem('freeItemMaxQuantity');
-        toast.show('Voucher removed', {
+        toast.show('Voucher Applied', {
           type: 'custom_toast',
           data: { title: '', status: 'success' }
         });
       }
-    } catch (err) {
-      console.log(err);
-    }
-  });
+    });
   }
 
   function limitDecimals(value, maxDecimals = 7) {
@@ -685,86 +689,86 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
   }
 
   const refreshCartData = async () => {
-  return runWithLoading(async () => {
-    const token = await AsyncStorage.getItem('authToken') || '';
-    try {
-      const res = await axios.get(`${apiUrl}cart/get`, {
-        params: {
-          customer_id: customerId,
-          outlet_id: selectedOutlet.outletId,
-          address: deliveryAddress ? deliveryAddress.address : "",
-          order_type: orderType,
-          latitude: deliveryAddress ? limitDecimals(deliveryAddress.latitude) : "",
-          longitude: deliveryAddress ? limitDecimals(deliveryAddress.longitude) : "",
-          selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
-          selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (res.data.status === 200) {
-        // console.log("refresh cart");
-        const responseData = res.data.data;
-        if(responseData.order_summary?.item_count === 0) {
-          router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
+    return runWithLoading(async () => {
+      const token = await AsyncStorage.getItem('authToken') || '';
+      try {
+        const res = await axios.get(`${apiUrl}cart/get`, {
+          params: {
+            customer_id: customerId,
+            outlet_id: selectedOutlet.outletId,
+            address: deliveryAddress ? deliveryAddress.address : "",
+            order_type: orderType,
+            latitude: deliveryAddress ? limitDecimals(deliveryAddress.latitude) : "",
+            longitude: deliveryAddress ? limitDecimals(deliveryAddress.longitude) : "",
+            selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
+            selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
+          },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.data.status === 200) {
+          // console.log("refresh cart");
+          const responseData = res.data.data;
+          if (responseData.order_summary?.item_count === 0) {
+            router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
+          }
+
+          setCartData(responseData);
+
+          if ((responseData.order_summary.voucher_discount_amount !== 0 || responseData.order_summary.promo_discount_amount !== 0) && (responseData.order_summary.promo_code || responseData.order_summary.voucher_code)) {
+            setPromoDiscount(parseFloat(responseData.order_summary?.promo_discount_amount || responseData.order_summary?.voucher_discount_amount));
+            setVoucherToast(true);
+          }
         }
+      } catch (error) {
+        if (error?.response?.status === 400) {
+          const message = error?.response?.data?.message;
 
-        setCartData(responseData);
-
-        if ((responseData.order_summary.voucher_discount_amount !== 0 || responseData.order_summary.promo_discount_amount !== 0) && (responseData.order_summary.promo_code || responseData.order_summary.voucher_code)) {
-          setPromoDiscount(parseFloat(responseData.order_summary?.promo_discount_amount || responseData.order_summary?.voucher_discount_amount));
-          setVoucherToast(true);
-        }
-      }
-    } catch (error) {
-      if (error?.response?.status === 400) {
-        const message = error?.response?.data?.message;
-
-        if (message === "Every quantity requirement for this promo code is not met.") {
-          toast.show(message, {
-            type: 'custom_toast',
-            data: { title: 'Promo Code Error', status: 'warning' },
-            duration: 4000, // Ensure visibility
-          });
-        } else if (message === "Two eligible items required for this promo code.") {
-          setVoucherToast(false);
-
-          setTimeout(() => {
-            toast.show("Please add at least two eligible items to your cart to use this promo code.", {
+          if (message === "Every quantity requirement for this promo code is not met.") {
+            toast.show(message, {
               type: 'custom_toast',
-              data: { title: 'Failed to apply voucher', status: 'danger' },
-              duration: 4000, // Longer duration to ensure visibility
+              data: { title: 'Promo Code Error', status: 'warning' },
+              duration: 4000, // Ensure visibility
             });
-          }, 100);
+          } else if (message === "Two eligible items required for this promo code.") {
+            setVoucherToast(false);
 
-          // Then update state
-          setTimeout(() => {
-            setVoucherCode('');
-            setVoucherToApply(null);
-          }, 100);
+            setTimeout(() => {
+              toast.show("Please add at least two eligible items to your cart to use this promo code.", {
+                type: 'custom_toast',
+                data: { title: 'Failed to apply voucher', status: 'danger' },
+                duration: 4000, // Longer duration to ensure visibility
+              });
+            }, 100);
+
+            // Then update state
+            setTimeout(() => {
+              setVoucherCode('');
+              setVoucherToApply(null);
+            }, 100);
+          } else {
+            setVoucherToast(false);
+            toast.show(message || 'Something went wrong. Please try again.', {
+              type: 'custom_toast',
+              data: { title: 'Error', status: 'danger' },
+            });
+
+            // Then update state
+            setTimeout(() => {
+              setVoucherCode('');
+              setVoucherToApply(null);
+            }, 100);
+          }
         } else {
-          setVoucherToast(false);
-          toast.show(message || 'Something went wrong. Please try again.', {
+          console.error('Unexpected error:', error);
+          toast.show('Failed to refresh cart. Please try again.', {
             type: 'custom_toast',
             data: { title: 'Error', status: 'danger' },
           });
-
-          // Then update state
-          setTimeout(() => {
-            setVoucherCode('');
-            setVoucherToApply(null);
-          }, 100);
         }
-      } else {
-        console.error('Unexpected error:', error);
-        toast.show('Failed to refresh cart. Please try again.', {
-          type: 'custom_toast',
-          data: { title: 'Error', status: 'danger' },
-        });
       }
-    }
-  });
+    });
   };
 
   useEffect(() => {
@@ -797,7 +801,7 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
             const responseData = res.data.data;
             setCartData(responseData);
 
-            if(responseData.order_summary?.item_count === 0) {
+            if (responseData.order_summary?.item_count === 0) {
               router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
             }
             if ((responseData.order_summary.voucher_discount_amount !== 0 || responseData.order_summary.promo_discount_amount !== 0) && (responseData.order_summary.promo_code || responseData.order_summary.voucher_code)) {
@@ -805,7 +809,7 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
               setVoucherCode((responseData.order_summary.promo_code || responseData.order_summary.voucher_code));
               setVoucherToast(true);
             }
-            if(responseData.free_item_list && responseData.free_item_list.length > 0 && responseData.bool_free_item && voucherCode) {
+            if (responseData.free_item_list && responseData.free_item_list.length > 0 && responseData.bool_free_item && voucherCode) {
               setShowFreeItemsModal(true);
               setFreeItems(responseData.free_item_list);
             }
@@ -1044,7 +1048,7 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
                 type: 'custom_toast',
                 data: { title: 'Insufficient Wallet Balance', status: 'warning' }
               });
-            }else{
+            } else {
               toast.show(message, {
                 type: 'custom_toast',
                 data: { title: '', status: 'warning' }
@@ -1378,7 +1382,7 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
               paddingVertical: 12,
               alignItems: 'center'
             }}
-            onPress={() => {setShowFreeItemsModal(false);setVoucherCode("");setPromoSettings({});handleRemoveVoucher()}}
+            onPress={() => { setShowFreeItemsModal(false); setVoucherCode(""); setPromoSettings({}); handleRemoveVoucher() }}
           >
             <Text style={{
               color: '#fff',
@@ -1418,7 +1422,7 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
                   quantity: item.quantity,
                   outletId: selectedOutlet.outletId,
                   price: parseFloat(item.unit_price),
-                  is_free_item: item.is_free_item,    
+                  is_free_item: item.is_free_item,
                   max_quantity: item.is_free_item ? Number(freeItemMaxQty) : null,
                   originalPrice: null,
                   options: item.options,
@@ -1440,54 +1444,54 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
           <View style={styles.separator} />
           {vip ? null : (
             <>
-            <View style={styles.section}>
-              <TouchableOpacity style={styles.addMoreButton}>
-                <FontAwesome6 name="circle-plus" size={16} color="#C2000E" />
-                <Text
-                  style={styles.addMoreText}
-                  onPress={() => router.push({
-                    pathname: '/menu',
-                  })}
-                >
-                  Add more items
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {cartData?.pwp_menu.length !== 0 ? (
-              <>
-              <View style={styles.separator} />
-
-              {/* Popular */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Popular with your order</Text>
-                <Text style={styles.sectionSubtitle}>
-                  Other customers also bought these
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingTop: 10 }}
-                >
-                  {cartData?.pwp_menu.map((item) => (
-                    <PopularItemCard
-                      key={item.id}
-                      item={{
-                        id: item.id,
-                        name: item.title || item.name || 'Untitled',
-                        image: item.image || '1752202204_af4281ad04342c083184.jpg',
-                        price: parseFloat(item.pwp_price || 0),
-                        originalPrice: parseFloat(item.original_price || item.price || 0),
-                      }}
-                      handleAddToCart={handleAddPWPItemToCart}
-                    />
-                  ))}
-                </ScrollView>
+                <TouchableOpacity style={styles.addMoreButton}>
+                  <FontAwesome6 name="circle-plus" size={16} color="#C2000E" />
+                  <Text
+                    style={styles.addMoreText}
+                    onPress={() => router.push({
+                      pathname: '/menu',
+                    })}
+                  >
+                    Add more items
+                  </Text>
+                </TouchableOpacity>
               </View>
-              </>
-            ) : null}
 
-            <View style={styles.separator} />
+              {cartData?.pwp_menu.length !== 0 ? (
+                <>
+                  <View style={styles.separator} />
+
+                  {/* Popular */}
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Popular with your order</Text>
+                    <Text style={styles.sectionSubtitle}>
+                      Other customers also bought these
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ paddingTop: 10 }}
+                    >
+                      {cartData?.pwp_menu.map((item) => (
+                        <PopularItemCard
+                          key={item.id}
+                          item={{
+                            id: item.id,
+                            name: item.title || item.name || 'Untitled',
+                            image: item.image || '1752202204_af4281ad04342c083184.jpg',
+                            price: parseFloat(item.pwp_price || 0),
+                            originalPrice: parseFloat(item.original_price || item.price || 0),
+                          }}
+                          handleAddToCart={handleAddPWPItemToCart}
+                        />
+                      ))}
+                    </ScrollView>
+                  </View>
+                </>
+              ) : null}
+
+              <View style={styles.separator} />
             </>
           )}
           {customerData ? <PaymentMethodButton
@@ -1570,12 +1574,12 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
 
             {(parseFloat(cartData?.order_summary?.promo_discount_amount) > 0 ||
               parseFloat(cartData?.order_summary?.voucher_discount_amount) > 0) ? (
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Discount</Text>
-                  <Text style={styles.totalValue}>
-                    - RM {parseFloat(cartData?.order_summary?.promo_discount_amount || cartData?.order_summary?.voucher_discount_amount).toFixed(2)}
-                  </Text>
-                </View>
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Discount</Text>
+                <Text style={styles.totalValue}>
+                  - RM {parseFloat(cartData?.order_summary?.promo_discount_amount || cartData?.order_summary?.voucher_discount_amount).toFixed(2)}
+                </Text>
+              </View>
             ) : null}
             {/* {cartData?.tax_detail.length !== 0 ? (<View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Tax Charges ({parseInt(cartData?.tax_detail[0]?.tax_rate)}% {cartData?.tax_detail[0]?.tax_type})</Text>
@@ -1607,14 +1611,14 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
               </View>
             ) : null}
 
-             {orderType === "delivery" && cartData?.order_summary?.delivery_fee_discount > 0 ? (
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Delivery Discount</Text>
-                  <Text style={styles.totalValue}>
-                    - RM {parseFloat(cartData?.order_summary?.delivery_fee_discount).toFixed(2)}
-                  </Text>
-                </View>
-              ) : null}
+            {orderType === "delivery" && cartData?.order_summary?.delivery_fee_discount > 0 ? (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Delivery Discount</Text>
+                <Text style={styles.totalValue}>
+                  - RM {parseFloat(cartData?.order_summary?.delivery_fee_discount).toFixed(2)}
+                </Text>
+              </View>
+            ) : null}
 
             {(orderType === "delivery" || orderType === "pickup") && cartData?.order_summary?.packaging_charge !== "0.00" ? (<View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Packaging Charges</Text>
@@ -1652,23 +1656,23 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
           </View>
 
           {(parseFloat(cartData?.order_summary?.discount_amount) > 0 || parseFloat(cartData?.order_summary?.promo_discount_amount) > 0 ||
-              parseFloat(cartData?.order_summary?.voucher_discount_amount) > 0) ? (
-                <View style={{
-                  marginHorizontal: 10,
-                  padding: 5
-                }}>
-                  <Text style={{
-                    fontFamily: 'Route159-Regular',
-                    fontSize: 14,
-                    color: '#C2000E',
-                    textAlign: 'right',
-                    fontStyle: 'italic'
-                  }}>
-                    <Text style={{ fontSize: 17, marginRight: 3 }}>🎉</Text>
-                    You have saved RM {parseFloat(cartData?.order_summary?.discount_amount + cartData?.order_summary?.promo_discount_amount + cartData?.order_summary?.voucher_discount_amount).toFixed(2)} in this order!
-                  </Text>
-                </View>
-            ) : null}
+            parseFloat(cartData?.order_summary?.voucher_discount_amount) > 0) ? (
+            <View style={{
+              marginHorizontal: 10,
+              padding: 5
+            }}>
+              <Text style={{
+                fontFamily: 'Route159-Regular',
+                fontSize: 14,
+                color: '#C2000E',
+                textAlign: 'right',
+                fontStyle: 'italic'
+              }}>
+                <Text style={{ fontSize: 17, marginRight: 3 }}>🎉</Text>
+                You have saved RM {parseFloat(cartData?.order_summary?.discount_amount + cartData?.order_summary?.promo_discount_amount + cartData?.order_summary?.voucher_discount_amount).toFixed(2)} in this order!
+              </Text>
+            </View>
+          ) : null}
         </ScrollView>
 
         {/* Bottom Bar */}
@@ -1707,7 +1711,7 @@ const processSelectedVoucher = useCallback(async (selectedVoucherJSON) => {
           isVisible={showDeleteModal}
         />
 
-         <ConfirmationModal
+        <ConfirmationModal
           title={"Apply Voucher?"}
           subtitle={"Are you sure you want to apply this voucher? If yes, your store discount will be removed."}
           confirmationText={"Apply"}
@@ -2224,7 +2228,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 20,
   },
-   orderItem: {
+  orderItem: {
     flexDirection: 'row',
     alignItems: 'flex-start', // Changed from 'center' to 'flex-start'
     marginBottom: '7%',

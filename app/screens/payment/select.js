@@ -87,11 +87,23 @@ export default function PaymentSelectScreen() {
     const fetchPaymentMethod = async () => {
       try {
         const paymentMethod = await AsyncStorage.getItem('paymentMethod');
+        console.log(paymentMethod);
         const customerJson = await AsyncStorage.getItem('customerData');
         const customerData = customerJson ? JSON.parse(customerJson) : null;
+        const enableWallet = customerData?.enable_wallet;
+        if (!enableWallet) {
+          paymentMethods = paymentMethodsAll.filter(m => m.id !== 'wallet');
+
+        }
+        // console.log(paymentMethods);
         // console.log(customerData);
+        console.log(paymentMethod);
         setCustomerData(customerData);
-        setSelectedMethod(paymentMethod);
+        if (!enableWallet) {
+          setSelectedMethod('razerpay');
+        } else {
+          setSelectedMethod(paymentMethod);
+        }
       } catch (err) {
         console.log(err.response.data.message);
       }
@@ -101,7 +113,7 @@ export default function PaymentSelectScreen() {
   }, [router])
 
   let paymentMethods = paymentMethodsAll;
-  if (params?.type === 'topup') {
+  if (params?.type === 'topup' || !customerData?.enable_wallet) {
     paymentMethods = paymentMethodsAll.filter(m => m.id === 'razerpay');
   } else if (params?.type === 'checkout') {
     paymentMethods = paymentMethodsAll;
@@ -149,7 +161,7 @@ export default function PaymentSelectScreen() {
                     ]}
                     resizeMode="contain"
                   />
-                ) : (customerData?.customer_wallet === "0.00" ? (
+                ) : (customerData?.customer_wallet === "0.00" && customerData?.enable_wallet ? (
                   <PolygonButton
                     text="Recharge"
                     width={60}
