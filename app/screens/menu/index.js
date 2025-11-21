@@ -84,6 +84,22 @@ export default function MenuScreen() {
   const fromQR = !!orderType && !!outletId;
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loadingCount, setLoadingCount] = useState(0);
+  
+  useEffect(() => {
+    const checkShowDateTimePicker = async () => {
+      const flag = await AsyncStorage.getItem('showDateTimePicker');
+      if (
+        flag === 'true' &&
+        selectedOutlet?.outletId &&
+        activeOrderType === 'dinein' &&
+        selectedOutlet.isOperate === false
+      ) {
+        setShowDateTimePicker(true);
+        await AsyncStorage.removeItem('showDateTimePicker');
+      }
+    };
+    checkShowDateTimePicker();
+  }, [selectedOutlet?.outletId, activeOrderType, selectedOutlet?.isOperate]);
 
   useEffect(() => {
     const checkShowDateTimePicker = async () => {
