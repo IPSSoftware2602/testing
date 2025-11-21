@@ -372,7 +372,7 @@ export default function CheckoutScreen({ navigation }) {
   const [customerData, setCustomerData] = useState({});
   const router = useRouter();
   const toast = useToast();
-  const [paymentMethod, setPaymentMethod] = useState("wallet");
+  const [paymentMethod, setPaymentMethod] = useState("razerpay");
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherId, setVoucherId] = useState('');
   const [promoDiscount, setPromoDiscount] = useState(0);
@@ -729,11 +729,23 @@ export default function CheckoutScreen({ navigation }) {
           const message = error?.response?.data?.message;
 
           if (message === "Every quantity requirement for this promo code is not met.") {
-            toast.show(message, {
-              type: 'custom_toast',
-              data: { title: 'Promo Code Error', status: 'warning' },
-              duration: 4000, // Ensure visibility
-            });
+            setVoucherToast(false);
+
+            setTimeout(() => {
+              toast.show(message, {
+                type: 'custom_toast',
+                data: { title: 'Promo Code Error', status: 'warning' },
+                duration: 4000, // Ensure visibility
+              });
+            }, 100);
+
+            // Then update state
+            setTimeout(() => {
+              setVoucherCode('');
+              setVoucherToApply(null);
+              setPromoDiscount(0);
+              refreshCartData();
+            }, 100);
           } else if (message === "Two eligible items required for this promo code.") {
             setVoucherToast(false);
 
@@ -749,6 +761,8 @@ export default function CheckoutScreen({ navigation }) {
             setTimeout(() => {
               setVoucherCode('');
               setVoucherToApply(null);
+              setPromoDiscount(0);
+              refreshCartData();
             }, 100);
           } else {
             setVoucherToast(false);
@@ -761,6 +775,8 @@ export default function CheckoutScreen({ navigation }) {
             setTimeout(() => {
               setVoucherCode('');
               setVoucherToApply(null);
+              setPromoDiscount(0);
+              refreshCartData();
             }, 100);
           }
         } else {
