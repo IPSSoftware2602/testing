@@ -51,70 +51,70 @@ const OptionCard = React.memo(({
     onOptionToggle(item.id, item.price, selected, selectedCount, maxQ, minQ, group);
   }, [item.id, item.price, selected, selectedCount, maxQ, minQ, group, onOptionToggle]);
 
-  const imageStyle = useMemo(() => 
+  const imageStyle = useMemo(() =>
     type === 'variation'
       ? {
-          width: '100%',
-          height: 80,
-          borderTopLeftRadius: 8,
-          borderTopRightRadius: 8,
-        }
+        width: '100%',
+        height: 80,
+        borderTopLeftRadius: 8,
+        borderTopRightRadius: 8,
+      }
       : styles.optionImageLeft,
     [type]
   );
 
-  const priceText = useMemo(() => 
+  const priceText = useMemo(() =>
     item.price > 0 ? `+RM ${item.price.toFixed(2)}` : `RM ${item.price.toFixed(2)}`,
     [item.price]
   );
 
-  const discountPriceText = useMemo(() => 
+  const discountPriceText = useMemo(() =>
     item.discount_price > 0 ? `-RM ${item.discount_price.toFixed(2)}` : null,
     [item.discount_price]
   );
 
-  const imageContainerStyle = useMemo(() => 
+  const imageContainerStyle = useMemo(() =>
     type === 'variation'
       ? {
-          width: '100%',
-          height: 80,
-          position: 'relative',
-          borderTopLeftRadius: 8,
-          borderTopRightRadius: 8,
-          overflow: 'hidden',
-        }
+        width: '100%',
+        height: 80,
+        position: 'relative',
+        borderTopLeftRadius: 8,
+        borderTopRightRadius: 8,
+        overflow: 'hidden',
+      }
       : {
-          ...styles.optionImageLeft,
-          position: 'relative',
-          overflow: 'hidden',
-        },
+        ...styles.optionImageLeft,
+        position: 'relative',
+        overflow: 'hidden',
+      },
     [type]
   );
 
-  const shimmerStyle = useMemo(() => 
+  const shimmerStyle = useMemo(() =>
     type === 'variation'
       ? {
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100%',
-          height: 80,
-          borderTopLeftRadius: 8,
-          borderTopRightRadius: 8,
-        }
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: 80,
+        borderTopLeftRadius: 8,
+        borderTopRightRadius: 8,
+      }
       : {
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: 60,
-          height: 70,
-          borderBottomLeftRadius: 8,
-          borderTopLeftRadius: 8,
-        },
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: 60,
+        height: 70,
+        borderBottomLeftRadius: 8,
+        borderTopLeftRadius: 8,
+      },
     [type]
   );
 
@@ -129,8 +129,8 @@ const OptionCard = React.memo(({
       ]}
     >
       <View style={imageContainerStyle}>
-        <Image 
-          source={imageSource} 
+        <Image
+          source={imageSource}
           style={imageStyle}
           contentFit="cover"
           transition={100}
@@ -214,11 +214,11 @@ OptionCard.defaultProps = {
 OptionCard.displayName = 'OptionCard';
 
 // Optimized Option Group Component with FlatList support
-const OptionGroup = React.memo(({ 
-  group, 
-  selectedOptions, 
-  handleOptionToggle, 
-  toast 
+const OptionGroup = React.memo(({
+  group,
+  selectedOptions,
+  handleOptionToggle,
+  toast
 }) => {
   // Pre-compute selected states and counts for all options in this group
   const optionData = useMemo(() => {
@@ -229,12 +229,12 @@ const OptionGroup = React.memo(({
     const rawMaxQ = Number(group?.max_quantity || 0);
     const maxQ = (minQ === 0 && rawMaxQ === 0) ? Infinity : (rawMaxQ || 99);
 
-            return (group.options || []).map(opt => {
+    return (group.options || []).map(opt => {
       let imageUri = '';
       if (opt.images_compressed || opt.images) {
         const imgPath = opt.images_compressed || opt.images;
-        imageUri = imgPath.startsWith('http') 
-          ? imgPath 
+        imageUri = imgPath.startsWith('http')
+          ? imgPath
           : `${imageUrl}menu_options/${imgPath}`;
       }
       return {
@@ -312,7 +312,6 @@ const OptionGroup = React.memo(({
             initialNumToRender={8}
             maxToRenderPerBatch={6}
             windowSize={3}
-            nestedScrollEnabled={false}
             updateCellsBatchingPeriod={50}
           />
         ) : (
@@ -331,35 +330,35 @@ const OptionGroup = React.memo(({
   // Only re-render if group or selectedOptions changed
   if (prevProps.group.id !== nextProps.group.id) return false;
   if (prevProps.group.options?.length !== nextProps.group.options?.length) return false;
-  
+
   const prevSelected = prevProps.selectedOptions.find(opt => opt.parents === prevProps.group.id);
   const nextSelected = nextProps.selectedOptions.find(opt => opt.parents === nextProps.group.id);
-  
+
   if (!prevSelected && !nextSelected) return true;
   if (!prevSelected || !nextSelected) return false;
-  
+
   if (prevSelected.options.length !== nextSelected.options.length) return false;
-  
+
   const prevSet = new Set(prevSelected.options);
   const nextSet = new Set(nextSelected.options);
   if (prevSet.size !== nextSet.size) return false;
-  
+
   for (const id of prevSet) {
     if (!nextSet.has(id)) return false;
   }
-  
+
   return true;
 });
 
 OptionGroup.displayName = 'OptionGroup';
 
 // Optimized Crust Options Component
-const CrustOptionsGroup = React.memo(({ 
-  crustOptions, 
-  selectedOptions, 
-  handleOptionToggle, 
-  optionGroups, 
-  toast 
+const CrustOptionsGroup = React.memo(({
+  crustOptions,
+  selectedOptions,
+  handleOptionToggle,
+  optionGroups,
+  toast
 }) => {
   const selectedCrustId = useMemo(() => {
     const crustGroup = selectedOptions.find(opt => opt.parents === 0);
@@ -409,14 +408,14 @@ const CrustOptionsGroup = React.memo(({
   );
 }, (prevProps, nextProps) => {
   if (prevProps.crustOptions.length !== nextProps.crustOptions.length) return false;
-  
+
   const prevSelected = prevProps.selectedOptions.find(opt => opt.parents === 0);
   const nextSelected = nextProps.selectedOptions.find(opt => opt.parents === 0);
-  
+
   if (!prevSelected && !nextSelected) return true;
   if (!prevSelected || !nextSelected) return false;
   if (prevSelected.options[0] !== nextSelected.options[0]) return false;
-  
+
   return true;
 });
 
@@ -478,7 +477,7 @@ export default function MenuItemScreen() {
 
   //get item details for edit
   useEffect(() => {
-    if (!cart_item_id ) return;
+    if (!cart_item_id) return;
     const fetchCartItem = async () => {
       await runWithLoading(async () => {
         try {
@@ -533,7 +532,7 @@ export default function MenuItemScreen() {
   }, [cart_item_id, token, runWithLoading]);
 
   useEffect(() => {
-    if (!id ) return;
+    if (!id) return;
 
     const fetchMenuItem = async () => {
       await runWithLoading(async () => {
@@ -653,15 +652,15 @@ export default function MenuItemScreen() {
             const groupsData = successfulResults.map(res => res.data.data);
             const orderType = await AsyncStorage.getItem('orderType');
             if (orderType === 'delivery' || orderType === 'pickup') {
-              if(groupsData.some(group => group.title === 'Takeaway Packaging')){
+              if (groupsData.some(group => group.title === 'Takeaway Packaging')) {
                 groupsData.forEach(group => {
                   if (group.title === 'Takeaway Packaging') {
                     group.is_required = 1;
                   }
                 });
               }
-            }else{
-              if(groupsData.some(group => group.title === 'Takeaway Packaging')){
+            } else {
+              if (groupsData.some(group => group.title === 'Takeaway Packaging')) {
                 groupsData.forEach(group => {
                   if (group.title === 'Takeaway Packaging') {
                     group.is_required = 0;
@@ -704,53 +703,53 @@ export default function MenuItemScreen() {
     fetchOptionGroups();
   }, [menuItem, token, selectedCrustId, baseOptionGroupIds, runWithLoading]);
   useEffect(() => {
-  if (!menuItem) return;
+    if (!menuItem) return;
 
-  // First preference: variation groups
-  let groupList = [];
-  if (selectedCrustId && Array.isArray(menuItem.variation)) {
-    const selectedVariation = menuItem.variation.find(v => String(v.variation?.id) === String(selectedCrustId));
-    if (selectedVariation?.option_groups?.length) {
-      groupList = selectedVariation.option_groups;
-    }
-  }
-
-  // Fallback: base menu groups
-  if (!groupList.length && menuItem.menu_option_group?.length) {
-    groupList = menuItem.menu_option_group;
-  }
-
-  if (!groupList.length) return;
-
-  const fetchOptionGroups = async () => {
-    await runWithLoading(async () => {
-      try {
-        const results = await Promise.all(
-          groupList.map(group =>
-            axios.get(`${apiUrl}option/${group.id}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            }).catch(() => null)
-          )
-        );
-        const orderType = await AsyncStorage.getItem('orderType');
-        const successful = results.filter(Boolean).map(r => r.data.data);
-        // loop through successful groups and set is_required to 0 if title is 'Takeaway Packaging'
-        successful.forEach(group => {
-          if (group.title === 'Takeaway Packaging' && orderType === 'dinein') {
-            group.is_required = 0;
-          }else if (group.title === 'Takeaway Packaging' && orderType === 'dinein'){
-            group.is_required = 1;
-          }
-        });
-        setOptionGroups(successful);
-      } catch (err) {
-        console.error("Failed to load option groups:", err);
+    // First preference: variation groups
+    let groupList = [];
+    if (selectedCrustId && Array.isArray(menuItem.variation)) {
+      const selectedVariation = menuItem.variation.find(v => String(v.variation?.id) === String(selectedCrustId));
+      if (selectedVariation?.option_groups?.length) {
+        groupList = selectedVariation.option_groups;
       }
-    });
-  };
+    }
 
-  fetchOptionGroups();
-}, [menuItem, token, selectedCrustId, runWithLoading]);
+    // Fallback: base menu groups
+    if (!groupList.length && menuItem.menu_option_group?.length) {
+      groupList = menuItem.menu_option_group;
+    }
+
+    if (!groupList.length) return;
+
+    const fetchOptionGroups = async () => {
+      await runWithLoading(async () => {
+        try {
+          const results = await Promise.all(
+            groupList.map(group =>
+              axios.get(`${apiUrl}option/${group.id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+              }).catch(() => null)
+            )
+          );
+          const orderType = await AsyncStorage.getItem('orderType');
+          const successful = results.filter(Boolean).map(r => r.data.data);
+          // loop through successful groups and set is_required to 0 if title is 'Takeaway Packaging'
+          successful.forEach(group => {
+            if (group.title === 'Takeaway Packaging' && orderType === 'dinein') {
+              group.is_required = 0;
+            } else if (group.title === 'Takeaway Packaging' && orderType === 'dinein') {
+              group.is_required = 1;
+            }
+          });
+          setOptionGroups(successful);
+        } catch (err) {
+          console.error("Failed to load option groups:", err);
+        }
+      });
+    };
+
+    fetchOptionGroups();
+  }, [menuItem, token, selectedCrustId, runWithLoading]);
 
   useEffect(() => {
     if (!menuItem) return;
@@ -760,8 +759,8 @@ export default function MenuItemScreen() {
           let imageUri = '';
           const imgPath = v.variation.images || v.variation.images_compressed || '';
           if (imgPath) {
-            imageUri = imgPath.startsWith('http') 
-              ? imgPath 
+            imageUri = imgPath.startsWith('http')
+              ? imgPath
               : `${imageUrl}menu_variations/${imgPath}`;
           }
           return {
@@ -778,8 +777,8 @@ export default function MenuItemScreen() {
       let imageUri = '';
       const imgPath = menuItem.variation.images || menuItem.variation.images_compressed || '';
       if (imgPath) {
-        imageUri = imgPath.startsWith('http') 
-          ? imgPath 
+        imageUri = imgPath.startsWith('http')
+          ? imgPath
           : `${imageUrl}menu_variations/${imgPath}`;
       }
       setCrustOptions([{
@@ -809,7 +808,7 @@ export default function MenuItemScreen() {
   // Memoized option toggle handler for better performance
   const handleOptionToggle = useCallback((optionId, optionPrice, isSelected, selectedCount, maxQ, minQ, group) => {
     const parents = group?.id || 0;
-    
+
     if (parents === 0) {
       // Handle crust/variation selection
       if (isSelected) {
@@ -910,7 +909,7 @@ export default function MenuItemScreen() {
     // Check if user is logged in - required for updating cart (order placement)
     const authToken = await AsyncStorage.getItem('authToken');
     const customerData = await getCustomerData();
-    
+
     if (!authToken || !customerData || !customerData.id) {
       setShowLoginModal(true);
       return;
@@ -943,7 +942,7 @@ export default function MenuItemScreen() {
           headers: { Authorization: `Bearer ${token}` },
         });
       });
-  
+
       toast.show('Cart updated', {
         type: 'custom_toast',
         data: { title: '', status: 'success' },
@@ -951,12 +950,12 @@ export default function MenuItemScreen() {
       setTimeout(() => {
         router.push('/screens/orders/checkout');
       }, 1000);
-      } catch (err) {
-    console.error('Update error:', err?.response?.data || err.message);
+    } catch (err) {
+      console.error('Update error:', err?.response?.data || err.message);
 
-    const backendMsg = err?.response?.data?.messages?.error 
-      || err?.response?.data?.message 
-      || 'Failed to update cart item';
+      const backendMsg = err?.response?.data?.messages?.error
+        || err?.response?.data?.message
+        || 'Failed to update cart item';
 
       toast.show(backendMsg, {
         type: 'custom_toast',
@@ -969,7 +968,7 @@ export default function MenuItemScreen() {
     // Check if user is logged in - required for adding to cart (order placement)
     const authToken = await AsyncStorage.getItem('authToken');
     const customerData = await getCustomerData();
-    
+
     if (!authToken || !customerData || !customerData.id) {
       setShowLoginModal(true);
       return;
@@ -1046,12 +1045,14 @@ export default function MenuItemScreen() {
     <ResponsiveBackground>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
         <TopNavigation title="MENU" isBackButton={true} />
-        <ScrollView 
-          contentContainerStyle={{ paddingBottom: 20 }} 
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 20 }}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={true}
           scrollEventThrottle={16}
           decelerationRate="normal"
+          keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="automatic"
         >
           <View style={styles.imageContainer}>
             <View style={styles.mainImageWrapper}>
@@ -1059,11 +1060,11 @@ export default function MenuItemScreen() {
                 source={
                   menuItem?.image?.[0]?.image_url
                     ? {
-                        uri: String(menuItem.image[0].image_url).startsWith('http')
-                          ? String(menuItem.image[0].image_url)
-                          : imageUrl + 'menu_images/' + String(menuItem.image[0].image_url),
-                        cachePolicy: 'memory-disk'
-                      }
+                      uri: String(menuItem.image[0].image_url).startsWith('http')
+                        ? String(menuItem.image[0].image_url)
+                        : imageUrl + 'menu_images/' + String(menuItem.image[0].image_url),
+                      cachePolicy: 'memory-disk'
+                    }
                     : require('../../../assets/images/menu_default.jpg')
                 }
                 style={styles.mainImage}
@@ -1162,37 +1163,37 @@ export default function MenuItemScreen() {
           </View>
           <View style={styles.separator} />
           <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 16, alignSelf: 'center' }}>
-          {/* minus */}
-          <TouchableOpacity
-            onPress={() => setQuantity(q => Math.max(1, Number(q) - 1))}
-            activeOpacity={0.8}
-            style={styles.addButton}
-          >
-            <AntDesign name={'minus'} size={12} color={'#C2000E'} />
-          </TouchableOpacity>
+            {/* minus */}
+            <TouchableOpacity
+              onPress={() => setQuantity(q => Math.max(1, Number(q) - 1))}
+              activeOpacity={0.8}
+              style={styles.addButton}
+            >
+              <AntDesign name={'minus'} size={12} color={'#C2000E'} />
+            </TouchableOpacity>
 
-          {/* value */}
-          <Text style={{ fontSize: 18, minWidth: 32, textAlign: 'center', color: 'black', fontWeight: 'bold' }}>
-            {quantity}
-          </Text>
+            {/* value */}
+            <Text style={{ fontSize: 18, minWidth: 32, textAlign: 'center', color: 'black', fontWeight: 'bold' }}>
+              {quantity}
+            </Text>
 
-          {/* plus */}
-          <TouchableOpacity
-            onPress={() => {
-              if (!maxQuantity || quantity < maxQuantity) {
-                setQuantity(q => Number(q) + 1);
-              }
-            }}
-            activeOpacity={0.8}
-            style={[
-              styles.addButton,
-              maxQuantity && quantity >= maxQuantity && { backgroundColor: '#ddd', borderColor: '#aaa' }
-            ]}
-            disabled={maxQuantity && quantity >= maxQuantity}
-          >
-            <AntDesign name={'plus'} size={12} color={maxQuantity && quantity >= maxQuantity ? '#aaa' : '#C2000E'} />
-          </TouchableOpacity>
-        </View>
+            {/* plus */}
+            <TouchableOpacity
+              onPress={() => {
+                if (!maxQuantity || quantity < maxQuantity) {
+                  setQuantity(q => Number(q) + 1);
+                }
+              }}
+              activeOpacity={0.8}
+              style={[
+                styles.addButton,
+                maxQuantity && quantity >= maxQuantity && { backgroundColor: '#ddd', borderColor: '#aaa' }
+              ]}
+              disabled={maxQuantity && quantity >= maxQuantity}
+            >
+              <AntDesign name={'plus'} size={12} color={maxQuantity && quantity >= maxQuantity ? '#aaa' : '#C2000E'} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.bottomContainer}>
             <CustomTabBarBackground />
             <View style={styles.bottomRow}>
