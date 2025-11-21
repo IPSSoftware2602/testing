@@ -1,7 +1,7 @@
 import { AntDesign } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, FlatList, ActivityIndicator } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, FlatList, ActivityIndicator, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,7 +23,7 @@ import PropTypes from 'prop-types';
 const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
 
 const { width } = Dimensions.get('window');
-const OPTIONS_VIRTUALIZATION_THRESHOLD = 12; // Use FlatList when options > 12
+const OPTIONS_VIRTUALIZATION_THRESHOLD = Platform.OS === 'web' ? 1000 : 12; // Use FlatList when options > 12 (disable on web)
 
 const OptionCard = React.memo(({
   item,
