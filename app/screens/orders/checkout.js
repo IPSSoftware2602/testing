@@ -1443,7 +1443,7 @@ export default function CheckoutScreen({ navigation }) {
                   price: parseFloat(item.unit_price),
                   is_free_item: item.is_free_item,
                   max_quantity: item.is_free_item ? Number(freeItemMaxQty) : null,
-                  originalPrice: null,
+                  originalPrice: item.variation?.price ? parseFloat(item.variation.price) : null,
                   options: item.options,
                   variation: item.variation,
                   image: item?.variation?.images ? item?.variation?.images : (item?.image ? item?.image : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500'),

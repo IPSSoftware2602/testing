@@ -5,7 +5,7 @@ export default {
     slug: "uspizza",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/images/uspizza-icon.png",
+    icon: "./assets/images/uspizza-newicon.png",
     scheme: "uspizzanewapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
@@ -18,7 +18,7 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/images/uspizza-icon.png",
+        foregroundImage: "./assets/images/uspizza-newicon.png",
         backgroundColor: "#ffffff"
       },
       edgeToEdgeEnabled: true,
