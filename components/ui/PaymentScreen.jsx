@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import { View, ActivityIndicator, Text, TouchableOpacity } from "react-native";
+import { View, ActivityIndicator, Text, TouchableOpacity, SafeAreaView } from "react-native";
 import { WebView } from "react-native-webview";
 import * as Linking from 'expo-linking';
 
@@ -34,8 +34,9 @@ export default function PaymentScreen({ url, onClose }) {
 
 
     return (
-        <View style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
             <WebView
+                style={{ flex: 1 }}
                 // key={webkey}
                 ref={webRef}
                 source={{ uri: url }}
@@ -76,7 +77,7 @@ export default function PaymentScreen({ url, onClose }) {
             <TouchableOpacity
                 style={{
                     position: 'absolute',
-                    top: 30,
+                    top: 50,
                     right: 25,
                     zIndex: 10,
                     backgroundColor: '#fff',
@@ -88,6 +89,6 @@ export default function PaymentScreen({ url, onClose }) {
             >
                 <Text style={{ color: '#C2000E', fontWeight: 'bold', fontSize: 18 }}>Close</Text>
             </TouchableOpacity>
-        </View>
+        </SafeAreaView>
     );
 }

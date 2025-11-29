@@ -483,7 +483,7 @@ const DineInStatus = ({ stage = "preparing", item, expected_ready_time }) => {
   const status = [
     { stage: "completed", image: require('../../../assets/elements/home/recharge_gift.png'), title: "Order Completed", subtitle: "Thank you for your support! Come back for more Ultra Sedap!" },
     {
-      stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle:"Freshness in progress - just for you."
+      stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle: "Freshness in progress - just for you."
     },
     {
       stage: "pending", image: require('../../../assets/elements/order/pizza.png'), title: "Order Confirmed!", subtitle: "Get ready... ultra sedap is coming your way!"
@@ -595,16 +595,23 @@ export default function OrderDetails({ navigation }) {
   const [orderType, setOrderType] = useState("");
   const [paymentMethodModalVisible, setPaymentMethodModalVisible] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
+  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+  const [driverModalVisible, setDriverModalVisible] = useState(false);
 
   const paymentMethodsAll = [
     { id: 'wallet', name: 'US Pizza Wallet', icon: 'wallet', iconType: 'ionicons' },
     { id: 'razerpay', name: 'Online Payment', icon: require('../../../assets/elements/order/fiuu-icon.png'), iconType: 'image' },
   ];
 
+  const openDialer = (number) => {
+    if (!number) return;
+    const phone = String(number).replace(/[^\d+]/g, '');
+    Linking.openURL(`tel:${phone}`);
+  };
+
   const handlePaymentModalClose = async () => {
     setShowPaymentScreen(false);
-    const orderId = await AsyncStorage.getItem('orderId');
-    router.replace(`/screens/orders/orders_details?orderId=${orderId}`);
+    router.replace('/orders');
   }
 
   const outletNameWithStatus = useMemo(() => {
@@ -888,6 +895,12 @@ export default function OrderDetails({ navigation }) {
   }
 
   const handlePayAgain = async (paymentMethod) => {
+    if (isPaymentProcessing) {
+      console.log('Payment already in progress, ignoring click');
+      return;
+    }
+
+    setIsPaymentProcessing(true);
     try {
       const authToken = await AsyncStorage.getItem('authToken');
 
@@ -896,7 +909,7 @@ export default function OrderDetails({ navigation }) {
       if (!authToken) {
         console.error('No authentication token found');
         return;
-    }
+      }
       const response = await axios.post(
         `${apiUrl}payment/payagain/${order.id}`,
         { payment_method: paymentMethod },
@@ -911,7 +924,8 @@ export default function OrderDetails({ navigation }) {
       const paymentData = await response.data;
 
       if (paymentData.status === 200) {
-        const redirectUrl = paymentData.redirect_url;
+        const redirectUrl = paymentData.redirect_url?.trim();
+        console.log("Redirect URL:", redirectUrl);
         if (redirectUrl) {
           if (Platform.OS === 'web') {
             window.location.href = redirectUrl;
@@ -925,6 +939,8 @@ export default function OrderDetails({ navigation }) {
       }
     } catch (error) {
       console.error('Error fetching payment details:', error);
+    } finally {
+      setIsPaymentProcessing(false);
     }
   };
 
@@ -1041,6 +1057,7 @@ export default function OrderDetails({ navigation }) {
           {/* Pick up */}
           {isActive && isPickup && isPaid ? <PickupStatus item={order} stage={order.status} expected_ready_time={order.expected_ready_time} /> : null}
 
+
           {/* Prompt Payment */}
           {(isActive && !isPaid) ? <>
             <AnimationImage image={require('../../../assets/elements/home/home_pickup.png')} />
@@ -1057,7 +1074,7 @@ export default function OrderDetails({ navigation }) {
                 </View>
               </View>
             </View>
-          </> : null}      
+          </> : null}
 
           {/* Outlet Location */}
           <View style={[styles.detailTopSection, styles.totalRow]}>
@@ -1086,6 +1103,17 @@ export default function OrderDetails({ navigation }) {
             <Text style={styles.orderIDLabel}>{order.order_so}</Text>
           </View>) : null}
 
+          {order?.deliveries?.[0] && (
+            <View style={[styles.detailSection, styles.totalRow]}>
+              <Text style={styles.orderItemName}>Driver Details:</Text>
+
+              <TouchableOpacity onPress={() => setDriverModalVisible(true)}>
+                <Text style={[styles.orderIDLabel, { color: "#C2000E" }]}>
+                  {order.deliveries[0].driver_name || "-"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
           {/* Selected Date Time */}
           {/* {!isDinein && order?.selected_date && order?.selected_time ? (<View style={[styles.detailSection, styles.totalRow]}> */}
           {!isDinein && isPaid ? (<View style={[styles.detailSection, styles.totalRow]}>
@@ -1562,6 +1590,124 @@ export default function OrderDetails({ navigation }) {
             </View>
           </View>
         </Modal>
+        <Modal
+          visible={driverModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setDriverModalVisible(false)}
+        >
+          <View
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              backgroundColor: "rgba(0,0,0,0.5)",
+            }}
+          >
+            <View
+              style={{
+                width: 300,
+                backgroundColor: "#fff",
+                borderRadius: 16,
+                paddingVertical: 24,
+                paddingHorizontal: 20,
+                alignItems: "center",
+              }}
+            >
+              {/* Close Button */}
+              <TouchableOpacity
+                onPress={() => setDriverModalVisible(false)}
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  right: 12,
+                  padding: 6,
+                  zIndex: 1,
+                }}
+              >
+                <Text style={{ fontSize: 22, fontWeight: "bold", color: "#999" }}>×</Text>
+              </TouchableOpacity>
+
+              <Text
+                style={{
+                  fontFamily: "Route159-BoldItalic",
+                  fontSize: 20,
+                  marginBottom: 20,
+                  textAlign: "center",
+                  color: "#C2000E",
+                }}
+              >
+                Driver Details
+              </Text>
+
+              {/* Info Rows */}
+              <View style={{ width: "100%", marginBottom: 14 }}>
+                <Text style={{ fontFamily: "Route159-Bold", color: "#C2000E" }}>Name</Text>
+                <Text style={{ fontFamily: "RobotoSlab-Regular", fontSize: 14 }}>
+                  {order?.deliveries?.[0]?.driver_name || "-"}
+                </Text>
+              </View>
+
+              <View style={{ width: "100%", marginBottom: 14 }}>
+                <Text style={{ fontFamily: "Route159-Bold", color: "#C2000E" }}>Phone</Text>
+                {order?.deliveries?.[0]?.driver_phone ? (
+                  <TouchableOpacity
+                    onPress={() => openDialer(order.deliveries[0].driver_phone)}
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={{
+                        fontFamily: "RobotoSlab-Regular",
+                        fontSize: 14,
+                        color: "#C2000E",
+                        textDecorationLine: "underline",
+                      }}
+                    >
+                      {order.deliveries[0].driver_phone}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={{ fontFamily: "RobotoSlab-Regular", fontSize: 14 }}>-</Text>
+                )}
+              </View>
+
+              <View style={{ width: "100%", marginBottom: 14 }}>
+                <Text style={{ fontFamily: "Route159-Bold", color: "#C2000E" }}>Vehicle Plate</Text>
+                <Text style={{ fontFamily: "RobotoSlab-Regular", fontSize: 14 }}>
+                  {order?.deliveries?.[0]?.driver_plate || "-"}
+                </Text>
+              </View>
+
+              {/* Track Button */}
+              {order?.deliveries?.[0]?.tracking_link && (
+                <TouchableOpacity
+                  style={{
+                    marginTop: 10,
+                    paddingVertical: 12,
+                    paddingHorizontal: 24,
+                    borderRadius: 8,
+                    backgroundColor: "#C2000E",
+                  }}
+                  onPress={() => {
+                    setDriverModalVisible(false);
+                    handleLalamoveTracking();
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "white",
+                      fontFamily: "Route159-Bold",
+                      fontSize: 16,
+                    }}
+                  >
+                    Track Driver
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </Modal>
+
       </SafeAreaView>
     </ResponsiveBackground>
 

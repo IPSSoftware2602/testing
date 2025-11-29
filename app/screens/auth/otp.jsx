@@ -1,6 +1,7 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform } from 'react-native';
+import { registerPushToken } from '../../../hooks/usePushNotifications';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Polygon, Svg } from 'react-native-svg';
 import GridBackground from '../../../components/slash/GridBackground';
@@ -51,7 +52,28 @@ export default function OTP() {
           const jsonCustomerData = JSON.stringify(otpData.data);
           await AsyncStorage.setItem('customerData', jsonCustomerData);
           const verifyType = otpData.verify_type;
-          // console.log(verifyType);
+          // Push token logic moved to homepage (index.js)
+          // const customerId = otpData.data?.id;
+          // let pushToken = null;
+
+          // if (Platform.OS !== "web") {
+          //   pushToken = await registerPushToken();
+          // }
+          // console.log(pushToken)
+          // // console.log(verifyType);
+          // if (pushToken?.token) {
+          //   try {
+          //     await axios.post(apiUrl + "save-device-token", {
+          //       customer_id: customerId,
+          //       token: pushToken.token,
+          //       type: pushToken.type,     // expo or fcm
+          //       platform: Platform.OS,    // ios or android
+          //     });
+          //     console.log("Device token saved successfully");
+          //   } catch (err) {
+          //     console.log("Failed to save device token:", err);
+          //   }
+          // }
 
           toast.show('Welcome to US Pizza!', {
             type: 'custom_toast',
@@ -205,7 +227,7 @@ export default function OTP() {
                 {/* Resend OTP */}
                 <View style={styles.resendContainer}>
                   <Text style={styles.resendText}>Didn&apos;t receive the code? </Text>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={handleResendOTP}
                     disabled={resendCooldown > 0}
                   >

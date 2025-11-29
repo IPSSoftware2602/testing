@@ -18,6 +18,7 @@ import { apiUrl } from '../../constant/constants';
 // Removed useAuthGuard import - home screen accessible without login (App Store requirement)
 import useCheckValidOrderType from '../home/check_valid_order_type';
 import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
+import { registerPushToken } from '../../../hooks/usePushNotifications';
 
 const { width } = Dimensions.get('window');
 
@@ -86,7 +87,7 @@ export default function HomeScreen() {
         const outletDetails = await AsyncStorage.getItem('outletDetails');
         if (outletDetails) {
           const parsedOutletDetails = JSON.parse(outletDetails);
-          if(parsedOutletDetails.isHQ === true) {
+          if (parsedOutletDetails.isHQ === true) {
             await AsyncStorage.removeItem('outletDetails');
             await AsyncStorage.removeItem('orderType');
             await AsyncStorage.removeItem('deliveryAddressDetails');
@@ -116,7 +117,7 @@ export default function HomeScreen() {
           setQrValue(customerData.customer_referral_code || " ");
 
           // Only redirect to register if logged in but name is missing
-          if(!customerData?.name) {
+          if (!customerData?.name) {
             router.push('/screens/auth/register');
           }
         } else {
@@ -137,13 +138,38 @@ export default function HomeScreen() {
     checkStoredData();
   }, [router])
 
+  // Register Push Token if logged in
+  useEffect(() => {
+    const registerToken = async () => {
+      if (authToken && customerData?.id && Platform.OS !== 'web') {
+        try {
+          const pushToken = await registerPushToken();
+
+          if (pushToken?.token) {
+            await axios.post(apiUrl + "save-device-token", {
+              customer_id: customerData.id,
+              token: pushToken.token,
+              type: pushToken.type,     // expo or fcm
+              platform: Platform.OS,    // ios or android
+            });
+            console.log("Device token saved successfully");
+          }
+        } catch (err) {
+          console.log("Failed to save device token:", err);
+        }
+      }
+    };
+
+    registerToken();
+  }, [authToken, customerData?.id]);
+
   useEffect(() => {
     const fetchCustomerProfile = async () => {
       if (!authToken || !customerData?.id) return;
-      
+
       // Prevent duplicate fetches for the same customer ID
       if (lastFetchedCustomerIdRef.current === customerData.id) return;
-      
+
       try {
         const response = await axios.get(
           `${apiUrl}customers/profile/${customerData.id}`,
@@ -162,13 +188,13 @@ export default function HomeScreen() {
             ...prev,
             ...updatedCustomerData,
           };
-          
+
           // Update AsyncStorage with merged data
           AsyncStorage.setItem('customerData', JSON.stringify(mergedData)).catch(console.error);
-          
+
           // Track that we've fetched for this customer ID
           lastFetchedCustomerIdRef.current = customerData.id;
-          
+
           return mergedData;
         });
 
@@ -185,14 +211,14 @@ export default function HomeScreen() {
     if (type === "delivery") {
       const authToken = await AsyncStorage.getItem('authToken');
       const customerData = await AsyncStorage.getItem('customerData');
-      
+
       if (!authToken || !customerData) {
         setOrderTypeModalVisible(false);
         setShowLoginModal(true);
         return;
       }
     }
-    
+
     setOrderTypeModalVisible(false);
     // Clear the showModal parameter when modal is closed
     router.setParams({ showModal: undefined });
@@ -333,12 +359,12 @@ export default function HomeScreen() {
                       // Delivery method requires login
                       const authToken = await AsyncStorage.getItem('authToken');
                       const customerData = await AsyncStorage.getItem('customerData');
-                      
+
                       if (!authToken || !customerData) {
                         setShowLoginModal(true);
                         return;
                       }
-                      
+
                       handleSetOrderType("delivery")
                       router.push('/screens/home/address_select')
                     }
@@ -369,12 +395,12 @@ export default function HomeScreen() {
                   // Recharge requires login
                   const authToken = await AsyncStorage.getItem('authToken');
                   const customerData = await AsyncStorage.getItem('customerData');
-                  
+
                   if (!authToken || !customerData) {
                     setShowLoginModal(true);
                     return;
                   }
-                  
+
                   router.push('(tabs)/market');
                 }}
               >
@@ -390,12 +416,12 @@ export default function HomeScreen() {
                       // Recharge requires login
                       const authToken = await AsyncStorage.getItem('authToken');
                       const customerData = await AsyncStorage.getItem('customerData');
-                      
+
                       if (!authToken || !customerData) {
                         setShowLoginModal(true);
                         return;
                       }
-                      
+
                       router.push('(tabs)/market');
                     }}
                   />

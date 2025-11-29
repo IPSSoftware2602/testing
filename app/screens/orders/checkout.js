@@ -87,11 +87,10 @@ const PaymentMethodButton = ({ selectedMethod, navigation, walletBalance, enable
     };
   }
 
-  let currentMethod = selectedMethod ? paymentMethods[selectedMethod] : paymentMethods["wallet"];
+  let currentMethod = selectedMethod ? paymentMethods[selectedMethod] : paymentMethods["razerpay"];
   if (!enableWallet) {
     currentMethod = paymentMethods["razerpay"];
   }
-  // currentMethod = paymentMethods[selectedMethod];
 
   return (
     <View style={styles.section}>
@@ -401,6 +400,7 @@ export default function CheckoutScreen({ navigation }) {
   const [showVoucherConfirmModal, setShowVoucherConfirmModal] = useState(false);
   const [queuedSelectedVoucherJSON, setQueuedSelectedVoucherJSON] = useState(null);
   const [loadingCount, setLoadingCount] = useState(0);
+  const [isCheckoutProcessing, setIsCheckoutProcessing] = useState(false);
 
   const showLoading = useCallback(() => {
     setLoadingCount((prev) => prev + 1);
@@ -442,8 +442,8 @@ export default function CheckoutScreen({ navigation }) {
           setPaymentMethod(paymentMethod);
         }
         else {
-          await AsyncStorage.setItem('paymentMethod', "wallet");
-          setPaymentMethod("wallet");
+          await AsyncStorage.setItem('paymentMethod', "razerpay");
+          setPaymentMethod("razerpay");
         }
       } catch (err) {
         console.log(err.response.data.message);
@@ -878,6 +878,8 @@ export default function CheckoutScreen({ navigation }) {
   }, [voucherToApply, cartData]);
 
 
+
+
   const handleAddPWPItemToCart = async (item) => {
     await runWithLoading(async () => {
       // const customerData = await getCustomerData();
@@ -975,117 +977,115 @@ export default function CheckoutScreen({ navigation }) {
   };
 
   const handleCheckout = async () => {
-    await runWithLoading(async () => {
-      try {
-        const token = await AsyncStorage.getItem('authToken') || '';
+    if (isCheckoutProcessing) {
+      console.log('Checkout already in progress, ignoring click');
+      return;
+    }
 
-        const payload = {
-          customer_id: Number(cartData?.customer_id),
-          // customer_id: Number(165),
-          outlet_id: selectedOutlet.outletId,
-          customer_address_id: deliveryAddress.addressId,
-          order_type: orderType,
-          // order_type: 'delivery',
-          payment_method: paymentMethod,
-          expected_ready_time: '',
-          placed_at: '',
-          selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
-          selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
-          notes: ''
-        };
+    setIsCheckoutProcessing(true);
+    // await runWithLoading(async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken') || '';
 
-        // console.log('Sending checkout payload:', payload);
+      const payload = {
+        customer_id: Number(cartData?.customer_id),
+        // customer_id: Number(165),
+        outlet_id: selectedOutlet.outletId,
+        customer_address_id: deliveryAddress.addressId,
+        order_type: orderType,
+        // order_type: 'delivery',
+        payment_method: paymentMethod,
+        expected_ready_time: '',
+        placed_at: '',
+        selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
+        selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
+        notes: ''
+      };
 
-        const res = await axios.post(`${apiUrl}order/create`, payload, {
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
+      // console.log('Sending checkout payload:', payload);
+      const res = await axios.post(`${apiUrl}order/create`, payload, {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (res.data?.status === 200) {
+        toast.show('Your order has been placed!', {
+          type: 'custom_toast',
+          data: { title: '', status: 'success' }
         });
+        // checkoutClearStorage();
 
-        if (res.data?.status === 200) {
-          toast.show('Your order has been placed!', {
+        await AsyncStorage.setItem('orderId', res.data?.order?.id);
+        // console.log(res.data?.order?.id);
+        const clearanceSuccess = await checkoutClearStorage();
+
+        if (!clearanceSuccess) {
+          toast.show('Order placed but cache cleanup failed', {
             type: 'custom_toast',
-            data: { title: '', status: 'success' }
+            data: { title: 'Warning', status: 'warning' }
           });
-          // checkoutClearStorage();
-
-          await AsyncStorage.setItem('orderId', res.data?.order?.id);
-          // console.log(res.data?.order?.id);
-          const clearanceSuccess = await checkoutClearStorage();
-
-          if (!clearanceSuccess) {
-            toast.show('Order placed but cache cleanup failed', {
-              type: 'custom_toast',
-              data: { title: 'Warning', status: 'warning' }
-            });
-          }
+        }
 
 
-          const redirectUrl = res.data.redirect_url;
-
-          // handlePaymentCallBack();
-          if (redirectUrl) {
-            if (Platform.OS === 'web') {
-              // Web solution
-              window.location.href = redirectUrl;
-            } else {
-              setPaymentUrl(redirectUrl);
-              setShowPaymentScreen(true);
-              return;
-            }
-
-            // 4. Setup return URL handler (mobile only)
-            if (Platform.OS !== 'web') {
-              const subscription = Linking.addEventListener('url', (event) => {
-                // handlePaymentReturn(event.url);
-                subscription.remove(); // Cleanup
-              });
-            }
+        const redirectUrl = res.data.redirect_url?.trim();
+        // handlePaymentCallBack();
+        if (redirectUrl) {
+          if (Platform.OS === 'web') {
+            // Web solution
+            window.location.href = redirectUrl;
           } else {
-            router.push('/orders');
+            setPaymentUrl(redirectUrl);
+            setShowPaymentScreen(true);
           }
 
         } else {
-          console.error('Order failed:', res.data);
-          toast.show('Failed to place order. Please try again.', {
-            type: 'custom_toast',
-            data: { title: '', status: 'warning' }
-          });
+          router.push('/orders');
         }
 
-      } catch (err) {
-        if (err?.response?.data?.status === 400) {
-          if (err?.response?.data?.status === 405) {
-            router.push({ pathname: '(tabs)', params: { setErrorModal: true } });
-            checkoutClearStorage();
-          }
-          else if (err?.response?.data?.status === 400) {
-            const message = err?.response?.data?.messages.error ?? "";
-            if (message === "Insufficient Wallet Balance") {
-              toast.show("Please top up your wallet balance or change a payment method.", {
-                type: 'custom_toast',
-                data: { title: 'Insufficient Wallet Balance', status: 'warning' }
-              });
-            } else {
-              toast.show(message, {
-                type: 'custom_toast',
-                data: { title: '', status: 'warning' }
-              });
-            }
+      } else {
+        console.error('Order failed:', res.data);
+        toast.show('Failed to place order. Please try again.', {
+          type: 'custom_toast',
+          data: { title: '', status: 'warning' }
+        });
+      }
 
-            // console.log('Error fetching cart total:', error?.response?.data?.message ?? "Outlet not available for this order type");
-          }
-          else {
-            toast.show('Failed to place order. Please try again.', {
+    } catch (err) {
+      if (err?.response?.data?.status === 400) {
+        if (err?.response?.data?.status === 405) {
+          router.push({ pathname: '(tabs)', params: { setErrorModal: true } });
+          checkoutClearStorage();
+        }
+        else if (err?.response?.data?.status === 400) {
+          const message = err?.response?.data?.messages.error ?? "";
+          if (message === "Insufficient Wallet Balance") {
+            toast.show("Please top up your wallet balance or change a payment method.", {
               type: 'custom_toast',
-              data: { title: 'Order Failed', status: 'warning' }
+              data: { title: 'Insufficient Wallet Balance', status: 'warning' }
+            });
+          } else {
+            toast.show(message, {
+              type: 'custom_toast',
+              data: { title: '', status: 'warning' }
             });
           }
 
+          // console.log('Error fetching cart total:', error?.response?.data?.message ?? "Outlet not available for this order type");
         }
+        else {
+          toast.show('Failed to place order. Please try again.', {
+            type: 'custom_toast',
+            data: { title: 'Order Failed', status: 'warning' }
+          });
+        }
+
       }
-    });
+    } finally {
+      setIsCheckoutProcessing(false);
+    }
+    // });
   }
   // console.log('ID:', item.menu_item_id);
   const confirmDelete = async (item) => {
@@ -1443,7 +1443,11 @@ export default function CheckoutScreen({ navigation }) {
                   price: parseFloat(item.unit_price),
                   is_free_item: item.is_free_item,
                   max_quantity: item.is_free_item ? Number(freeItemMaxQty) : null,
-                  originalPrice: null,
+                  originalPrice: item.variation?.price
+                    ? parseFloat(item.variation.price)
+                    : item.original_price
+                      ? parseFloat(item.original_price)
+                      : null,
                   options: item.options,
                   variation: item.variation,
                   image: item?.variation?.images ? item?.variation?.images : (item?.image ? item?.image : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500'),

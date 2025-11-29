@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Dimensions, StyleSheet, TextInput, View } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { Dimensions, StyleSheet, TextInput, View, Pressable, Text } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -10,89 +10,72 @@ export default function OTPInput({
   onComplete,
   style
 }) {
-  const inputRefs = useRef([]);
-  const [focusedIndex, setFocusedIndex] = useState(0);
+  const inputRef = useRef(null);
+  const [isFocused, setIsFocused] = useState(false);
 
+  // Focus the input when component mounts
   useEffect(() => {
-    // Focus the first empty input or the next input after typing
-    const nextIndex = Math.min(value.length, length - 1);
-    if (inputRefs.current[nextIndex]) {
-      inputRefs.current[nextIndex].focus();
-      setFocusedIndex(nextIndex);
-    }
-  }, [value, length]);
+    // Optional: Auto-focus on mount
+    // inputRef.current?.focus();
+  }, []);
 
-  const handleChange = (text, index) => {
-    if (text.length > 1) {
-      text = text[text.length - 1]; // Take only the last character
-    }
+  const handlePress = () => {
+    inputRef.current?.focus();
+  };
 
-    const newValue = value.split('');
-    newValue[index] = text;
-    const result = newValue.join('');
+  const handleChangeText = (text) => {
+    // Only allow numeric input
+    const numericText = text.replace(/[^0-9]/g, '');
 
-    onChange(result);
+    // Limit to length
+    if (numericText.length <= length) {
+      onChange(numericText);
 
-    // Auto-focus next input
-    if (text && index < length - 1) {
-      inputRefs.current[index + 1]?.focus();
-      setFocusedIndex(index + 1);
-    }
-
-    // Check if OTP is complete
-    if (result.length === length && onComplete) {
-      onComplete(result);
+      if (numericText.length === length && onComplete) {
+        onComplete(numericText);
+      }
     }
   };
 
-  const handleKeyPress = (e, index) => {
-    // Handle backspace
-    if (e.nativeEvent.key === 'Backspace' && !value[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-      const newValue = value.split('');
-      newValue[index - 1] = '';
-      const result = newValue.join('');
-
-      onChange(result);
-      setFocusedIndex(index - 1);
-    }
-  };
-
-  const handleFocus = (index) => {
-    setFocusedIndex(index);
-  };
-
-  const renderInputs = () => {
-    const inputs = [];
+  const renderBoxes = () => {
+    const boxes = [];
     for (let i = 0; i < length; i++) {
-      inputs.push(
-        <TextInput
+      const digit = value[i] || '';
+      const isCurrentFocus = isFocused && i === value.length;
+
+      boxes.push(
+        <View
           key={i}
-          ref={(ref) => {
-            if (ref) inputRefs.current[i] = ref;
-          }}
           style={[
-            styles.input,
-            focusedIndex === i && styles.inputFocused,
+            styles.box,
+            (isCurrentFocus || (i === length - 1 && value.length === length && isFocused)) && styles.boxFocused,
+            digit && styles.boxFilled
           ]}
-          maxLength={1}
-          keyboardType="numeric"
-          value={value[i] || ''}
-          onChangeText={(text) => handleChange(text, i)}
-          onKeyPress={(e) => handleKeyPress(e, i)}
-          onFocus={() => handleFocus(i)}
-          selectTextOnFocus
-          selectionColor="#C2000E"
-        />
+        >
+          <Text style={styles.text}>{digit}</Text>
+        </View>
       );
     }
-    return inputs;
+    return boxes;
   };
 
   return (
-    <View style={[styles.container, style]}>
-      {renderInputs()}
-    </View>
+    <Pressable style={[styles.container, style]} onPress={handlePress}>
+      {renderBoxes()}
+      <TextInput
+        ref={inputRef}
+        value={value}
+        onChangeText={handleChangeText}
+        maxLength={length}
+        keyboardType="number-pad"
+        textContentType="oneTimeCode" // iOS OTP autofill
+        autoComplete="sms-otp" // Android OTP autofill
+        style={styles.hiddenInput}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        caretHidden={true}
+      />
+    </Pressable>
   );
 }
 
@@ -103,22 +86,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     paddingHorizontal: 20,
+    position: 'relative',
   },
-  input: {
+  box: {
     width: width >= 440 ? 440 * 0.115 : 0.115 * width,
     height: width >= 440 ? 440 * 0.135 : 0.13 * width,
     borderWidth: 2,
     borderColor: '#fff',
     borderRadius: 12,
-    textAlign: 'center',
-    fontSize: width > 360 ? 24 : 21,
-    fontWeight: 'bold',
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#fff',
-    fontFamily: 'RobotoSlab-Bold',
-    color: '#333',
     marginHorizontal: 2,
   },
-  inputFocused: {
+  boxFocused: {
     borderColor: '#999',
     borderWidth: 1,
     shadowColor: '#999',
@@ -127,4 +108,21 @@ const styles = StyleSheet.create({
     elevation: 6,
     backgroundColor: '#F8FBFF',
   },
-}); 
+  boxFilled: {
+    // Optional style for filled boxes
+  },
+  text: {
+    fontSize: width > 360 ? 24 : 21,
+    fontWeight: 'bold',
+    fontFamily: 'RobotoSlab-Bold',
+    color: '#333',
+    textAlign: 'center',
+  },
+  hiddenInput: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    opacity: 0, // Hide the input but keep it interactive
+    zIndex: 1, // Ensure it sits on top to capture touches if needed, but Pressable handles it
+  },
+});

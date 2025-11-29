@@ -137,7 +137,7 @@ export default function Orders() {
           });
 
         const outletData = await response.data;
-        console.log('123', outletData.result);
+        // console.log('123', outletData.result);
 
         // console.log("Sorted Addresses:", sortedAddresses);
         setOutlets(outletData.result);
