@@ -34,8 +34,8 @@ const benefitList = [
     iconName: 'cake-candles',
   },
   {
-    title: 'Quarterly Freebies',
-    description: '4 Regular Pizzas on March, June, September & December.',
+    title: 'Quarterly Voucher',
+    description: 'Exclusive for our VIPs! Enjoy 4 regular pizzas for just RM1! This voucher will be credited to your voucher wallet in March, June, September and December.',
     iconName: 'pizza-slice',
   },
   {
@@ -167,7 +167,7 @@ export default function VipCard() {
           <View style={styles.cardBenefit}>
             <Text style={styles.benefitTitle}>Be Our VIP – Unlock Ultra Rewards!</Text>
             <Text style={styles.benefitText}>Unlock RM300+ perks for only RM55/year – treat yourself all year long!</Text>
-              <Text style={styles.benefitTextPerk}>✨ Your VIP Perks:</Text>
+            <Text style={styles.benefitTextPerk}>✨ Your VIP Perks:</Text>
             <View style={{ marginVertical: '1%' }}>
               {benefitList.map((item, index) => (
                 <View key={index} style={styles.cardBenefitList}>
@@ -200,7 +200,7 @@ export default function VipCard() {
           </View>
 
           {/*/ Display note for customer_type = students only */}
-          {customerData?.customer_type === 'student' ? 
+          {customerData?.customer_type === 'student' ?
             <View style={{ textAlign: 'center', alignItems: 'center' }}>
               <Text style={styles.benefitText}>Note*: {((customerData.customer_type).toLowerCase() === 'student' ? "Not available for students" : "")}</Text>
             </View> : null}
