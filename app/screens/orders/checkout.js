@@ -216,7 +216,6 @@ MapSection.displayName = 'MapSection';
 // Memoized order item component
 const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowDeleteModal, setDeleteItem, confirmDelete, vip }) => {
   const router = useRouter();
-  console.log(vip);
   const handleEdit = (item) => {
     router.push({
       pathname: '/screens/menu/menu_item',

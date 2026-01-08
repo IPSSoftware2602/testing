@@ -29,9 +29,6 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                 const estimatedTime = await AsyncStorage.getItem('estimatedTime');
                 if (estimatedTime) {
                     const parsedEstimatedTime = JSON.parse(estimatedTime);
-                    // console.log(parsedEstimatedTime.estimatedTime);
-
-                    // setSelectedDateTime(parsedEstimatedTime.estimatedTime);
                     setEstimatedtime(parsedEstimatedTime);
                 }
             } catch (err) {
@@ -149,7 +146,6 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
         if (!selectedDateTime) return;
 
         const now = new Date();
-        console.log(selectedDateTime);
         // const selectedDate = new Date(selectedDateTime);
 
         // Format date: yyyy-mm-dd
@@ -184,7 +180,6 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                 finalTime = convertToDateTimeString(selectedDateTime)[1];
             }
         }
-        console.log(finalDate, finalTime);
         setEstimaedTime({ estimatedTime: selectedDateTime, date: finalDate, time: finalTime });
         // router.push('/screens/orders/checkout');
 
@@ -279,13 +274,11 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
 
     useEffect(() => {
         if (availableDates) {
-            // console.log(availableDates);
             const firstOperationalDate = availableDates.find(d => d.isOperate)?.date;
 
             if (estimatedTime.estimatedTime) {
                 const estimatedDate = new Date(estimatedTime?.date);
                 const matchingDate = availableDates.find(d => d.dateString === estimatedTime.date);
-                // console.log(matchingDate);
                 if (matchingDate?.isOperate === true) {
                     setSelectedDateTime(estimatedTime.estimatedTime);
                     generateTimesForDate(estimatedDate);
@@ -319,7 +312,6 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
 
         // Use the pre-calculated logic or re-calculate
         const slots = getAvailableSlots(date, outlet);
-        console.log(slots);
         // Handle no slots
         if (slots.length === 0) {
             setAvailableTimes([]);
@@ -334,11 +326,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
 
     useEffect(() => {
         if (estimatedTime.time) {
-            // console.log(estimatedTime.time);
-            // console.log(availableTimes);
             const estTimeObj = availableTimes.find(time => time.time === estimatedTime.time);
-            // setSelectedDateTime(estTimeObj.time);
-            // console.log(estTimeObj);
             if (estTimeObj) {
                 const estIndex = availableTimes.findIndex(t => t.time === estimatedTime.time);
                 if (estIndex !== -1) {
@@ -388,7 +376,6 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
 
                             const actualDate = dateObj.date;
                             const isOperating = dateObj.isOperate;
-                            // console.log(actualDate);
                             const dayName = actualDate.toLocaleDateString('en-US', { weekday: 'short' });
                             const dayNumber = actualDate.getDate();
                             const month = actualDate.toLocaleDateString('en-US', { month: 'short' });
@@ -482,7 +469,6 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                                 }
 
                                 getSelectedDateTime();
-                                // console.log(`Selected: ${selectedDate.toDateString()} at ${selectedTime}`);
                                 setShowDateTimePicker(false);
                             }}
                         >
