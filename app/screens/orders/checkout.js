@@ -1059,7 +1059,7 @@ export default function CheckoutScreen({ navigation }) {
           checkoutClearStorage();
         }
         else if (err?.response?.data?.status === 400) {
-          const message = err?.response?.data?.messages.error ?? "";
+          const message = err?.response?.data?.messages?.error ?? "";
           if (message === "Insufficient Wallet Balance") {
             toast.show("Please top up your wallet balance or change a payment method.", {
               type: 'custom_toast',
@@ -1070,6 +1070,8 @@ export default function CheckoutScreen({ navigation }) {
               type: 'custom_toast',
               data: { title: '', status: 'warning' }
             });
+            router.push({ pathname: '(tabs)/menu' });
+
           }
 
           // console.log('Error fetching cart total:', error?.response?.data?.message ?? "Outlet not available for this order type");
