@@ -12,7 +12,6 @@ import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import { commonStyles } from '../../../styles/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationModal from '../../../components/ui/NotificationModal';
-import ForceUpdateModal from '../../../components/ui/ForceUpdateModal';
 // import { useRoute } from '@react-navigation/native';
 import axios from 'axios'
 import { apiUrl } from '../../constant/constants';
@@ -20,7 +19,6 @@ import { apiUrl } from '../../constant/constants';
 import useCheckValidOrderType from '../home/check_valid_order_type';
 import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
 import { registerPushToken } from '../../../hooks/usePushNotifications';
-import Constants from 'expo-constants';
 
 const { width } = Dimensions.get('window');
 
@@ -53,7 +51,6 @@ export default function HomeScreen() {
   const [notificationMessage, setNotificationMessage] = useState('');
   const [notificationTitle, setNotificationTitle] = useState('');
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showForceUpdateModal, setShowForceUpdateModal] = useState(false);
   const lastFetchedCustomerIdRef = useRef(null);
 
   const showError = (msg, title) => {
@@ -61,29 +58,6 @@ export default function HomeScreen() {
     setNotificationTitle(title);
     setNotificationVisible(true);
   };
-
-  useEffect(() => {
-    const checkAppVersion = async () => {
-      try {
-        const currentVersion = Constants.expoConfig?.version || Constants.manifest?.version || "1.0.0";
-        console.log("Current App Version:", currentVersion);
-
-        const response = await axios.post(`${apiUrl}check-version`, {
-          version: currentVersion,
-          platform: Platform.OS
-        });
-
-        if (response.data?.data?.update === true) {
-          setShowForceUpdateModal(true);
-        }
-      } catch (error) {
-        console.log("Version check failed:", error);
-      }
-    };
-    if (Platform.OS !== 'web') {
-      checkAppVersion();
-    }
-  }, []);
 
   useEffect(() => {
     if (setErrorModal) {
@@ -577,8 +551,6 @@ export default function HomeScreen() {
             }}
             onCancel={() => setShowLoginModal(false)}
           />
-
-          <ForceUpdateModal isVisible={showForceUpdateModal} />
         </View>
 
         {/* </View> */}

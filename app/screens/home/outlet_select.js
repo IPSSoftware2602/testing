@@ -96,22 +96,17 @@ export default function OutletSelection() {
             let lng = location.lng;
 
             if (orderTypeStored && orderTypeStored !== 'delivery' && (lat == null || lng == null)) {
-                try {
-                    const { status } = await Location.requestForegroundPermissionsAsync();
-                    if (status !== 'granted') {
-                        setLocationPermissionDenied(true);
-                        // return; // Don't return, fallback to full list
-                    } else {
-                        const currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-                        lat = currentLocation.coords.latitude;
-                        lng = currentLocation.coords.longitude;
-                        updateLocationIfChanged(lat, lng);
-                        setLocationPermissionDenied(false);
-                    }
-                } catch (err) {
-                    console.log("Error getting location:", err);
-                    // Continue to fetch full list
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                    setLocationPermissionDenied(true);
+                    return;
                 }
+
+                const currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+                lat = currentLocation.coords.latitude;
+                lng = currentLocation.coords.longitude;
+                updateLocationIfChanged(lat, lng);
+                setLocationPermissionDenied(false);
             } else if (orderTypeStored === 'delivery' && parsedAddress && (lat == null || lng == null)) {
                 const parsedLat = parseFloat(parsedAddress.latitude);
                 const parsedLng = parseFloat(parsedAddress.longitude);
@@ -120,31 +115,7 @@ export default function OutletSelection() {
                 updateLocationIfChanged(parsedLat, parsedLng);
             }
 
-            // If still no location (permission denied, error, etc), fetch all outlets
-            if (lat == null || lng == null) {
-                const response = await axios.get(
-                    `${apiUrl}outlets2`,
-                    {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
-                        },
-                    }
-                );
-
-                let outletList = response.data.result || [];
-                // Sort by open status since we don't have distance
-                outletList = outletList.sort((a, b) => {
-                    const aStatus = getOutletStatus(a.operating_schedule || {});
-                    const bStatus = getOutletStatus(b.operating_schedule || {});
-                    return (bStatus.isOpen ? 1 : 0) - (aStatus.isOpen ? 1 : 0);
-                });
-
-                setOutletData(outletList);
-                return;
-            }
-
-            if (!orderTypeStored) {
+            if (lat == null || lng == null || !orderTypeStored) {
                 return;
             }
 
@@ -179,28 +150,28 @@ export default function OutletSelection() {
 
 
     const getCoordinates = async (retry = false) => {
-        try {
-            const { status } = await Location.getForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                setLocationPermissionDenied(true);
-                return;
-            }
-
-            let currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-            if (!currentLocation?.coords && !retry) {
-                setTimeout(() => getCoordinates(true), 1000); // retry after 1s
-                return;
-            }
-
-            setLocation({
-                lat: currentLocation.coords.latitude,
-                lng: currentLocation.coords.longitude
-            });
-            setLocationPermissionDenied(false);
-            loadOutlets();
-        } catch (error) {
-            console.error('Error getting location:', error);
+    try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') {
+        setLocationPermissionDenied(true);
+        return;
         }
+
+        let currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        if (!currentLocation?.coords && !retry) {
+        setTimeout(() => getCoordinates(true), 1000); // retry after 1s
+        return;
+        }
+
+        setLocation({
+        lat: currentLocation.coords.latitude,
+        lng: currentLocation.coords.longitude
+        });
+        setLocationPermissionDenied(false);
+        loadOutlets();
+    } catch (error) {
+        console.error('Error getting location:', error);
+    }
     };
 
 
@@ -229,19 +200,19 @@ export default function OutletSelection() {
 
 
     useEffect(() => {
-        if (orderType && orderType !== "delivery") {
-            getCoordinates();
+    if (orderType && orderType !== "delivery") {
+        getCoordinates();
 
-            // 🕒 If still no location after 3s, retry once
-            const timeout = setTimeout(() => {
-                if (!location.lat || !location.lng) {
-                    getCoordinates(true);
-                }
-            }, 3000);
-
-            // cleanup if user leaves the page quickly
-            return () => clearTimeout(timeout);
+        // 🕒 If still no location after 3s, retry once
+        const timeout = setTimeout(() => {
+        if (!location.lat || !location.lng) {
+            getCoordinates(true);
         }
+        }, 3000);
+
+        // cleanup if user leaves the page quickly
+        return () => clearTimeout(timeout);
+    }
     }, [orderType]);
 
 
@@ -438,24 +409,24 @@ export default function OutletSelection() {
                     />
                 </View>
                 {/* {getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein') ? */}
-                <View style={styles.btnContainer}>
-                    <PolygonButton
-                        text="Select"
-                        width={Math.min(width, 440) * 0.28}
-                        height={30}
-                        color="#C2000E"
-                        textColor="#fff"
-                        textStyle={{ fontWeight: 'bold', fontSize: 20, fontFamily: 'Route159-HeavyItalic' }}
-                        onPress={() => {
-                            // setSelectedOutlet(item.id);
-                            setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen });
-                            if (getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')) {
-                                router.push('(tabs)/menu')
-                            }
-                        }}
-                    />
-                </View>
-                {/* : null} */}
+                    <View style={styles.btnContainer}>
+                        <PolygonButton
+                            text="Select"
+                            width={Math.min(width, 440) * 0.28}
+                            height={30}
+                            color="#C2000E"
+                            textColor="#fff"
+                            textStyle={{ fontWeight: 'bold', fontSize: 20, fontFamily: 'Route159-HeavyItalic' }}
+                            onPress={() => {
+                                // setSelectedOutlet(item.id);
+                                setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen });
+                                if (getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')) {
+                                    router.push('(tabs)/menu')
+                                }
+                            }}
+                        />
+                    </View>
+                    {/* : null} */}
 
             </TouchableOpacity>
         </>
@@ -483,7 +454,7 @@ export default function OutletSelection() {
                     />
                 </View>
 
-                {locationPermissionDenied && filteredOutlets.length === 0 ? (
+                {locationPermissionDenied ? (
                     <View style={styles.permissionWarning}>
                         <Text style={styles.permissionTitle}>
                             We can&apos;t seem to find you.
@@ -639,7 +610,7 @@ const styles = StyleSheet.create({
         color: '#C2000E',
         fontFamily: 'Route159-Bold',
         // textTransform: 'uppercase',
-        marginLeft: 0,
+         marginLeft: 0,
     },
     address: {
         paddingVertical: '5%',

@@ -3,12 +3,10 @@ import { jwtDecode } from 'jwt-decode';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AppState, Platform } from 'react-native';
-import { apiUrl } from '../constant/constants';
-import axios from 'axios';
 
 let isRedirecting = false;
 
-export default function useAuthGuard({ requireAuth = true } = {}) {
+export default function useAuthGuard() {
     const router = useRouter();
 
     const clearAuthState = useCallback(async () => {
@@ -20,7 +18,6 @@ export default function useAuthGuard({ requireAuth = true } = {}) {
             'deliveryAddressDetails',
             'estimatedTime',
             'paymentMethod',
-            'lastActiveTime'
         ]);
     }, []);
 
@@ -53,65 +50,17 @@ export default function useAuthGuard({ requireAuth = true } = {}) {
 
     const checkToken = useCallback(async () => {
         const token = await AsyncStorage.getItem('authToken');
-
-        // 1. Check for inactivity timeout (Client-side session)
-        const lastActiveTimeStr = await AsyncStorage.getItem('lastActiveTime');
-        const nowMs = Date.now();
-        const MAX_INACTIVITY_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-        if (lastActiveTimeStr) {
-            const lastActiveTime = parseInt(lastActiveTimeStr, 10);
-            if (nowMs - lastActiveTime > MAX_INACTIVITY_MS) {
-                // Session expired due to inactivity
-                await redirectToHome();
-                return;
-            }
-        } else if (token) {
-            // Legacy/First run: If token exists but no timestamp, initialize it
-            await AsyncStorage.setItem('lastActiveTime', String(nowMs));
-        }
-
         if (!token) {
-            if (requireAuth) {
-                await redirectToHome();
-            }
+            await redirectToHome();
             return;
         }
 
         try {
             const decoded = jwtDecode(token);
-            const nowSec = nowMs / 1000;
+            const now = Date.now() / 1000;
 
-            // 2. Check JWT Expiry
-            if (decoded.exp && decoded.exp < nowSec) {
-                // Token Expired: Attempt Refresh
-                try {
-                    const customerDataStr = await AsyncStorage.getItem('customerData');
-                    const customerData = customerDataStr ? JSON.parse(customerDataStr) : null;
-
-                    if (customerData?.phone_number) {
-                        const response = await axios.post(apiUrl + "verify-api", {
-                            phone_number: customerData.phone_number,
-                            session_login: true
-                        });
-
-                        if (response.data?.status === 'success' && response.data?.token) {
-                            // Refresh Success
-                            await AsyncStorage.setItem('authToken', response.data.token);
-                            // Update activity time
-                            await AsyncStorage.setItem('lastActiveTime', String(nowMs));
-                            return; // Success, stay logged in
-                        }
-                    }
-                } catch (refreshErr) {
-                    // console.log("Token refresh failed", refreshErr);
-                }
-
-                // Refresh failed or no phone number -> Logout
+            if (decoded.exp && decoded.exp < now) {
                 await redirectToHome();
-            } else {
-                // Token Valid: Update activity time
-                await AsyncStorage.setItem('lastActiveTime', String(nowMs));
             }
         } catch {
             await redirectToHome();
@@ -127,7 +76,7 @@ export default function useAuthGuard({ requireAuth = true } = {}) {
                     checkToken();
                 }
             }
-            );
+        );
 
         return () => {
             subscription?.remove?.();

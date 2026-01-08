@@ -9,7 +9,6 @@ import { View, Text, Platform, Modal, TouchableOpacity, Dimensions, Image } from
 import { ToastProvider, } from "react-native-toast-notifications";
 // import { fonts } from '../styles/common';
 import { useState, createContext } from 'react';
-import useAuthGuard from './auth/check_token_expiry';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -17,7 +16,6 @@ SplashScreen.preventAutoHideAsync();
 export const WebToastContext = createContext();
 
 export default function RootLayout() {
-  useAuthGuard({ requireAuth: false });
   const faviconUri = Asset.fromModule(require('../assets/favicon.png')).uri;
 
   const setupWebToast = () => {

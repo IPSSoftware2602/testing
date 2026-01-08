@@ -51,7 +51,6 @@ export default function OTP() {
           await AsyncStorage.setItem('authToken', otpData.token);
           const jsonCustomerData = JSON.stringify(otpData.data);
           await AsyncStorage.setItem('customerData', jsonCustomerData);
-          await AsyncStorage.setItem('lastActiveTime', String(Date.now()));
           const verifyType = otpData.verify_type;
           // Push token logic moved to homepage (index.js)
           // const customerId = otpData.data?.id;

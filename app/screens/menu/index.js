@@ -15,9 +15,6 @@ import CustomDateTimePickerModal from '../../../components/ui/CustomDateTimePick
 // Removed useAuthGuard import - menu viewing now allowed without login (App Store requirement)
 import MenuItem from '../../../components/menu/MenuItem';
 import CategoryItem from '../../../components/menu/CategoryItem';
-import { useToast } from '../../../hooks/useToast';
-
-const toast = useToast();
 
 const { width } = Dimensions.get('window');
 
@@ -131,7 +128,7 @@ export default function MenuScreen() {
       if (!selectedOutlet?.outletId) return;
 
       //check selected outlet is hq outlet
-      if (selectedOutlet.isHQ === true) {
+      if(selectedOutlet.isHQ === true) {
         router.push('/screens/home/outlet_select');
         return;
       }
@@ -216,59 +213,64 @@ export default function MenuScreen() {
   );
 
   useEffect(() => {
-    const handleQR = async () => {
-      if (!orderType || !outletId) return;
+  const handleQR = async () => {
+  if (!orderType || !outletId) return;
 
-      await runWithLoading(async () => {
-        await checkoutClearStorage();
+  await runWithLoading(async () => {
+    await checkoutClearStorage();
 
-        await AsyncStorage.setItem("orderType", String(orderType));
+    await AsyncStorage.setItem("orderType", String(orderType));
 
-        try {
-          const token = await AsyncStorage.getItem("authToken");
-          const res = await axios.get(`${apiUrl}outlets/${outletId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const outlet = res.data?.result || res.data?.data || res.data;
-
-          if (!outlet?.id) {
-            return;
-          }
-
-          const outletObj = {
-            outletId: String(outlet.id),
-            outletTitle: outlet.title,
-            distanceFromUserLocation: outlet.distance_km ?? "0.00",
-            isOperate: outlet.operating_schedule
-              ? outlet.operating_schedule[new Date().toLocaleString("en-US", { weekday: "long" })]?.is_operated ?? true
-              : true,
-            operatingHours: outlet.operating_schedule ?? {},
-            lead_time: outlet.lead_time,
-            delivery_start: outlet.delivery_start,
-            delivery_end: outlet.delivery_end,
-            delivery_interval: outlet.delivery_interval,
-            delivery_available_days: outlet.delivery_available_days,
-          };
-
-          await AsyncStorage.setItem("outletDetails", JSON.stringify(outletObj));
-          setSelectedOutlet(outletObj);
-
-          setTimeout(() => {
-            fetchMenuData({ resetList: true });
-          }, 200);
-
-          if (orderType === "dinein" && outletObj.isOperate === false) {
-            setShowDateTimePicker(true);
-          }
-
-        } catch (_err) {
-        }
+    try {
+      const token = await AsyncStorage.getItem("authToken");
+      const res = await axios.get(`${apiUrl}outlets/${outletId}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-    };
+      const outlet = res.data?.result || res.data?.data || res.data;
+
+      if (!outlet?.id) {
+        return;
+      }
+
+      const outletObj = {
+        outletId: String(outlet.id),
+        outletTitle: outlet.title,
+        distanceFromUserLocation: outlet.distance_km ?? "0.00",
+        isOperate: outlet.operating_schedule
+          ? outlet.operating_schedule[new Date().toLocaleString("en-US", { weekday: "long" })]?.is_operated ?? true
+          : true,
+        operatingHours: outlet.operating_schedule ?? {},
+      };
+
+      await AsyncStorage.setItem("outletDetails", JSON.stringify(outletObj));
+      setSelectedOutlet(outletObj);
+
+      setTimeout(() => {
+        fetchMenuData({ resetList: true });
+      }, 200);
+
+      if (orderType === "dinein" && outletObj.isOperate === false) {
+        setShowDateTimePicker(true);
+      }
+
+    } catch (_err) {
+    }
+  });
+};
 
 
-    handleQR();
-  }, [orderType, outletId, fetchMenuData, runWithLoading]);
+  handleQR();
+}, [orderType, outletId, fetchMenuData, runWithLoading]);
+
+
+
+
+
+
+
+
+
+
 
   const categoryListPerfProps = useMemo(() => {
     if (isWeb) {
@@ -355,83 +357,35 @@ export default function MenuScreen() {
   }
 
   useEffect(() => {
-    const parseLocalDateTime = (dateStr, timeStr) => {
-      if (!dateStr || !timeStr) return null;
-
-      // Expecting: dateStr = "YYYY-MM-DD", timeStr = "HH:mm" or "HH:mm:ss"
-      const [y, m, d] = dateStr.split("-").map(Number);
-      const timeParts = timeStr.split(":").map(Number);
-
-      if (!y || !m || !d || timeParts.length < 2) return null;
-
-      const hh = timeParts[0];
-      const mm = timeParts[1];
-      const ss = timeParts[2] ?? 0;
-
-      // Create local time date (month is 0-based)
-      const dt = new Date(y, m - 1, d, hh, mm, ss);
-
-      // Guard invalid date
-      if (isNaN(dt.getTime())) return null;
-
-      return dt;
-    };
-
     const fetchOutletData = async () => {
       try {
         if (fromQR) return;
-        const orderType = await AsyncStorage.getItem('orderType');
-        const [outletDetailsStr, estimatedTimeStr, deliveryAddressDetails] = await Promise.all([
-          AsyncStorage.getItem("outletDetails"),
-          AsyncStorage.getItem("estimatedTime"),
-          AsyncStorage.getItem("deliveryAddressDetails"),
-        ]);
-
-        if (!outletDetailsStr) {
-          router.push("/screens/home/outlet_select");
-          return;
-        }
-
-        const parsedOutletDetails = JSON.parse(outletDetailsStr);
-        setSelectedOutlet(parsedOutletDetails);
-
-        const parsedEstimatedTime = estimatedTimeStr ? JSON.parse(estimatedTimeStr) : null;
-
-        // 1) Over-time check (only for scheduled, not ASAP)
+        const outletDetails = await AsyncStorage.getItem('outletDetails');
+        const estimatedTime = await AsyncStorage.getItem('estimatedTime');
         let is_over = false;
-        if (parsedEstimatedTime?.estimatedTime && parsedEstimatedTime.estimatedTime !== "ASAP") {
-          const estimatedAt = parseLocalDateTime(parsedEstimatedTime.date, parsedEstimatedTime.time);
-          if (estimatedAt) is_over = new Date() >= estimatedAt;
-        }
-
-        // 2) Lead time validation
-        let is_lead_time_valid = false;
-        if (
-          orderType === "delivery" &&
-          deliveryAddressDetails &&
-          parsedOutletDetails?.lead_time &&
-          parsedEstimatedTime?.estimatedTime !== "ASAP"
-        ) {
-          const selectedDate = parseLocalDateTime(parsedEstimatedTime?.date, parsedEstimatedTime?.time);
-          if (selectedDate) {
-            const leadMinutes = Number(parsedOutletDetails.lead_time) || 0;
-            const minTime = new Date(Date.now() + leadMinutes * 60000);
-            is_lead_time_valid = selectedDate >= minTime;
+        //check now over estimated time
+        if (estimatedTime) {
+          const parsedEstimatedTime = JSON.parse(estimatedTime);
+          const currentTime = new Date();
+          const estimatedTimeObj = new Date(`${parsedEstimatedTime.date} ${parsedEstimatedTime.time}`);
+          if (currentTime >= estimatedTimeObj && parsedEstimatedTime.estimatedTime !== "ASAP") {
+            is_over = true;
           }
         }
-        // 3) Show picker logic
-        const noEstimatedTime = !estimatedTimeStr;
-
-        const shouldShow =
-          (orderType === "delivery" && (noEstimatedTime || !is_lead_time_valid)) ||
-          (orderType !== "dinein" && orderType !== "delivery" && noEstimatedTime) ||
-          (is_over && orderType !== "dinein");
-        if (shouldShow) setShowDateTimePicker(true);
-      } catch (err) {
-        console.warn("fetchOutletData error:", err);
+        if (outletDetails) {
+          const parsedOutletDetails = JSON.parse(outletDetails);
+          setSelectedOutlet(parsedOutletDetails);
+          if ((activeOrderType !== "dinein" && !estimatedTime) || is_over) {
+            setShowDateTimePicker(true);
+          }
+        } else {
+          if (!outletDetails && !fromQR) {
+            router.push('/screens/home/outlet_select');
+          }
+        }
+      } catch (_err) {
       }
-    };
-
+    }
     fetchOutletData();
 
     const fetchEstimatedTime = async () => {
@@ -442,6 +396,9 @@ export default function MenuScreen() {
 
           setSelectedDateTime(parsedEstimatedTime.estimatedTime);
           // setEstimatedtime(parsedOutletDetails);
+        }
+        else {
+          setSelectedDateTime("ASAP");
         }
       } catch (_err) {
       }
@@ -464,7 +421,7 @@ export default function MenuScreen() {
     }
     fetchAddressData();
 
-  }, [router, activeOrderType, fromQR])
+  }, [router, activeOrderType, selectedDateTime, fromQR])
 
   useEffect(() => {
     const fetchOrderType = async () => {
@@ -654,20 +611,20 @@ export default function MenuScreen() {
   );
 
   const renderCategoryItem = useCallback(({ item }) => (
-    <CategoryItem
-      item={item}
-      isActive={item.isActive}
-      onPress={listReady ? handleCategoryPressCallback : undefined} // Disable taps if the list is not ready
-      disabled={!listReady}
-      style={[
-        styles.categoryItem,
-        item.isActive && styles.categoryItemActive, // Apply active style
-      ]}
-      iconStyle={{
-        tintColor: item.isActive ? '#FFFFFF' : '#C2000E', // White when active, red otherwise
-      }}
-    />
-  ), [listReady, handleCategoryPressCallback]);
+  <CategoryItem
+    item={item}
+    isActive={item.isActive}
+    onPress={listReady ? handleCategoryPressCallback : undefined} // Disable taps if the list is not ready
+    disabled={!listReady}
+    style={[
+      styles.categoryItem,
+      item.isActive && styles.categoryItemActive, // Apply active style
+    ]}
+    iconStyle={{
+      tintColor: item.isActive ? '#FFFFFF' : '#C2000E', // White when active, red otherwise
+    }}
+  />
+), [listReady, handleCategoryPressCallback]);
 
   const renderMenuItem = useCallback(({ item, index }) => {
     const isFirst = isFirstInCategory(menuItems, index, item.categoryIds?.[0]);
@@ -720,7 +677,7 @@ export default function MenuScreen() {
   useFocusEffect(
     useCallback(() => {
       const needsRestore = shouldRestoreScrollRef.current && scrollOffsetRef.current > 0;
-
+      
       if (isWeb) {
         fetchMenuData({ resetList: false });
       } else {
@@ -733,7 +690,7 @@ export default function MenuScreen() {
         // Mark that we're restoring (so fetchMenuData won't reset scroll)
         const savedOffset = scrollOffsetRef.current;
         shouldRestoreScrollRef.current = false; // Clear flag immediately to prevent multiple restorations
-
+        
         // Wait for list to be ready before restoring scroll
         const restoreScroll = () => {
           if (menuListRef.current && listReady && savedOffset > 0) {
@@ -795,10 +752,12 @@ export default function MenuScreen() {
       if (dayLabel.toLowerCase() === "today") {
         const [hours, minutes] = timeString.split(":").map(Number);
         selectedDate.setHours(hours, minutes, 0, 0);
-        // const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+        const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
-        finalDate = selectedDate.toISOString().split("T")[0];
-        finalTime = `${String(selectedDate.getHours()).padStart(2, "0")}:${String(selectedDate.getMinutes()).padStart(2, "0")}`;
+        if (selectedDate > oneHourFromNow) {
+          finalDate = selectedDate.toISOString().split("T")[0];
+          finalTime = `${String(selectedDate.getHours()).padStart(2, "0")}:${String(selectedDate.getMinutes()).padStart(2, "0")}`;
+        }
       } else {
         [finalDate, finalTime] = convertToDateTimeString(selectedDateTime);
       }
@@ -848,13 +807,7 @@ export default function MenuScreen() {
       });
     } catch (error) {
       if (error?.response?.status === 400) {
-        toast.show(error?.response?.data?.message, {
-          type: 'custom_toast',
-          data: { title: 'Error', status: 'danger' }
-        });
-        if (activeOrderType === "delivery" || activeOrderType === "pickup") {
-          setShowDateTimePicker(true);
-        }
+
         if (error?.response?.data?.message?.includes("Cart is empty")) {
           return 0;
         }
@@ -916,12 +869,12 @@ export default function MenuScreen() {
     // Check if user is logged in - required for checkout (order placement)
     const authToken = await AsyncStorage.getItem('authToken');
     const customerData = await AsyncStorage.getItem('customerData');
-
+    
     if (!authToken || !customerData) {
       setShowLoginModal(true);
       return;
     }
-
+    
     formatDateTime();
     router.push('/screens/orders/checkout');
   };
