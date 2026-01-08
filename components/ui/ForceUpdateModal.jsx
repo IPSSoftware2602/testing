@@ -9,7 +9,7 @@ export default function ForceUpdateModal({ isVisible }) {
     const handleUpdate = () => {
         if (Platform.OS === 'ios') {
             // Replace with your actual App Store URL
-            Linking.openURL('https://apps.apple.com/my/app/us-pizza-malaysia/id1601633783');
+            Linking.openURL('https://apps.apple.com/my/app/us-pizza-my/id6755192148');
         } else if (Platform.OS === 'android') {
             // Replace with your actual Play Store URL if different
             Linking.openURL('https://play.google.com/store/apps/details?id=com.ipskl168.uspizza');
