@@ -2,7 +2,7 @@
   "expo": {
     "name": "US Pizza",
     "slug": "uspizza",
-    "version": "1.0.0",
+    "version": "3.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/uspizza-newicon.png",
     "scheme": "uspizzanewapp",

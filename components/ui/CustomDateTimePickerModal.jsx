@@ -1,5 +1,6 @@
+import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Text, TouchableOpacity, View, ScrollView, Modal, Dimensions, StyleSheet } from 'react-native';
+import { Text, TouchableOpacity, View, ScrollView, Modal, Dimensions, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { apiUrl } from '../../app/constant/constants';
@@ -7,17 +8,17 @@ import { apiUrl } from '../../app/constant/constants';
 const { width, height } = Dimensions.get('window');
 
 export default function CustomDateTimePickerModal({ showDateTimePicker = false, setShowDateTimePicker, setSelectedDateTime = null, outletId }) {
-
+    const router = useRouter();
     // const [showDateTimePicker, setShowDateTimePicker] = useState(false);
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedTime, setSelectedTime] = useState(null);
     const [availableDates, setAvailableDates] = useState([]);
     const [availableTimes, setAvailableTimes] = useState([]);
-    const [isToday, setIsToday] = useState(false);
+    // const [isToday, setIsToday] = useState(false); // Deprecated
     const [outlet, setOutlet] = useState(null);
     const [authToken, setAuthToken] = useState("");
-    const [exceptionTimes, setExceptionTimes] = useState([]);
-    const [partialOpenDate, setPartialOpenDate] = useState(null);
+    // const [exceptionTimes, setExceptionTimes] = useState([]); // Deprecated
+    // const [partialOpenDate, setPartialOpenDate] = useState(null); // Deprecated
     const [estimatedTime, setEstimatedtime] = useState({});
     const [selectedTimeIndex, setSelectedTimeIndex] = useState(null);
 
@@ -28,9 +29,6 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                 const estimatedTime = await AsyncStorage.getItem('estimatedTime');
                 if (estimatedTime) {
                     const parsedEstimatedTime = JSON.parse(estimatedTime);
-                    // console.log(parsedEstimatedTime.estimatedTime);
-
-                    // setSelectedDateTime(parsedEstimatedTime.estimatedTime);
                     setEstimatedtime(parsedEstimatedTime);
                 }
             } catch (err) {
@@ -80,12 +78,19 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
         const formatted = date.toLocaleDateString('en-US', options);
 
         let combinedValue = "";
+
+        // Check if selectedDate is today
+        const now = new Date();
+        const isSelectedToday = date.getDate() === now.getDate() &&
+            date.getMonth() === now.getMonth() &&
+            date.getFullYear() === now.getFullYear();
+
         // console.log(formatted);
         if (selectedTime === "ASAP") {
             combinedValue = `${selectedTime}`;
         }
         else {
-            if (isToday) {
+            if (isSelectedToday) {
                 combinedValue = `Today ${selectedTime}`;
             } else {
                 combinedValue = `${formatted} ${selectedTime}`;
@@ -141,6 +146,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
         if (!selectedDateTime) return;
 
         const now = new Date();
+        // const selectedDate = new Date(selectedDateTime);
 
         // Format date: yyyy-mm-dd
         const yyyy = now.getFullYear();
@@ -157,34 +163,23 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
         if (selectedDateTime.split(" ").length > 1) {
             const [dayLabel, timeString] = selectedDateTime.split(" "); // e.g., "today", "14:00"
             const now = new Date();
-            let selectedDate = new Date();
+            // let selectedDate = new Date(selectedDateTime);
 
             if (dayLabel.toLowerCase() === "today") {
-                const [hours, minutes] = timeString.split(":").map(Number);
-                selectedDate.setHours(hours);
-                selectedDate.setMinutes(minutes);
-                selectedDate.setSeconds(0);
-                selectedDate.setMilliseconds(0);
 
-                const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
-
-                if (selectedDate > oneHourFromNow) {
-                    // Construct full date-time string: "YYYY-MM-DD HH:MM"
-                    const yyyy = selectedDate.getFullYear();
-                    const mm = String(selectedDate.getMonth() + 1).padStart(2, "0");
-                    const dd = String(selectedDate.getDate()).padStart(2, "0");
-                    const hh = String(selectedDate.getHours()).padStart(2, "0");
-                    const min = String(selectedDate.getMinutes()).padStart(2, "0");
-                    finalDate = `${yyyy}-${mm}-${dd}`;
-                    finalTime = `${hh}:${min}`;
-                }
+                const yyyy = selectedDate.getFullYear();
+                const mm = String(selectedDate.getMonth() + 1).padStart(2, "0");
+                const dd = String(selectedDate.getDate()).padStart(2, "0");
+                const hh = String(selectedDate.getHours()).padStart(2, "0");
+                const min = String(selectedDate.getMinutes()).padStart(2, "0");
+                finalDate = `${yyyy}-${mm}-${dd}`;
+                finalTime = timeString;
             } else {
                 // If not 'today', assume already a valid full time string
                 finalDate = convertToDateTimeString(selectedDateTime)[0];
                 finalTime = convertToDateTimeString(selectedDateTime)[1];
             }
         }
-
         setEstimaedTime({ estimatedTime: selectedDateTime, date: finalDate, time: finalTime });
         // router.push('/screens/orders/checkout');
 
@@ -198,50 +193,80 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
         // });
     };
 
-    //initial rendering (defualt show today)
+    // Helper to calculate available slots for a given date
+    const getAvailableSlots = (date, outletData) => {
+        if (!outletData || !date) return [];
+
+        // 1. Check Day of Week
+        const day = date.getDay(); // 0 = Sunday
+        const availableDays = (outletData.delivery_available_days || "")
+            .split(',')
+            .map(d => parseInt(d.trim()))
+            .filter(n => !isNaN(n));
+
+        if (!availableDays.includes(day)) return [];
+
+        // 2. Parse Settings
+        const { delivery_start, delivery_end, delivery_interval, lead_time } = outletData;
+        if (!delivery_start || !delivery_end || !delivery_interval) return [];
+
+        const interval = parseInt(delivery_interval);
+        const leadTimeMinutes = parseInt(lead_time || "0");
+
+        // 3. Calculate Min Eligible Time
+        const now = new Date();
+        const minTime = new Date(now.getTime() + leadTimeMinutes * 60000);
+
+        // 4. Generate Slots
+        const [startH, startM] = delivery_start.split(':').map(Number);
+        const [endH, endM] = delivery_end.split(':').map(Number);
+
+        const slots = [];
+        let current = new Date(date);
+        current.setHours(startH, startM, 0, 0);
+
+        const end = new Date(date);
+        end.setHours(endH, endM, 0, 0);
+
+        // Handle case if end time < start time (cross midnight) -> not handled based on usage, assuming same day
+
+        while (current <= end) {
+            if (current >= minTime) {
+                const h = String(current.getHours()).padStart(2, '0');
+                const m = String(current.getMinutes()).padStart(2, '0');
+                slots.push({ time: `${h}:${m}`, isOperate: true });
+            }
+            current.setMinutes(current.getMinutes() + interval);
+        }
+
+        return slots;
+    };
+
+    //initial rendering (default show today)
     useEffect(() => {
         if (outlet) {
             const dates = [];
-            const now = new Date();
-
-            // Check if current time is past today's operating hours
-            let shouldExcludeToday = false;
-
-            // Get today's day name
-            const todayName = now.toLocaleDateString('en-US', { weekday: 'long' });
-            const formattedTodayName = todayName.charAt(0).toUpperCase() + todayName.slice(1).toLowerCase();
-            const todaySchedule = outlet.operating_schedule?.[formattedTodayName];
-
-            if (todaySchedule?.is_operated) {
-                // Find the latest end time for today
-                const operatingPeriods = todaySchedule.operating_hours || [];
-                if (operatingPeriods.length > 0) {
-                    const latestEndTime = operatingPeriods.reduce((latest, period) => {
-                        const [endHour, endMinute] = period.end_time.split(':').map(Number);
-                        return endHour > latest.hour ||
-                            (endHour === latest.hour && endMinute > latest.minute) ?
-                            { hour: endHour, minute: endMinute } : latest;
-                    }, { hour: 0, minute: 0 });
-
-                    // Compare with current time
-                    const currentHour = now.getHours();
-                    const currentMinute = now.getMinutes();
-
-                    shouldExcludeToday = currentHour > latestEndTime.hour ||
-                        (currentHour === latestEndTime.hour &&
-                            currentMinute >= latestEndTime.minute);
-                }
-            }
-
-            for (let i = shouldExcludeToday ? 1 : 0; i < 3; i++) {
+            // Generate next 3 days
+            for (let i = 0; i < 3; i++) {
                 const date = new Date();
                 date.setDate(date.getDate() + i);
+
                 const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
                 const dateString = date.toISOString().split('T')[0];
-                dates.push({ date, dateString, isOperate: !isDayClosed(date), dayName, isPartialOpen: isPartialOpen(date) });
-                // console.log({ date, dateString, isOperate: !isDayClosed(date), dayName, isPartialOpen: isPartialOpen(date) });
+
+                // Calculate slots to determine if operate
+                const slots = getAvailableSlots(date, outlet);
+                const isOperate = slots.length > 0;
+
+                dates.push({
+                    date,
+                    dateString,
+                    isOperate,
+                    dayName,
+                    isPartialOpen: false, // Deprecated/Not used with new logic
+                    slots // Store slots for easier access
+                });
             }
-            // console.log(dates);
             setAvailableDates(dates);
         }
 
@@ -249,13 +274,11 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
 
     useEffect(() => {
         if (availableDates) {
-            // console.log(availableDates);
             const firstOperationalDate = availableDates.find(d => d.isOperate)?.date;
 
             if (estimatedTime.estimatedTime) {
                 const estimatedDate = new Date(estimatedTime?.date);
                 const matchingDate = availableDates.find(d => d.dateString === estimatedTime.date);
-                // console.log(matchingDate);
                 if (matchingDate?.isOperate === true) {
                     setSelectedDateTime(estimatedTime.estimatedTime);
                     generateTimesForDate(estimatedDate);
@@ -263,9 +286,11 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                 }
                 else {
                     // setSelectedDateTime(null);
-                    setSelectedDate(firstOperationalDate);
-                    generateTimesForDate(firstOperationalDate);
-                    getSelectedDateTime();
+                    if (firstOperationalDate) {
+                        setSelectedDate(firstOperationalDate);
+                        generateTimesForDate(firstOperationalDate);
+                        getSelectedDateTime();
+                    }
                 }
             }
             else {
@@ -280,246 +305,28 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
         }
     }, [availableDates]);
 
-    const isDayClosed = (date) => {
 
-        const checkDate = new Date(date);
-        const yyyyMmDd = checkDate.toISOString().split('T')[0];
-
-
-        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-        const formattedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1).toLowerCase();
-
-        // Check if outlet is normally closed this day
-        const operatingDay = outlet.operating_schedule?.[formattedDayName];
-        if (operatingDay?.is_operated === false) return true;
-
-        // Get ALL exceptions for this date
-        const exceptions = outlet.exceptions?.filter(ex => ex.date === yyyyMmDd) || [];
-        // if (exceptions.length === 0) return false;
-
-        // Get all normal operating periods
-        const normalPeriods = operatingDay?.operating_hours || [];
-        if (normalPeriods.length === 0) return true;
-
-        if (normalPeriods.length === 1 && normalPeriods[0].start_time === normalPeriods[0].end_time) return true;
-
-        if (normalPeriods.length > 1 && exceptions.length === 1) {
-            const firstPeriod = normalPeriods[0];
-            const lastPeriod = normalPeriods[normalPeriods.length - 1];
-
-            // Check if exception spans all periods (start of first to end of last)
-            if (exceptions[0].start_time === firstPeriod.start_time &&
-                exceptions[0].end_time === lastPeriod.end_time) {
-                return true; // Considered full-day closure
-            }
-        }
-
-        // Check if ALL normal periods are covered by exceptions
-        return normalPeriods.every(normalPeriod => {
-            return exceptions.some(exception =>
-                exception.start_time === normalPeriod.start_time &&
-                exception.end_time === normalPeriod.end_time
-            );
-        });
-    };
-
-    const isPartialOpen = (date) => {
-
-        const checkDate = new Date(date);
-        const yyyyMmDd = checkDate.toISOString().split('T')[0];
-        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-        const formattedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1).toLowerCase();
-
-        const operatingDay = outlet.operating_schedule?.[formattedDayName];
-
-        const exceptions = outlet.exceptions?.filter(ex => ex.date === yyyyMmDd) || [];
-        if (exceptions.length === 0) return false;
-
-        // console.log(exceptions);
-
-        const normalPeriods = operatingDay.operating_hours || [];
-        if (normalPeriods.length === 0) return true;
-
-        // console.log(normalPeriods);
-
-        const allCovered = normalPeriods.every(normalPeriod =>
-            exceptions.some(ex =>
-                ex.start_time === normalPeriod.start_time &&
-                ex.end_time === normalPeriod.end_time
-            )
-        );
-
-        const isPartiallyClosed = normalPeriods.some(normalPeriod => {
-            const [nsH, nsM] = normalPeriod.start_time.split(':').map(Number);
-            const [neH, neM] = normalPeriod.end_time.split(':').map(Number);
-            const normalStart = nsH * 60 + nsM;
-            const normalEnd = neH * 60 + neM;
-
-            return exceptions.some(ex => {
-                const [esH, esM] = ex.start_time.split(':').map(Number);
-                const [eeH, eeM] = ex.end_time.split(':').map(Number);
-                const exStart = esH * 60 + esM;
-                const exEnd = eeH * 60 + eeM;
-
-                return exStart > normalStart && exEnd < normalEnd;
-            });
-        });
-
-        return isPartiallyClosed && !allCovered;
-    }
-
-    const generateTimeForExceptions = (exception) => {
-
-        const date = new Date(exception.date);
-        const times = [];
-        const now = new Date();
-        const [startHour, startMinute] = exception.start_time.split(':').map(Number);
-        const [endHour, endMinute] = exception.end_time.split(':').map(Number);
-
-        const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        setIsToday(isToday);
-
-        let start = new Date(date);
-        start.setHours(startHour, startMinute, 0, 0);
-
-        const end = new Date(date);
-        end.setHours(endHour, endMinute, 0, 0);
-
-        while (start < end) {
-            const hour = start.getHours().toString().padStart(2, '0');
-            const minutes = start.getMinutes().toString().padStart(2, '0');
-            times.push(`${hour}:${minutes}`);
-
-            start.setMinutes(start.getMinutes() + 30);
-        }
-
-        // const finalTimes = isToday ? ['ASAP', ...times] : times;
-        // setExceptionTimes(times);
-        return times;
-    }
 
     const generateTimesForDate = (date) => {
-        const dateStringToFind = new Date(date).toISOString().split('T')[0];
-        const dayObj = availableDates.find(d => d.dateString === dateStringToFind);
+        if (!outlet || !date) return;
 
-        if (outlet) {
-            if (dayObj && dayObj.isOperate && !dayObj.isPartialOpen) { //normal day
-                const dayName = dayObj.dayName;
-                const formattedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1).toLowerCase();
-                const operatingDay = outlet.operating_schedule?.[formattedDayName];
-                const normalPeriods = operatingDay.operating_hours || [];
-                // console.log(formattedDayName);
-                // console.log(outlet);
-                // console.log(operatingDay);
-                let finalTimes = [];
-                for (const [index, period] of normalPeriods.entries()) {
-                    const times = [];
-                    const now = new Date();
-                    // const startHour = period.start_time;
-                    // const endHour = period.end_time;
-
-                    const [startHour, startMinute] = period.start_time.split(':').map(Number);
-                    const [endHour, endMinute] = period.end_time.split(':').map(Number);
-
-                    const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-                    setIsToday(isToday);
-
-                    let start = new Date(date);
-                    start.setHours(startHour, startMinute, 0, 0);
-
-                    const end = new Date(date);
-                    end.setHours(endHour, endMinute, 0, 0);
-
-                    if (isToday) {
-                        // Add 1-hour buffer
-                        now.setHours(now.getHours() + 1);
-
-                        // Round to next 30-min slot
-                        const roundedMinutes = now.getMinutes() <= 30 ? 30 : 0;
-                        const roundedHour = roundedMinutes === 0 ? now.getHours() + 1 : now.getHours();
-
-                        start.setHours(roundedHour, roundedMinutes, 0, 0);
-
-                        // Ensure it's not earlier than 10:00 AM
-                        const startOperation = new Date(date);
-                        startOperation.setHours(startHour, startMinute, 0, 0);
-                        if (start < startOperation) start = startOperation;
-                        // console.log(startOperation);
-                    }
-
-                    while (start < end) {
-                        const hour = start.getHours().toString().padStart(2, '0');
-                        const minutes = start.getMinutes().toString().padStart(2, '0');
-                        // times.push(`${hour}:${minutes}`);
-                        times.push({ time: `${hour}:${minutes}`, isOperate: true });
-                        start.setMinutes(start.getMinutes() + 30);
-                    }
-
-                    // finalTimes = index === 0 && isToday ? ['ASAP', ...finalTimes, ...times] : [...finalTimes, ...times];
-                    // if (index === 0 && isToday) {
-                    //     finalTimes.push('ASAP', ...times);
-                    // } else {
-                    //     finalTimes.push(...times);
-                    // }
-                    
-                    const currentTime = new Date();
-                    const [firstStartHour, firstStartMinute] = normalPeriods[0].start_time.split(':').map(Number);
-                    const firstStart = new Date(date);
-                    firstStart.setHours(firstStartHour, firstStartMinute, 0, 0);
-                    const isWithinAnyOperatingPeriod = normalPeriods.some(period => {
-                        const [startHour, startMinute] = period.start_time.split(':').map(Number);
-                        const [endHour, endMinute] = period.end_time.split(':').map(Number);
-                        
-                        const periodStart = new Date(date);
-                        periodStart.setHours(startHour, startMinute, 0, 0);
-                        
-                        const periodEnd = new Date(date);
-                        periodEnd.setHours(endHour, endMinute, 0, 0);
-                        
-                        return currentTime >= periodStart && currentTime <= periodEnd;
-                    });
-
-                    // Use this instead of isAfterFirstStart
-                    finalTimes = index === 0 && isToday && isWithinAnyOperatingPeriod
-                        ? [{ time: 'ASAP', isOperate: true }, ...finalTimes, ...times]
-                        : [...finalTimes, ...times];
-                }
-                // console.log(finalTimes);
-                // finalTimes = isToday ? ['ASAP', ...finalTimes] : finalTimes;
-
-                setAvailableTimes(finalTimes);
-
-                // if (estimatedTime.time) {
-                //     const estTimeObj = finalTimes.find(time => time.time === estimatedTime.time);
-                //     // setSelectedDateTime(estTimeObj.time);
-                //     setSelectedTime(estTimeObj.time);
-                // }
-                // else {
-                //     setSelectedTime(finalTimes[0].time);
-                // }
-
-                setSelectedTime(finalTimes[0]?.time ? finalTimes[0]?.time : null);
-            }
-            else if (dayObj && dayObj.isOperate && dayObj.isPartialOpen) { //partial open
-
-                const exceptionObjArray = outlet.exceptions?.filter(ex => ex.date === dayObj.dateString) || [];
-                for (const exception of exceptionObjArray) {
-                    setExceptionTimes((prev) => [...prev, ...generateTimeForExceptions(exception)]);
-                    setPartialOpenDate(dayObj);
-                    // console.log("Run exception");
-                }
-
-            }
+        // Use the pre-calculated logic or re-calculate
+        const slots = getAvailableSlots(date, outlet);
+        // Handle no slots
+        if (slots.length === 0) {
+            setAvailableTimes([]);
+            setSelectedTime(null);
+            return;
         }
+
+        setAvailableTimes(slots);
+        // Default select first available
+        setSelectedTime(slots[0].time);
     };
 
     useEffect(() => {
         if (estimatedTime.time) {
-            // console.log(estimatedTime.time);
-            // console.log(availableTimes);
             const estTimeObj = availableTimes.find(time => time.time === estimatedTime.time);
-            // setSelectedDateTime(estTimeObj.time);
-            // console.log(estTimeObj);
             if (estTimeObj) {
                 const estIndex = availableTimes.findIndex(t => t.time === estimatedTime.time);
                 if (estIndex !== -1) {
@@ -537,90 +344,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
     }, [availableTimes])
 
 
-    useEffect(() => {
-        if (exceptionTimes && partialOpenDate) {
-            // console.log("Run exception");
-            const date = partialOpenDate.date;
-            const dayName = partialOpenDate.dayName;
-            let finalTimes = [];
-            const formattedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1).toLowerCase();
-            const operatingDay = outlet.operating_schedule?.[formattedDayName];
-            const normalPeriods = operatingDay.operating_hours || [];
 
-            // console.log(normalPeriods);
-            let isCurrentTimeException = false;
-
-            for (const [index, period] of normalPeriods.entries()) {
-                const times = [];
-                const now = new Date();
-
-                const [startHour, startMinute] = period.start_time.split(':').map(Number);
-                const [endHour, endMinute] = period.end_time.split(':').map(Number);
-
-                const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-                setIsToday(isToday);
-
-                let start = new Date(date);
-                start.setHours(startHour, startMinute, 0, 0);
-
-                const end = new Date(date);
-                end.setHours(endHour, endMinute, 0, 0);
-
-                if (isToday) {
-                    // Add 1-hour buffer
-                    now.setHours(now.getHours() + 1);
-
-                    // Round to next 30-min slot
-                    const roundedMinutes = now.getMinutes() <= 30 ? 30 : 0;
-                    const roundedHour = roundedMinutes === 0 ? now.getHours() + 1 : now.getHours();
-
-                    start.setHours(roundedHour, roundedMinutes, 0, 0);
-
-                    const [exStartHour] = exceptionTimes[0].split(':').map(Number);
-                    const [exEndHour] = exceptionTimes[exceptionTimes.length - 1].split(':').map(Number);
-
-                    isCurrentTimeException = Number(roundedHour) >= Number(exStartHour) && (Number(roundedHour) <= Number(exEndHour));
-
-                    // Ensure it's not earlier than 10:00 AM
-                    const startOperation = new Date(date);
-                    startOperation.setHours(startHour, startMinute, 0, 0);
-                    if (start < startOperation) start = startOperation;
-                    // console.log(startOperation);
-                }
-
-                while (start < end) {
-                    const hour = start.getHours().toString().padStart(2, '0');
-                    const minutes = start.getMinutes().toString().padStart(2, '0');
-                    const timeStr = `${hour}:${minutes}`;
-                    // times.push(timeStr);
-                    times.push({
-                        time: timeStr,
-                        isOperate: !exceptionTimes.includes(timeStr) // False if in exceptions
-                    });
-                    start.setMinutes(start.getMinutes() + 30);
-                }
-
-                finalTimes = index === 0 && isToday && !isCurrentTimeException ? [{ time: 'ASAP', isOperate: true }, ...finalTimes, ...times] : [...finalTimes, ...times];
-            }
-
-            setAvailableTimes(finalTimes);
-
-            // const firstOperationalDate = finalTimes.find(d => d.isOperate)?.date;
-
-            // if (estimatedTime.estimatedTime) {
-            //     setSelectedDateTime(estimatedTime.estimatedTime);
-            // }
-            // else {
-            //     // Find first operational date if available
-            //     const firstOperationalDate = availableDates.find(d => d.isOperate)?.date;
-            //     if (firstOperationalDate) {
-            //         setSelectedDate(firstOperationalDate);
-            //     }
-            // }
-
-            setSelectedTime(finalTimes[0]?.time ? finalTimes[0]?.time : null);
-        }
-    }, [exceptionTimes, partialOpenDate])
 
     const renderEmptyTime = () => (
         <View style={styles.emptyContainer}>
@@ -644,15 +368,14 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                     <Text style={styles.sectionTitle}>Date</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} onWheel={(e) => {
                         if (e.deltaY !== 0) {
-                        e.preventDefault(); // prevent page scroll
-                        e.currentTarget.scrollLeft += e.deltaY; // make vertical scroll move horizontally
+                            e.preventDefault(); // prevent page scroll
+                            e.currentTarget.scrollLeft += e.deltaY; // make vertical scroll move horizontally
                         }
                     }}>
                         {availableDates.map((dateObj, index) => {
 
                             const actualDate = dateObj.date;
                             const isOperating = dateObj.isOperate;
-                            // console.log(actualDate);
                             const dayName = actualDate.toLocaleDateString('en-US', { weekday: 'short' });
                             const dayNumber = actualDate.getDate();
                             const month = actualDate.toLocaleDateString('en-US', { month: 'short' });
@@ -719,17 +442,52 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                             <Text style={styles.cancelButtonText}>Cancel</Text>
                         </TouchableOpacity> */}
                         <TouchableOpacity
-                            style={styles.confirmButton}
+                            style={[
+                                styles.confirmButton,
+                                (!selectedDate || !selectedTime) && styles.disabledOption
+                            ]}
+                            disabled={!selectedDate || !selectedTime}
                             onPress={() => {
                                 // Handle the selected date and time
+                                if (selectedTime !== 'ASAP') {
+                                    const now = new Date();
+                                    const [hours, minutes] = selectedTime.split(':').map(Number);
+                                    const checkDate = new Date(selectedDate);
+                                    checkDate.setHours(hours, minutes, 0, 0);
+
+                                    // Add a small buffer (e.g., 1 minute) to allow for minor time differences
+                                    // or just strict check. User said "not over current time".
+                                    // if (checkDate < now) {
+                                    // Strict check might be annoying if user takes a minute to decide.
+                                    // Let's rely on strict check for now as requested.
+                                    if (checkDate < now) {
+                                        Alert.alert("Invalid Time", "The selected time has already passed. Please select a valid time.");
+                                        // Refresh times?
+                                        generateTimesForDate(selectedDate);
+                                        return;
+                                    }
+                                }
+
                                 getSelectedDateTime();
-                                // console.log(`Selected: ${selectedDate.toDateString()} at ${selectedTime}`);
                                 setShowDateTimePicker(false);
                             }}
                         >
                             <Text style={styles.confirmButtonText}>Confirm</Text>
                         </TouchableOpacity>
                     </View>
+                    {(!selectedDate || !selectedTime) && (
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={() => {
+                                    router.replace('/(tabs)')
+                                    setShowDateTimePicker(false);
+                                }}
+                            >
+                                <Text style={styles.cancelButtonText}>Back to home</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
             </View>
         </Modal>

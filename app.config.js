@@ -2,7 +2,7 @@ export default {
   expo: {
     name: "US Pizza",
     slug: "uspizza",
-    version: "1.1.1",
+    version: "3.3.0",
     orientation: "portrait",
     icon: "./assets/images/uspizza-newicon.png",
     scheme: "uspizzanewapp",
@@ -11,7 +11,7 @@ export default {
 
     ios: {
       supportsTablet: false,
-      buildNumber: "8.0.0",
+      buildNumber: "9.0.0",
       config: {
         googleMapsApiKey: "AIzaSyD7M4NLYkYK4ovYJeMNY3tqeuB_Xvrj030"
       },
@@ -29,7 +29,7 @@ export default {
     },
 
     android: {
-      versionCode: 12,
+      versionCode: 13,
       adaptiveIcon: {
         foregroundImage: "./assets/images/uspizza-newicon.png",
         backgroundColor: "#ffffff"
