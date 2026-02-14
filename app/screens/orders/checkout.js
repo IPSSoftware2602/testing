@@ -1172,7 +1172,22 @@ export default function CheckoutScreen({ navigation }) {
               type: 'custom_toast',
               data: { title: '', status: 'warning' }
             });
-            router.push({ pathname: '(tabs)/menu' });
+            if (selectedOutlet?.outletId) {
+              if (isQrOrder) {
+                router.push({
+                  pathname: 'screens/menu',
+                  params: {
+                    outletId: selectedOutlet.outletId,
+                    orderType: orderType || 'delivery',
+                    fromQR: '1',
+                  }
+                });
+              } else {
+                router.push({ pathname: '(tabs)/menu' });
+              }
+            } else {
+              router.push({ pathname: '(tabs)/menu' });
+            }
 
           }
 

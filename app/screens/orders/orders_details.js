@@ -1049,7 +1049,7 @@ export default function OrderDetails({ navigation }) {
               });
             } else if (outletId) {
               router.push({
-                pathname: 'screens/menu',
+                pathname: '(tabs)/menu',
                 params: { outletId, orderType: qrOrderType || 'delivery' }
               });
             } else {

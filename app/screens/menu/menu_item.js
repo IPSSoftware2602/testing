@@ -1003,20 +1003,17 @@ export default function MenuItemScreen() {
         });
 
         setTimeout(() => {
-          if (outletId && orderType) {
-            router.push({
-              pathname: 'screens/menu',
-              params: { outletId, orderType: resolvedOrderType, fromQR: isQrOrder ? '1' : '0' }
-            });
-          } else {
+          if (isQrOrder) {
             router.push({
               pathname: 'screens/menu',
               params: {
-                outletId: parsedOutletDetails.outletId,
+                outletId: outletId || parsedOutletDetails.outletId,
                 orderType: resolvedOrderType,
-                fromQR: isQrOrder ? '1' : '0'
+                fromQR: '1'
               }
             });
+          } else {
+            router.push({ pathname: '(tabs)/menu' });
           }
         }, 1000);
       }

@@ -24,6 +24,7 @@ const orderTypes = [
   { key: 'pickup', label: 'Pick Up' },
   { key: 'delivery', label: 'Delivery' },
 ];
+const VALID_ORDER_TYPES = new Set(orderTypes.map((item) => item.key));
 
 const getOrderTypeLabel = (key) => {
   const orderType = orderTypes.find(type => type.key === key);
@@ -90,6 +91,19 @@ export default function MenuScreen() {
   const [qrActiveOrderCount, setQrActiveOrderCount] = useState(0);
 
   const toast = useToast();
+  const getResolvedOrderType = useCallback(async () => {
+    if (orderType && VALID_ORDER_TYPES.has(String(orderType))) {
+      return String(orderType);
+    }
+    if (activeOrderType && VALID_ORDER_TYPES.has(String(activeOrderType))) {
+      return String(activeOrderType);
+    }
+    const storedOrderType = await AsyncStorage.getItem('orderType');
+    if (storedOrderType && VALID_ORDER_TYPES.has(String(storedOrderType))) {
+      return String(storedOrderType);
+    }
+    return 'delivery';
+  }, [orderType, activeOrderType]);
 
   useEffect(() => {
     const checkShowDateTimePicker = async () => {
@@ -251,15 +265,15 @@ export default function MenuScreen() {
 
   useEffect(() => {
     const handleQR = async () => {
-      if (!orderType || !outletId) return;
+      if (!fromQR || !orderType || !outletId) return;
 
       await runWithLoading(async () => {
         // await checkoutClearStorage();
-        if (!fromQR) {
-          await checkoutClearStorage();
-        }
+        // QR entry resets order-flow storage and rehydrates outlet from QR params.
+        await checkoutClearStorage();
 
         await AsyncStorage.setItem("orderType", String(orderType));
+        setActiveOrderType(String(orderType));
 
         try {
           const token = await AsyncStorage.getItem("authToken");
@@ -464,7 +478,11 @@ export default function MenuScreen() {
     const fetchOutletData = async () => {
       try {
         if (fromQR) return;
-        const orderType = await AsyncStorage.getItem('orderType');
+        const storedOrderType = await AsyncStorage.getItem('orderType');
+        const resolvedOrderType = (storedOrderType && VALID_ORDER_TYPES.has(storedOrderType))
+          ? storedOrderType
+          : 'delivery';
+        setActiveOrderType(resolvedOrderType);
         const [outletDetailsStr, estimatedTimeStr, deliveryAddressDetails] = await Promise.all([
           AsyncStorage.getItem("outletDetails"),
           AsyncStorage.getItem("estimatedTime"),
@@ -492,7 +510,7 @@ export default function MenuScreen() {
         //    is known AND the selected time is too early.
         let is_lead_time_valid = true;
         if (
-          orderType === "delivery" &&
+          resolvedOrderType === "delivery" &&
           deliveryAddressDetails &&
           parsedEstimatedTime?.estimatedTime &&
           parsedEstimatedTime.estimatedTime !== "ASAP"
@@ -524,9 +542,9 @@ export default function MenuScreen() {
         const noEstimatedTime = !estimatedTimeStr;
 
         const shouldShow =
-          (orderType === "delivery" && (noEstimatedTime || !is_lead_time_valid)) ||
-          (orderType !== "dinein" && orderType !== "delivery" && noEstimatedTime) ||
-          (is_over && orderType !== "dinein");
+          (resolvedOrderType === "delivery" && (noEstimatedTime || !is_lead_time_valid)) ||
+          (resolvedOrderType !== "dinein" && resolvedOrderType !== "delivery" && noEstimatedTime) ||
+          (is_over && resolvedOrderType !== "dinein");
         if (shouldShow) setShowDateTimePicker(true);
       } catch (err) {
         console.warn("fetchOutletData error:", err);
@@ -572,14 +590,13 @@ export default function MenuScreen() {
   useEffect(() => {
     const fetchOrderType = async () => {
       try {
-        const orderType = await AsyncStorage.getItem('orderType');
-        setActiveOrderType(orderType);
+        const resolvedOrderType = await getResolvedOrderType();
+        setActiveOrderType(resolvedOrderType);
       } catch (_err) {
       }
-    }
+    };
     fetchOrderType();
-
-  }, [router, activeOrderType])
+  }, [getResolvedOrderType]);
 
   useEffect(() => {
     categoryLockRef.current = categoryLock;
@@ -931,13 +948,14 @@ export default function MenuScreen() {
       }
 
       return await runWithLoading(async () => {
+        const resolvedOrderType = await getResolvedOrderType();
         const estimatedTimeObj = formatDateTime();
         const response = await axios.get(`${apiUrl}cart/get`, {
           params: {
             customer_id: customer.id,
             outlet_id: selectedOutlet.outletId,
             address: selectedDeliveryAddress ? selectedDeliveryAddress.address : "",
-            order_type: activeOrderType,
+            order_type: resolvedOrderType,
             latitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.latitude) : "",
             longitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.longitude) : "",
             selected_date: estimatedTimeObj && estimatedTimeObj.estimatedTime === "ASAP" ? null : estimatedTimeObj?.date,
@@ -959,7 +977,8 @@ export default function MenuScreen() {
           type: 'custom_toast',
           data: { title: 'Error', status: 'danger' }
         });
-        if (activeOrderType === "delivery" || activeOrderType === "pickup") {
+        const resolvedOrderType = await getResolvedOrderType();
+        if (resolvedOrderType === "delivery" || resolvedOrderType === "pickup") {
           setShowDateTimePicker(true);
         }
         if (error?.response?.data?.message?.includes("Cart is empty")) {
@@ -974,7 +993,7 @@ export default function MenuScreen() {
 
     }
     return 0;
-  }, [selectedOutlet, selectedDeliveryAddress, activeOrderType, router, formatDateTime, runWithLoading]);
+  }, [selectedOutlet, selectedDeliveryAddress, router, formatDateTime, runWithLoading, getResolvedOrderType]);
 
   useEffect(() => {
     const loadCartTotal = async () => {
