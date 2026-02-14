@@ -225,6 +225,9 @@ const OrderItem = React.memo(({ item, toast, onItemDeleted, customerId, setShowD
         cart_item_id: item.cart_item_id,
         is_free_item: item.is_free_item,
         amount: item.is_free_item ? item.max_quantity : null,
+        outletId: item.outletId,
+        orderType: item.orderType,
+        fromQR: item.fromQR ? '1' : '0',
       },
     });
   };
@@ -966,6 +969,8 @@ export default function CheckoutScreen({ navigation }) {
       const outletDetails = await AsyncStorage.getItem('outletDetails');
       // if (outletDetails) {
       const token = await AsyncStorage.getItem('authToken');
+      const storedOrderType = await AsyncStorage.getItem('orderType');
+      const resolvedOrderType = orderType || storedOrderType || 'delivery';
       const parsedOutletDetails = outletDetails ? JSON.parse(outletDetails) : null;
       // }
       if (!customerData || !customerData.id || !parsedOutletDetails) {
@@ -983,6 +988,7 @@ export default function CheckoutScreen({ navigation }) {
         // option: optionPayload,
         quantity: 1,
         is_pwp: true,
+        order_type: resolvedOrderType,
         unique_qr_code: isQrOrder ? (uniqueQrData?.unique_code || deliveryAddress?.unique_code || null) : null,
       };
       // console.log('freeee', payload);
@@ -1367,6 +1373,8 @@ export default function CheckoutScreen({ navigation }) {
       const outletDetails = await AsyncStorage.getItem('outletDetails');
       // if (outletDetails) {
       const token = await AsyncStorage.getItem('authToken');
+      const storedOrderType = await AsyncStorage.getItem('orderType');
+      const resolvedOrderType = orderType || storedOrderType || 'delivery';
       const parsedOutletDetails = outletDetails ? JSON.parse(outletDetails) : null;
       // }
       if (!customerData || !customerData.id || !parsedOutletDetails) {
@@ -1385,6 +1393,7 @@ export default function CheckoutScreen({ navigation }) {
         // option: optionPayload,
         quantity: 1,
         is_free_item: 1,
+        order_type: resolvedOrderType,
         unique_qr_code: isQrOrder ? (uniqueQrData?.unique_code || deliveryAddress?.unique_code || null) : null,
       };
       // console.log('freeee', payload);
@@ -1584,6 +1593,8 @@ export default function CheckoutScreen({ navigation }) {
                   name: item.title,
                   quantity: item.quantity,
                   outletId: selectedOutlet.outletId,
+                  orderType: orderType,
+                  fromQR: isQrOrder,
                   price: parseFloat(item.unit_price),
                   is_free_item: item.is_free_item,
                   max_quantity: item.is_free_item ? Number(freeItemMaxQty) : null,

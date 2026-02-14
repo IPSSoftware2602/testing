@@ -957,6 +957,8 @@ export default function MenuItemScreen() {
       return;
     }
     const parsedOutletDetails = JSON.parse(outletDetails);
+    const storedOrderType = await AsyncStorage.getItem('orderType');
+    const resolvedOrderType = orderType || storedOrderType || 'delivery';
     const uniqueQrDataRaw = await AsyncStorage.getItem('uniqueQrData');
     const uniqueQrData = uniqueQrDataRaw ? JSON.parse(uniqueQrDataRaw) : null;
     const deliveryAddressRaw = await AsyncStorage.getItem('deliveryAddressDetails');
@@ -980,6 +982,7 @@ export default function MenuItemScreen() {
       quantity: safeQty,
       ...(isFree ? { is_free_item: 1 } : {}),
       note: note,
+      order_type: resolvedOrderType,
       unique_qr_code: isQrOrder ? (uniqueQrData?.unique_code || deliveryAddress?.unique_code || null) : null,
     };
     // console.log('freeee', payload);
@@ -1003,10 +1006,17 @@ export default function MenuItemScreen() {
           if (outletId && orderType) {
             router.push({
               pathname: 'screens/menu',
-              params: { outletId, orderType, fromQR: isQrOrder ? '1' : '0' }
+              params: { outletId, orderType: resolvedOrderType, fromQR: isQrOrder ? '1' : '0' }
             });
           } else {
-            router.push('/menu');
+            router.push({
+              pathname: 'screens/menu',
+              params: {
+                outletId: parsedOutletDetails.outletId,
+                orderType: resolvedOrderType,
+                fromQR: isQrOrder ? '1' : '0'
+              }
+            });
           }
         }, 1000);
       }
