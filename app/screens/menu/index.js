@@ -1,4 +1,4 @@
-import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Modal } from 'react-native';
@@ -10,7 +10,7 @@ import { apiUrl, imageUrl } from '../../constant/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
-import { FontAwesome6 } from '@expo/vector-icons';
+import { FontAwesome, FontAwesome6 } from '@expo/vector-icons';
 import CustomDateTimePickerModal from '../../../components/ui/CustomDateTimePickerModal';
 // Removed useAuthGuard import - menu viewing now allowed without login (App Store requirement)
 import MenuItem from '../../../components/menu/MenuItem';
@@ -81,10 +81,13 @@ export default function MenuScreen() {
   //modal for confirm order type change
   const [confirmOrderTypeModalVisible, setConfirmOrderTypeModalVisible] = useState(false);
   const [pendingOrderType, setPendingOrderType] = useState(null);
-  const { orderType, outletId } = useLocalSearchParams();
-  const fromQR = !!orderType && !!outletId;
+  const { orderType, outletId, fromQR: fromQRParam } = useLocalSearchParams();
+  const fromQR = String(fromQRParam) === '1';
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loadingCount, setLoadingCount] = useState(0);
+  const navigation = useNavigation();
+  const [uniqueQrData, setUniqueQrData] = useState(null);
+  const [qrActiveOrderCount, setQrActiveOrderCount] = useState(0);
 
   const toast = useToast();
 
@@ -151,58 +154,89 @@ export default function MenuScreen() {
           const token = await AsyncStorage.getItem('authToken');
           const customerJson = await AsyncStorage.getItem('customerData');
           const customerData = customerJson ? JSON.parse(customerJson) : null;
-          const customerTier = customerData ? customerData.customer_tier_id : 0;
+          const customerTier = fromQR ? 0 : (customerData ? customerData.customer_tier_id : 0);
           const headers = token ? { Authorization: `Bearer ${token}` } : {};
           const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}/${customerTier}`, { headers });
 
-          const fetchedCategories = (response.data.Categories || []).map(cat => ({
-            key: String(cat.id),
-            label: cat.title,
-            icon: cat.image_url
-              ? { uri: imageUrl + "menu_categories/" + String(cat.image_url) }
-              : require('../../../assets/icons/burger.png'),
-          }));
-          setCategories(fetchedCategories);
+          const uniqueQrDataStr = await AsyncStorage.getItem('uniqueQrData');
+          let allowedMenuItemIds = null;
+          if (fromQR && uniqueQrDataStr) {
+            try {
+              const uniqueQrData = JSON.parse(uniqueQrDataStr);
+              // Check if menu_item_ids exists and is an array with length > 0
+              // User said: "If no items selected ... show ALL items (default behavior)" -> confirmed "Yes correct".
+              // So we only filter if we have specific IDs.
+              if (uniqueQrData.menu_item_ids && Array.isArray(uniqueQrData.menu_item_ids) && uniqueQrData.menu_item_ids.length > 0) {
+                allowedMenuItemIds = uniqueQrData.menu_item_ids.map(String);
+              }
+            } catch (e) { }
+          }
 
-          const fetchedItems = (response.data.Items || []).map(item => {
-            const rawImageUrl = item.images && item.images.length > 0 ? item.images[0].image_url : null;
-            const imageUrlFull = rawImageUrl
-              ? (String(rawImageUrl).startsWith('http')
-                ? String(rawImageUrl)
-                : imageUrl + 'menu_images/' + String(rawImageUrl))
-              : null;
+          const fetchedItems = (response.data.Items || [])
+            .filter(item => {
+              if (allowedMenuItemIds) {
+                return allowedMenuItemIds.includes(String(item.id));
+              }
+              return true;
+            })
+            .map(item => {
+              const rawImageUrl = item.images && item.images.length > 0 ? item.images[0].image_url : null;
+              const imageUrlFull = rawImageUrl
+                ? (String(rawImageUrl).startsWith('http')
+                  ? String(rawImageUrl)
+                  : imageUrl + 'menu_images/' + String(rawImageUrl))
+                : null;
 
-            const mappedTags = (item.tags || []).map(tag => ({
-              id: tag.id,
-              title: tag.title,
-              icon: tag.icon_url
-                ? { uri: String(tag.icon_url).startsWith('http') ? String(tag.icon_url) : imageUrl + 'tags/' + String(tag.icon_url) }
-                : require('../../../assets/icons/burger.png'),
-            }));
+              const mappedTags = (item.tags || []).map(tag => ({
+                id: tag.id,
+                title: tag.title,
+                icon: tag.icon_url
+                  ? { uri: String(tag.icon_url).startsWith('http') ? String(tag.icon_url) : imageUrl + 'tags/' + String(tag.icon_url) }
+                  : require('../../../assets/icons/burger.png'),
+              }));
 
-            return {
-              id: item.id,
-              name: item.title,
-              description: item.short_description,
-              price: item.price,
-              discount_price: item.discount_price,
-              image: imageUrlFull,
-              categoryIds: (item.category_ids || []).map(id => String(id)),
-              tags: mappedTags,
-              is_available: item.is_available,
-              membership_tier: item.membership_tier,
-            };
-          });
+              return {
+                id: item.id,
+                name: item.title,
+                description: item.short_description,
+                price: item.price,
+                discount_price: fromQR ? 0 : item.discount_price,
+                image: imageUrlFull,
+                categoryIds: (item.category_ids || []).map(id => String(id)),
+                tags: mappedTags,
+                is_available: item.is_available,
+                membership_tier: item.membership_tier,
+              };
+            });
           setMenuItems(fetchedItems);
           setListReady(fetchedItems.length > 0);
 
-          if (fetchedCategories.length > 0) {
+          // Update Categories to only show those having items
+          const activeCategoryIds = new Set();
+          fetchedItems.forEach(item => {
+            if (item.categoryIds) {
+              item.categoryIds.forEach(cid => activeCategoryIds.add(String(cid)));
+            }
+          });
+
+          const filteredCategories = (response.data.Categories || [])
+            .filter(cat => activeCategoryIds.has(String(cat.id)))
+            .map(cat => ({
+              key: String(cat.id),
+              label: cat.title,
+              icon: cat.image_url
+                ? { uri: imageUrl + "menu_categories/" + String(cat.image_url) }
+                : require('../../../assets/icons/burger.png'),
+            }));
+          setCategories(filteredCategories);
+
+          if (filteredCategories.length > 0) {
             setActiveCategory(prev => {
               const prevKey = prev != null ? String(prev) : '';
-              if (prevKey && fetchedCategories.some(cat => cat.key === prevKey)) {
+              if (prevKey && filteredCategories.some(cat => cat.key === prevKey)) {
                 return prevKey;
               }
-              return fetchedCategories[0].key;
+              return filteredCategories[0].key;
             });
           } else {
             setActiveCategory('');
@@ -212,7 +246,7 @@ export default function MenuScreen() {
         }
       });
     },
-    [selectedOutlet?.outletId, runWithLoading]
+    [selectedOutlet?.outletId, runWithLoading, fromQR]
   );
 
   useEffect(() => {
@@ -220,7 +254,10 @@ export default function MenuScreen() {
       if (!orderType || !outletId) return;
 
       await runWithLoading(async () => {
-        await checkoutClearStorage();
+        // await checkoutClearStorage();
+        if (!fromQR) {
+          await checkoutClearStorage();
+        }
 
         await AsyncStorage.setItem("orderType", String(orderType));
 
@@ -248,6 +285,7 @@ export default function MenuScreen() {
             delivery_end: outlet.delivery_end,
             delivery_interval: outlet.delivery_interval,
             delivery_available_days: outlet.delivery_available_days,
+            delivery_settings: outlet.delivery_settings || [],
           };
 
           await AsyncStorage.setItem("outletDetails", JSON.stringify(outletObj));
@@ -264,11 +302,57 @@ export default function MenuScreen() {
         } catch (_err) {
         }
       });
+
+      // Auto-show date picker for QR orders (only if no valid time selected yet)
+      if (fromQR) {
+        setTimeout(async () => {
+          try {
+            const estimatedTimeStr = await AsyncStorage.getItem('estimatedTime');
+            if (estimatedTimeStr) {
+              const parsedEstimatedTime = JSON.parse(estimatedTimeStr);
+              // If ASAP or has a valid future time, don't show picker
+              if (parsedEstimatedTime?.estimatedTime === 'ASAP') return;
+              if (parsedEstimatedTime?.date && parsedEstimatedTime?.time) {
+                const [y, m, d] = parsedEstimatedTime.date.split('-').map(Number);
+                const timeParts = parsedEstimatedTime.time.split(':').map(Number);
+                const selectedDate = new Date(y, m - 1, d, timeParts[0], timeParts[1], timeParts[2] || 0);
+                // If selectedDate is still in the future, no need to show picker
+                if (selectedDate > new Date()) return;
+              }
+            }
+            // No valid time selected — show picker
+            setShowDateTimePicker(true);
+          } catch (_err) {
+            setShowDateTimePicker(true);
+          }
+        }, 500);
+      }
     };
 
+    const fetchUniqueQrData = async () => {
+      try {
+        const data = await AsyncStorage.getItem('uniqueQrData');
+        if (data) {
+          setUniqueQrData(JSON.parse(data));
+        }
+      } catch (e) {
+        console.error('Error fetching unique QR data', e);
+      }
+    };
+
+    if (fromQR) {
+      fetchUniqueQrData();
+      navigation.getParent()?.setOptions({
+        tabBarStyle: { display: "none" },
+      });
+    } else {
+      navigation.getParent()?.setOptions({
+        tabBarStyle: { display: "flex" },
+      });
+    }
 
     handleQR();
-  }, [orderType, outletId, fetchMenuData, runWithLoading]);
+  }, [orderType, outletId, fetchMenuData, runWithLoading, fromQR, navigation]);
 
   const categoryListPerfProps = useMemo(() => {
     if (isWeb) {
@@ -404,19 +488,36 @@ export default function MenuScreen() {
           if (estimatedAt) is_over = new Date() >= estimatedAt;
         }
 
-        // 2) Lead time validation
-        let is_lead_time_valid = false;
+        // 2) Lead time validation — default to valid; only invalidate if lead_time
+        //    is known AND the selected time is too early.
+        let is_lead_time_valid = true;
         if (
           orderType === "delivery" &&
           deliveryAddressDetails &&
-          parsedOutletDetails?.lead_time &&
-          parsedEstimatedTime?.estimatedTime !== "ASAP"
+          parsedEstimatedTime?.estimatedTime &&
+          parsedEstimatedTime.estimatedTime !== "ASAP"
         ) {
           const selectedDate = parseLocalDateTime(parsedEstimatedTime?.date, parsedEstimatedTime?.time);
           if (selectedDate) {
-            const leadMinutes = Number(parsedOutletDetails.lead_time) || 0;
-            const minTime = new Date(Date.now() + leadMinutes * 60000);
-            is_lead_time_valid = selectedDate >= minTime;
+            // Use minimum lead_time from delivery_settings if available, else flat field
+            let leadMinutes = 0;
+            if (parsedOutletDetails.delivery_settings && Array.isArray(parsedOutletDetails.delivery_settings) && parsedOutletDetails.delivery_settings.length > 0) {
+              const selectedDay = selectedDate.getDay();
+              const matchingSettings = parsedOutletDetails.delivery_settings.filter(s => {
+                const days = (s.delivery_available_days || '').split(',').map(d => parseInt(d.trim())).filter(n => !isNaN(n));
+                return days.includes(selectedDay);
+              });
+              if (matchingSettings.length > 0) {
+                leadMinutes = Math.min(...matchingSettings.map(s => Number(s.lead_time) || 0));
+              }
+            } else if (parsedOutletDetails.lead_time) {
+              leadMinutes = Number(parsedOutletDetails.lead_time) || 0;
+            }
+
+            if (leadMinutes > 0) {
+              const minTime = new Date(Date.now() + leadMinutes * 60000);
+              is_lead_time_valid = selectedDate >= minTime;
+            }
           }
         }
         // 3) Show picker logic
@@ -456,7 +557,9 @@ export default function MenuScreen() {
           // console.log(outletDetails.outletId); 
           setSelectedDeliveryAddress(parsedAddressDetails);
         }
-        else if (!deliveryAddressDetails && activeOrderType === "delivery") {
+        else if (!deliveryAddressDetails && activeOrderType === "delivery" && !fromQR) {
+          // Double check if it's really not a QR order from text param
+          // But 'fromQR' is derived from useLocalSearchParams orderType & outletId existence
           router.push('/screens/home/address_select');
         }
       } catch (_err) {
@@ -555,15 +658,18 @@ export default function MenuScreen() {
   }, []);
 
   // Memoized callback functions to prevent recreation on every render
-  const handleMenuItemPress = useCallback((itemId) => {
-    // Mark that we should restore scroll position when returning
-    shouldRestoreScrollRef.current = true;
+  const handleItemPress = useCallback((itemId) => {
     router.push({
       pathname: '/screens/menu/menu_item',
-      params: { id: itemId },
-      source: 'add'
+      params: {
+        id: itemId,
+        source: 'menu',
+        outletId: selectedOutlet?.outletId, // Pass context
+        orderType: activeOrderType, // Pass context
+        fromQR: fromQR ? '1' : '0',
+      },
     });
-  }, [router]);
+  }, [router, selectedOutlet, activeOrderType, fromQR]);
 
   const APPROX_ITEM_HEIGHT = 152; // your normal row height (without extra header)
   const LOCK_RELEASE_MS = 1200;
@@ -678,10 +784,11 @@ export default function MenuScreen() {
         isFirstInCategory={isFirst}
         categories={categories}
         customer={customer}
-        onPress={handleMenuItemPress}
+        onPress={handleItemPress}
+        isQrOrder={fromQR}
       />
     );
-  }, [menuItems, categories, customer, handleMenuItemPress, isFirstInCategory]);
+  }, [menuItems, categories, customer, handleItemPress, isFirstInCategory, fromQR]);
 
   useEffect(() => {
     // Release the lock after a short delay to allow animations to complete
@@ -931,6 +1038,67 @@ export default function MenuScreen() {
     router.push('/screens/auth/login');
   };
 
+  const handleOpenQrOrders = useCallback(() => {
+    if (!fromQR) return;
+    router.push({
+      pathname: '/screens/orders/qr_orders',
+      params: {
+        outletId: selectedOutlet?.outletId || outletId,
+        orderType: activeOrderType || orderType || 'delivery',
+        fromQR: '1',
+      },
+    });
+  }, [fromQR, router, selectedOutlet?.outletId, outletId, activeOrderType, orderType]);
+
+  const fetchQrActiveOrderCount = useCallback(async () => {
+    if (!fromQR) {
+      setQrActiveOrderCount(0);
+      return;
+    }
+
+    try {
+      const [token, customerJson, uniqueQrDataStr] = await Promise.all([
+        AsyncStorage.getItem('authToken'),
+        AsyncStorage.getItem('customerData'),
+        AsyncStorage.getItem('uniqueQrData'),
+      ]);
+
+      const customerData = customerJson ? JSON.parse(customerJson) : null;
+      const qrData = uniqueQrDataStr ? JSON.parse(uniqueQrDataStr) : null;
+      const uniqueQrCode = qrData?.unique_code || '';
+
+      if (!token || !customerData?.id || !uniqueQrCode) {
+        setQrActiveOrderCount(0);
+        return;
+      }
+
+      const startDate = customerData?.created_at ? customerData.created_at.split(' ')[0] : '2020-01-01';
+      const today = new Date().toISOString().split('T')[0];
+
+      const response = await axios.get(
+        `${apiUrl}customer-order-list/${customerData.id}?start_date=${startDate}&end_date=${today}&status=pending&unique_qr_code=${encodeURIComponent(uniqueQrCode)}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const activeOrders = response?.data?.data || [];
+      setQrActiveOrderCount(activeOrders.length);
+    } catch (_err) {
+      setQrActiveOrderCount(0);
+    }
+  }, [fromQR]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchQrActiveOrderCount();
+      return undefined;
+    }, [fetchQrActiveOrderCount])
+  );
+  console.log(totalPrice);
 
   return (
     <ResponsiveBackground>
@@ -944,29 +1112,50 @@ export default function MenuScreen() {
         edges={['top', 'left', 'right']}
       >
         {/* Top Bar */}
-        <TopNavigation title="MENU" isBackButton={false} />
+        <TopNavigation
+          title="MENU"
+          isBackButton={false}
+          rightElement={
+            fromQR ? (
+              <TouchableOpacity onPress={handleOpenQrOrders} accessibilityLabel="Open QR Orders">
+                <View style={styles.qrOrderIconWrapper}>
+                  <FontAwesome name="list-alt" size={22} color="#C2000E" />
+                  {qrActiveOrderCount > 0 ? (
+                    <View style={styles.qrOrderBadge}>
+                      <Text style={styles.qrOrderBadgeText}>
+                        {qrActiveOrderCount > 99 ? '99+' : String(qrActiveOrderCount)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            ) : null
+          }
+        />
 
         {/* Order Type Tabs */}
-        <View style={styles.orderTypeTabs}>
-          {orderTypes.map(type =>
-            type.key === activeOrderType ? (
-              <PolygonButton
-                key={type.key}
-                text={type.label}
-                width={90}
-                height={25}
-                color="#C2000E"
-                textColor="#fff"
-                textStyle={{ fontWeight: 'bold', fontSize: 16 }}
-                style={{ marginHorizontal: 6 }}
-              />
-            ) : (
-              <TouchableOpacity key={type.key} onPress={() => requestOrderTypeChange(type.key)}>
-                <Text style={styles.orderTypeInactive}>{type.label}</Text>
-              </TouchableOpacity>
-            )
-          )}
-        </View>
+        {!fromQR && (
+          <View style={styles.orderTypeTabs}>
+            {orderTypes.map(type =>
+              type.key === activeOrderType ? (
+                <PolygonButton
+                  key={type.key}
+                  text={type.label}
+                  width={90}
+                  height={25}
+                  color="#C2000E"
+                  textColor="#fff"
+                  textStyle={{ fontWeight: 'bold', fontSize: 16 }}
+                  style={{ marginHorizontal: 6 }}
+                />
+              ) : (
+                <TouchableOpacity key={type.key} onPress={() => requestOrderTypeChange(type.key)}>
+                  <Text style={styles.orderTypeInactive}>{type.label}</Text>
+                </TouchableOpacity>
+              )
+            )}
+          </View>
+        )}
         <Modal
           transparent
           visible={confirmOrderTypeModalVisible}
@@ -1022,8 +1211,10 @@ export default function MenuScreen() {
           <TouchableOpacity
             style={[
               styles.prominentOutletSelector,
+              fromQR && activeOrderType === "delivery" && styles.prominentOutletSelectorDisabled,
               activeOrderType === "dinein" && { width: '100%' }
             ]}
+            disabled={fromQR && activeOrderType === "delivery"}
             onPress={() => {
               try {
                 if (activeOrderType === "delivery") {
@@ -1042,11 +1233,13 @@ export default function MenuScreen() {
             {activeOrderType === "delivery" ?
               selectedOutlet && selectedDeliveryAddress ? (<Text style={styles.prominentOutletText}>{(selectedDeliveryAddress.address?.length > 10 ? selectedDeliveryAddress.address.slice(0, 10) + '...' : selectedDeliveryAddress.address) ?? "Icon City"} | {selectedOutlet.distanceFromUserLocation ?? "0.00"}km</Text>) : null :
               selectedOutlet ? (<Text style={styles.prominentOutletText}>{(selectedOutlet.outletTitle?.length > 10 && activeOrderType === "pickup" ? selectedOutlet.outletTitle.slice(0, 10) + '...' : selectedOutlet.outletTitle) ?? "US Pizza Malaysia"} | {selectedOutlet.distanceFromUserLocation ?? "0.00"}km</Text>) : null}
-            <FontAwesome6 name="chevron-right" size={14} color="#C2000E" />
+            {!(fromQR && activeOrderType === "delivery") && (
+              <FontAwesome6 name="chevron-right" size={14} color="#C2000E" />
+            )}
           </TouchableOpacity>
         </View>
 
-        <View style={[{ flex: 1, flexDirection: 'row', width: Math.min(width, 440), paddingBottom: totalPrice === 0 ? 80 : 0, alignSelf: 'center' }]}>
+        <View style={[{ flex: 1, flexDirection: 'row', width: Math.min(width, 440), paddingBottom: totalPrice === 0 && !fromQR ? 80 : 0, alignSelf: 'center' }]}>
           {/* Category Sidebar */}
           <FlatList
             key={isWeb ? `category-list-${categories.length || 0}` : undefined}
@@ -1117,7 +1310,7 @@ export default function MenuScreen() {
         </View>
         {/* Bottom Bar */}
         {totalPrice > 0 && (
-          <View style={[styles.bottomBar, commonStyles.containerStyle]}>
+          <View style={[styles.bottomBar, commonStyles.containerStyle, fromQR && { marginBottom: 10, paddingBottom: 0, borderBottomWidth: 0 }]}>
             <PolygonButton
               text="Total"
               width={120}
@@ -1140,6 +1333,30 @@ export default function MenuScreen() {
               textStyle={{ fontSize: 14 }}
               onPress={handleCheckout}
             />
+          </View>
+        )}
+
+        {/* Custom Footer for Unique QR */}
+        {fromQR && uniqueQrData && (
+          <View style={[styles.bottomBar, commonStyles.containerStyle, { justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 20 }]}>
+            <Image
+              source={require('../../../assets/images/uspizza-icon.png')}
+              style={{ width: 60, height: 60, resizeMode: 'contain' }}
+            />
+            <View style={styles.qrFooterInfo}>
+              <Text style={styles.qrFooterName} numberOfLines={1}>
+                {uniqueQrData.name || 'QR Order'}
+              </Text>
+              <Text style={styles.qrFooterAddress} numberOfLines={2}>
+                {selectedDeliveryAddress?.address || 'QR Delivery Address'}
+              </Text>
+            </View>
+            {uniqueQrData.logo ? (
+              <Image
+                source={{ uri: uniqueQrData.logo.startsWith('http') ? uniqueQrData.logo : imageUrl + 'unique_qr/' + uniqueQrData.logo }}
+                style={{ width: 60, height: 60, resizeMode: 'contain' }}
+              />
+            ) : null}
           </View>
         )}
 
@@ -1168,7 +1385,7 @@ export default function MenuScreen() {
       </SafeAreaView>
       {/* </View>
     </View> */}
-    </ResponsiveBackground>
+    </ResponsiveBackground >
   );
 }
 
@@ -1226,6 +1443,33 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: 'Route159-HeavyItalic',
     letterSpacing: 1,
+  },
+  qrOrderIconWrapper: {
+    position: 'relative',
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrOrderBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: '#C2000E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  qrOrderBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontFamily: 'Route159-Bold',
+    lineHeight: 11,
   },
   orderTypeTabs: {
     flexDirection: 'row',
@@ -1470,6 +1714,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  prominentOutletSelectorDisabled: {
+    opacity: 0.8,
+  },
   outletBadge: {
     backgroundColor: '#C2000E',
     width: 24,
@@ -1485,6 +1732,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#333',
     fontFamily: 'Route159-SemiBold',
+  },
+  qrFooterInfo: {
+    flex: 1,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  qrFooterName: {
+    color: '#C2000E',
+    fontSize: 14,
+    fontFamily: 'Route159-Bold',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  qrFooterAddress: {
+    color: '#333',
+    fontSize: 11,
+    fontFamily: 'RobotoSlab-Regular',
+    textAlign: 'center',
   },
   modalBackdrop: {
     flex: 1,

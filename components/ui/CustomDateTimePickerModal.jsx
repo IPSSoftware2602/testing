@@ -197,49 +197,71 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
     const getAvailableSlots = (date, outletData) => {
         if (!outletData || !date) return [];
 
-        // 1. Check Day of Week
         const day = date.getDay(); // 0 = Sunday
-        const availableDays = (outletData.delivery_available_days || "")
-            .split(',')
-            .map(d => parseInt(d.trim()))
-            .filter(n => !isNaN(n));
-
-        if (!availableDays.includes(day)) return [];
-
-        // 2. Parse Settings
-        const { delivery_start, delivery_end, delivery_interval, lead_time } = outletData;
-        if (!delivery_start || !delivery_end || !delivery_interval) return [];
-
-        const interval = parseInt(delivery_interval);
-        const leadTimeMinutes = parseInt(lead_time || "0");
-
-        // 3. Calculate Min Eligible Time
         const now = new Date();
-        const minTime = new Date(now.getTime() + leadTimeMinutes * 60000);
 
-        // 4. Generate Slots
-        const [startH, startM] = delivery_start.split(':').map(Number);
-        const [endH, endM] = delivery_end.split(':').map(Number);
-
-        const slots = [];
-        let current = new Date(date);
-        current.setHours(startH, startM, 0, 0);
-
-        const end = new Date(date);
-        end.setHours(endH, endM, 0, 0);
-
-        // Handle case if end time < start time (cross midnight) -> not handled based on usage, assuming same day
-
-        while (current <= end) {
-            if (current >= minTime) {
-                const h = String(current.getHours()).padStart(2, '0');
-                const m = String(current.getMinutes()).padStart(2, '0');
-                slots.push({ time: `${h}:${m}`, isOperate: true });
-            }
-            current.setMinutes(current.getMinutes() + interval);
+        // Build list of delivery setting objects to iterate
+        let settingsList = [];
+        if (outletData.delivery_settings && Array.isArray(outletData.delivery_settings) && outletData.delivery_settings.length > 0) {
+            settingsList = outletData.delivery_settings;
+        } else if (outletData.delivery_available_days && outletData.delivery_start) {
+            // Backward compat: wrap flat fields as single-element array
+            settingsList = [{
+                delivery_available_days: outletData.delivery_available_days,
+                delivery_start: outletData.delivery_start,
+                delivery_end: outletData.delivery_end,
+                delivery_interval: outletData.delivery_interval,
+                lead_time: outletData.lead_time,
+                max_order_per_slot: outletData.max_order_per_slot,
+            }];
         }
 
-        return slots;
+        if (settingsList.length === 0) return [];
+
+        const allSlotTimes = new Set();
+        const allSlots = [];
+
+        for (const setting of settingsList) {
+            const availableDays = (setting.delivery_available_days || "")
+                .split(',')
+                .map(d => parseInt(d.trim()))
+                .filter(n => !isNaN(n));
+
+            if (!availableDays.includes(day)) continue;
+
+            const { delivery_start, delivery_end, delivery_interval, lead_time } = setting;
+            if (!delivery_start || !delivery_end || !delivery_interval) continue;
+
+            const interval = parseInt(delivery_interval);
+            const leadTimeMinutes = parseInt(lead_time || "0");
+            const minTime = new Date(now.getTime() + leadTimeMinutes * 60000);
+
+            const [startH, startM] = delivery_start.split(':').map(Number);
+            const [endH, endM] = delivery_end.split(':').map(Number);
+
+            let current = new Date(date);
+            current.setHours(startH, startM, 0, 0);
+
+            const end = new Date(date);
+            end.setHours(endH, endM, 0, 0);
+
+            while (current <= end) {
+                if (current >= minTime) {
+                    const h = String(current.getHours()).padStart(2, '0');
+                    const m = String(current.getMinutes()).padStart(2, '0');
+                    const timeStr = `${h}:${m}`;
+                    if (!allSlotTimes.has(timeStr)) {
+                        allSlotTimes.add(timeStr);
+                        allSlots.push({ time: timeStr, isOperate: true });
+                    }
+                }
+                current.setMinutes(current.getMinutes() + interval);
+            }
+        }
+
+        // Sort chronologically
+        allSlots.sort((a, b) => a.time.localeCompare(b.time));
+        return allSlots;
     };
 
     //initial rendering (default show today)
@@ -321,7 +343,15 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
 
         setAvailableTimes(slots);
         // Default select first available
-        setSelectedTime(slots[0].time);
+        //loop all the slot and get the earliest time
+        let earliestTime = slots[0].time;
+        for (let i = 1; i < slots.length; i++) {
+            if (slots[i].time < earliestTime) {
+                earliestTime = slots[i].time;
+            }
+        }
+        console.log("earliestTime", earliestTime)
+        setSelectedTime(earliestTime);
     };
 
     useEffect(() => {
@@ -330,10 +360,12 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
             if (estTimeObj) {
                 const estIndex = availableTimes.findIndex(t => t.time === estimatedTime.time);
                 if (estIndex !== -1) {
+                    console.log("estimatedTime.time", estimatedTime.time)
                     setSelectedTime(estimatedTime.time);
                     setSelectedTimeIndex(estIndex);
                 }
             } else {
+
                 setSelectedTime(availableTimes[0]?.time ?? null);
                 setSelectedTimeIndex(0);
             }

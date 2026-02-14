@@ -129,7 +129,7 @@ const formatOrderTimeSlot = (orderType, timeEstimate) => {
   }
 }
 
-const AddressCard = ({ orderType, address, timeEstimate, setShowDateTimePicker }) => {
+const AddressCard = ({ orderType, address, timeEstimate, setShowDateTimePicker, isQrOrder }) => {
   return (
     <View style={styles.addressCard}>
       <View style={styles.addressCardHeader}>
@@ -141,7 +141,7 @@ const AddressCard = ({ orderType, address, timeEstimate, setShowDateTimePicker }
           {address ? address : "No.10, Pusat Teknologi Sinar Meranti, 3, Jalan IMP 1"}
         </Text>
       </View>
-      {orderType === 'dinein' ?
+      {orderType === 'dinein' || isQrOrder ?
         <View style={styles.addressCardFooter}>
           <View style={{ flexDirection: "row" }}>
             <Text style={styles.changeAddressText}>{formatOrderTimeSlot(orderType, timeEstimate)}</Text>
@@ -400,6 +400,11 @@ export default function CheckoutScreen({ navigation }) {
   const [queuedSelectedVoucherJSON, setQueuedSelectedVoucherJSON] = useState(null);
   const [loadingCount, setLoadingCount] = useState(0);
   const [isCheckoutProcessing, setIsCheckoutProcessing] = useState(false);
+  const [isQrOrder, setIsQrOrder] = useState(false);
+  const [qrRecipientName, setQrRecipientName] = useState('');
+  const [qrRecipientPhone, setQrRecipientPhone] = useState('');
+  const [uniqueQrData, setUniqueQrData] = useState(null);
+  const [qrRecipientDraftLoaded, setQrRecipientDraftLoaded] = useState(false);
 
   const showLoading = useCallback(() => {
     setLoadingCount((prev) => prev + 1);
@@ -478,6 +483,9 @@ export default function CheckoutScreen({ navigation }) {
           const parsedDeliveryAddress = JSON.parse(deliveryAddress);
           // console.log(parsedDeliveryAddress);
           setDeliveryAddress(parsedDeliveryAddress);
+          if (parsedDeliveryAddress.isQrAddress) {
+            setIsQrOrder(true);
+          }
         }
       } catch (err) {
         console.log(err.response.data.message);
@@ -510,6 +518,17 @@ export default function CheckoutScreen({ navigation }) {
         console.log(err.response.data.message);
       }
     }
+    const fetchUniqueQrData = async () => {
+      try {
+        const data = await AsyncStorage.getItem('uniqueQrData');
+        if (data) {
+          setUniqueQrData(JSON.parse(data));
+        }
+      } catch (err) {
+        console.log(err);
+      }
+    }
+    fetchUniqueQrData();
     fetchCustomerData();
     fetchOutletData();
     fetchDeliveryAddressData();
@@ -517,7 +536,6 @@ export default function CheckoutScreen({ navigation }) {
     fetchEstimatedTime();
     fetchPaymentMethod();
   }, [router, selectedDateTime])
-
 
   useEffect(() => {
     AsyncStorage.getItem('customerData').then((customerStr) => {
@@ -531,6 +549,69 @@ export default function CheckoutScreen({ navigation }) {
       }
     });
   }, []);
+
+  useEffect(() => {
+    const loadQrRecipientDraft = async () => {
+      if (!isQrOrder) {
+        setQrRecipientDraftLoaded(false);
+        return;
+      }
+
+      const qrCode = uniqueQrData?.unique_code || deliveryAddress?.unique_code;
+      if (!qrCode) {
+        setQrRecipientDraftLoaded(true);
+        return;
+      }
+
+      try {
+        const rawDraft = await AsyncStorage.getItem(`qrRecipientDraft:${qrCode}`);
+        if (rawDraft) {
+          const draft = JSON.parse(rawDraft);
+          setQrRecipientName(draft?.name || '');
+          setQrRecipientPhone(draft?.phone || '');
+        }
+      } catch (err) {
+        console.log('Failed to load QR recipient draft', err);
+      } finally {
+        setQrRecipientDraftLoaded(true);
+      }
+    };
+
+    loadQrRecipientDraft();
+  }, [isQrOrder, uniqueQrData?.unique_code, deliveryAddress?.unique_code]);
+
+  useEffect(() => {
+    if (!isQrOrder || !qrRecipientDraftLoaded) return;
+
+    // Fallback to profile only when no draft/user input exists.
+    if (!qrRecipientName && !qrRecipientPhone && customerData && (customerData.name || customerData.phone)) {
+      setQrRecipientName(customerData.name || '');
+      setQrRecipientPhone(customerData.phone || '');
+    }
+  }, [isQrOrder, qrRecipientDraftLoaded, customerData, qrRecipientName, qrRecipientPhone]);
+
+  useEffect(() => {
+    const saveQrRecipientDraft = async () => {
+      if (!isQrOrder || !qrRecipientDraftLoaded) return;
+
+      const qrCode = uniqueQrData?.unique_code || deliveryAddress?.unique_code;
+      if (!qrCode) return;
+
+      try {
+        await AsyncStorage.setItem(
+          `qrRecipientDraft:${qrCode}`,
+          JSON.stringify({
+            name: qrRecipientName || '',
+            phone: qrRecipientPhone || '',
+          })
+        );
+      } catch (err) {
+        console.log('Failed to save QR recipient draft', err);
+      }
+    };
+
+    saveQrRecipientDraft();
+  }, [isQrOrder, qrRecipientDraftLoaded, qrRecipientName, qrRecipientPhone, uniqueQrData?.unique_code, deliveryAddress?.unique_code]);
 
   const preCheckVoucherType = async (voucherId, voucherCode) => {
     if (!customerId || !cartData?.id || !cartData?.outlet_id || !orderType) {
@@ -902,6 +983,7 @@ export default function CheckoutScreen({ navigation }) {
         // option: optionPayload,
         quantity: 1,
         is_pwp: true,
+        unique_qr_code: isQrOrder ? (uniqueQrData?.unique_code || deliveryAddress?.unique_code || null) : null,
       };
       // console.log('freeee', payload);
 
@@ -940,7 +1022,7 @@ export default function CheckoutScreen({ navigation }) {
     });
   };
 
-  const checkoutClearStorage = async () => {
+  const checkoutClearStorage = async ({ preserveDeliveryAddress = false } = {}) => {
     const keysToRemove = [
       'estimatedTime',
       'deliveryAddressDetails',
@@ -950,14 +1032,18 @@ export default function CheckoutScreen({ navigation }) {
       'freeItemMaxQuantity'
     ];
 
+    const finalKeysToRemove = preserveDeliveryAddress
+      ? keysToRemove.filter((key) => key !== 'deliveryAddressDetails')
+      : keysToRemove;
+
     try {
       // const currentStorage = await AsyncStorage.multiGet(keysToRemove);
       // console.log('Current storage before clear:', currentStorage);
       // Perform the removal
-      await AsyncStorage.multiRemove(keysToRemove);
+      await AsyncStorage.multiRemove(finalKeysToRemove);
 
       // Verify removal was successful
-      const clearedStorage = await AsyncStorage.multiGet(keysToRemove);
+      const clearedStorage = await AsyncStorage.multiGet(finalKeysToRemove);
       const wereCleared = clearedStorage.every(([_, value]) => value === null);
 
       if (!wereCleared) {
@@ -990,7 +1076,10 @@ export default function CheckoutScreen({ navigation }) {
         customer_id: Number(cartData?.customer_id),
         // customer_id: Number(165),
         outlet_id: selectedOutlet.outletId,
-        customer_address_id: deliveryAddress.addressId,
+        customer_address_id: isQrOrder ? 0 : deliveryAddress.addressId,
+        unique_qr_code: isQrOrder ? (uniqueQrData?.unique_code || deliveryAddress?.unique_code || null) : null,
+        recipient_name: isQrOrder ? qrRecipientName : null,
+        recipient_phone: isQrOrder ? qrRecipientPhone : null,
         order_type: orderType,
         // order_type: 'delivery',
         payment_method: paymentMethod,
@@ -1017,8 +1106,11 @@ export default function CheckoutScreen({ navigation }) {
         // checkoutClearStorage();
 
         await AsyncStorage.setItem('orderId', res.data?.order?.id);
+        const newOrderId = res.data?.order?.id;
         // console.log(res.data?.order?.id);
-        const clearanceSuccess = await checkoutClearStorage();
+        const clearanceSuccess = await checkoutClearStorage({
+          preserveDeliveryAddress: isQrOrder
+        });
 
         if (!clearanceSuccess) {
           toast.show('Order placed but cache cleanup failed', {
@@ -1040,7 +1132,12 @@ export default function CheckoutScreen({ navigation }) {
           }
 
         } else {
-          router.push('/orders');
+          // No hosted payment redirect — go straight to Order Details
+          let url = `/screens/orders/orders_details?orderId=${newOrderId}`;
+          if (isQrOrder && selectedOutlet?.outletId) {
+            url += `&outletId=${selectedOutlet.outletId}&orderType=${orderType || 'delivery'}`;
+          }
+          router.replace(url);
         }
 
       } else {
@@ -1288,6 +1385,7 @@ export default function CheckoutScreen({ navigation }) {
         // option: optionPayload,
         quantity: 1,
         is_free_item: 1,
+        unique_qr_code: isQrOrder ? (uniqueQrData?.unique_code || deliveryAddress?.unique_code || null) : null,
       };
       // console.log('freeee', payload);
 
@@ -1418,17 +1516,62 @@ export default function CheckoutScreen({ navigation }) {
   const handlePaymentModalClose = async () => {
     setShowPaymentScreen(false);
     const orderId = await AsyncStorage.getItem('orderId');
-    router.replace(`/screens/orders/orders_details?orderId=${orderId}`);
+    let url = `/screens/orders/orders_details?orderId=${orderId}`;
+    if (isQrOrder && selectedOutlet?.outletId) {
+      url += `&outletId=${selectedOutlet.outletId}&orderType=${orderType || 'delivery'}`;
+    }
+    router.replace(url);
+  }
+
+  const handleBack = () => {
+    if (isQrOrder && selectedOutlet?.outletId) {
+      router.push({
+        pathname: 'screens/menu',
+        params: {
+          outletId: selectedOutlet.outletId,
+          orderType: orderType || 'delivery',
+          fromQR: '1',
+        }
+      });
+    } else {
+      router.back();
+    }
   }
 
   return (
     <ResponsiveBackground>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
         {renderFreeItemsModal()}
-        <TopNavigation title="MY ORDER" isBackButton={true} navigatePage={() => { if (vip === '1') { router.push('(tabs)/profile') } else { router.push('(tabs)/menu') } }} />
-
+        <TopNavigation title="MY ORDER" isBackButton={true} navigatePage={handleBack} />
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-          <AddressCard orderType={orderType} address={orderType === "delivery" ? deliveryAddress.address : selectedOutlet.outletTitle} timeEstimate={formatEstimatedTime(selectedDateTime)} setShowDateTimePicker={setShowDateTimePicker} />
+          <AddressCard orderType={orderType} address={orderType === "delivery" ? deliveryAddress.address : selectedOutlet.outletTitle} timeEstimate={formatEstimatedTime(selectedDateTime)} setShowDateTimePicker={setShowDateTimePicker} isQrOrder={isQrOrder} />
+
+          {isQrOrder && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Recipient Details</Text>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Recipient Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={qrRecipientName}
+                  onChangeText={setQrRecipientName}
+                  placeholder="Enter Name"
+                  placeholderTextColor="#999"
+                />
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Recipient Phone</Text>
+                <TextInput
+                  style={styles.input}
+                  value={qrRecipientPhone}
+                  onChangeText={setQrRecipientPhone}
+                  placeholder="Enter Phone Number"
+                  keyboardType="phone-pad"
+                  placeholderTextColor="#999"
+                />
+              </View>
+            </View>
+          )}
           {/* Order Summary */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Order Summary</Text>
@@ -1522,6 +1665,7 @@ export default function CheckoutScreen({ navigation }) {
             selectedMethod={paymentMethod}
             navigation={navigation}
             walletBalance={customerData?.customer_wallet}
+            enableWallet={customerData?.enable_wallet}
           /> : null}
           <View style={styles.section}>
             <Text style={styles.sectionVouchers}>Vouchers</Text>
@@ -1581,7 +1725,7 @@ export default function CheckoutScreen({ navigation }) {
               </Text>
             </View>
 
-            {cartData?.order_summary?.store_discount &&
+            {!isQrOrder && cartData?.order_summary?.store_discount &&
               Object.keys(cartData?.order_summary?.store_discount).length !== 0 ? (
               Object.entries(cartData?.order_summary?.store_discount).map(([key, discount]) => (
                 <View key={key} style={styles.totalRow}>
@@ -1679,7 +1823,7 @@ export default function CheckoutScreen({ navigation }) {
             </View>
           </View>
 
-          {(parseFloat(cartData?.order_summary?.discount_amount) > 0 || parseFloat(cartData?.order_summary?.promo_discount_amount) > 0 ||
+          {((!isQrOrder && parseFloat(cartData?.order_summary?.discount_amount) > 0) || parseFloat(cartData?.order_summary?.promo_discount_amount) > 0 ||
             parseFloat(cartData?.order_summary?.voucher_discount_amount) > 0) ? (
             <View style={{
               marginHorizontal: 10,
@@ -1693,7 +1837,7 @@ export default function CheckoutScreen({ navigation }) {
                 fontStyle: 'italic'
               }}>
                 <Text style={{ fontSize: 17, marginRight: 3 }}>🎉</Text>
-                You have saved RM {parseFloat(cartData?.order_summary?.discount_amount + cartData?.order_summary?.promo_discount_amount + cartData?.order_summary?.voucher_discount_amount).toFixed(2)} in this order!
+                You have saved RM {parseFloat((isQrOrder ? 0 : Number(cartData?.order_summary?.discount_amount || 0)) + Number(cartData?.order_summary?.promo_discount_amount || 0) + Number(cartData?.order_summary?.voucher_discount_amount || 0)).toFixed(2)} in this order!
               </Text>
             </View>
           ) : null}
@@ -1737,7 +1881,7 @@ export default function CheckoutScreen({ navigation }) {
 
         <ConfirmationModal
           title={"Apply Voucher?"}
-          subtitle={"Are you sure you want to apply this voucher? If yes, your store discount will be removed."}
+          subtitle={isQrOrder ? "Are you sure you want to apply this voucher?" : "Are you sure you want to apply this voucher? If yes, your store discount will be removed."}
           confirmationText={"Apply"}
           onConfirm={handleConfirmVoucherModal}
           onCancel={handleCancelVoucherModal}
@@ -2317,5 +2461,25 @@ const styles = StyleSheet.create({
     fontFamily: 'Route159-Bold',
     fontSize: 16,
     color: '#C2000E',
+  },
+  inputContainer: {
+    marginBottom: 12,
+  },
+  inputLabel: {
+    fontFamily: 'Route159-Bold',
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 6,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: 'Route159-Regular',
+    fontSize: 14,
+    color: '#333',
+    backgroundColor: '#f9f9f9',
   },
 });

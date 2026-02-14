@@ -4,7 +4,7 @@ import React, { useCallback, useRef, useEffect } from 'react';
 import { Text, TouchableOpacity, View, Platform } from 'react-native';
 import { commonStyles } from '../../styles/common';
 
-export default function TopNavigation({ title, isBackButton = true, navigatePage }) {
+export default function TopNavigation({ title, isBackButton = true, navigatePage, rightElement = null }) {
   const router = useRouter();
   const pathname = usePathname();
   const timeoutRef = useRef(null);
@@ -95,6 +95,11 @@ export default function TopNavigation({ title, isBackButton = true, navigatePage
         </TouchableOpacity>
       )}
       <Text style={commonStyles.topBarText}>{title}</Text>
+      {rightElement ? (
+        <View style={commonStyles.topBarRight}>
+          {rightElement}
+        </View>
+      ) : null}
     </View>
   );
 }

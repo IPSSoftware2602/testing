@@ -35,7 +35,8 @@ const OptionCard = React.memo(({
   selectedCount,
   maxQ,
   minQ,
-  toast
+  toast,
+  isQrOrder = false,
 }) => {
   const [imageLoading, setImageLoading] = useState(true);
 
@@ -69,8 +70,8 @@ const OptionCard = React.memo(({
   );
 
   const discountPriceText = useMemo(() =>
-    item.discount_price > 0 ? `-RM ${item.discount_price.toFixed(2)}` : null,
-    [item.discount_price]
+    !isQrOrder && item.discount_price > 0 ? `-RM ${item.discount_price.toFixed(2)}` : null,
+    [item.discount_price, isQrOrder]
   );
 
   const imageContainerStyle = useMemo(() =>
@@ -183,7 +184,8 @@ const OptionCard = React.memo(({
     prevProps.maxQ === nextProps.maxQ &&
     prevProps.minQ === nextProps.minQ &&
     prevProps.parents === nextProps.parents &&
-    prevProps.type === nextProps.type
+    prevProps.type === nextProps.type &&
+    prevProps.isQrOrder === nextProps.isQrOrder
   );
 });
 
@@ -204,7 +206,8 @@ OptionCard.propTypes = {
   selectedCount: PropTypes.number.isRequired,
   maxQ: PropTypes.number.isRequired,
   minQ: PropTypes.number.isRequired,
-  toast: PropTypes.object.isRequired
+  toast: PropTypes.object.isRequired,
+  isQrOrder: PropTypes.bool,
 };
 
 OptionCard.defaultProps = {
@@ -218,7 +221,8 @@ const OptionGroup = React.memo(({
   group,
   selectedOptions,
   handleOptionToggle,
-  toast
+  toast,
+  isQrOrder = false,
 }) => {
   // Pre-compute selected states and counts for all options in this group
   const optionData = useMemo(() => {
@@ -241,7 +245,7 @@ const OptionGroup = React.memo(({
         id: opt.id,
         name: opt.title,
         price: Number(opt.price_adjustment ?? opt.price ?? 0),
-        discount_price: Number(opt.discount_price || 0),
+        discount_price: isQrOrder ? 0 : Number(opt.discount_price || 0),
         image: imageUri,
         selected: selectedIds.has(opt.id),
         selectedCount,
@@ -249,7 +253,7 @@ const OptionGroup = React.memo(({
         minQ,
       };
     });
-  }, [group, selectedOptions]);
+  }, [group, selectedOptions, isQrOrder]);
 
   const minQ = Number(group?.min_quantity || 0);
   const rawMaxQ = Number(group?.max_quantity || 0);
@@ -272,8 +276,9 @@ const OptionGroup = React.memo(({
       maxQ={maxQ}
       minQ={minQ}
       toast={toast}
+      isQrOrder={isQrOrder}
     />
-  ), [group, selectedCount, maxQ, minQ, handleOptionToggle, toast]);
+  ), [group, selectedCount, maxQ, minQ, handleOptionToggle, toast, isQrOrder]);
 
   const renderOptionItem = useCallback((optData, index) => (
     <OptionCard
@@ -288,8 +293,9 @@ const OptionGroup = React.memo(({
       maxQ={maxQ}
       minQ={minQ}
       toast={toast}
+      isQrOrder={isQrOrder}
     />
-  ), [group, selectedCount, maxQ, minQ, handleOptionToggle, toast]);
+  ), [group, selectedCount, maxQ, minQ, handleOptionToggle, toast, isQrOrder]);
 
   const keyExtractor = useCallback((item) => String(item.id), []);
 
@@ -327,6 +333,7 @@ const OptionGroup = React.memo(({
     </View>
   );
 }, (prevProps, nextProps) => {
+  if (prevProps.isQrOrder !== nextProps.isQrOrder) return false;
   // Only re-render if group or selectedOptions changed
   if (prevProps.group.id !== nextProps.group.id) return false;
   if (prevProps.group.options?.length !== nextProps.group.options?.length) return false;
@@ -358,7 +365,8 @@ const CrustOptionsGroup = React.memo(({
   selectedOptions,
   handleOptionToggle,
   optionGroups,
-  toast
+  toast,
+  isQrOrder = false,
 }) => {
   const selectedCrustId = useMemo(() => {
     const crustGroup = selectedOptions.find(opt => opt.parents === 0);
@@ -401,12 +409,14 @@ const CrustOptionsGroup = React.memo(({
             maxQ={maxQ}
             minQ={minQ}
             toast={toast}
+            isQrOrder={isQrOrder}
           />
         ))}
       </View>
     </View>
   );
 }, (prevProps, nextProps) => {
+  if (prevProps.isQrOrder !== nextProps.isQrOrder) return false;
   if (prevProps.crustOptions.length !== nextProps.crustOptions.length) return false;
 
   const prevSelected = prevProps.selectedOptions.find(opt => opt.parents === 0);
@@ -425,7 +435,7 @@ export default function MenuItemScreen() {
   // Removed useAuthGuard - menu item viewing accessible without login (App Store requirement)
   const router = useRouter();
   const toast = useToast();
-  const { id, source, cart_item_id, is_free_item, amount } = useLocalSearchParams();
+  const { id, source, cart_item_id, is_free_item, amount, outletId, orderType, fromQR } = useLocalSearchParams();
   const [token, setToken] = useState('');
   const [itemPrice, setItemPrice] = useState(66);
   const [selectedOptions, setSelectedOptions] = useState([]);
@@ -467,6 +477,7 @@ export default function MenuItemScreen() {
   const isLoading = loadingCount > 0;
 
   const isFree = String(is_free_item) === '1' || String(is_free_item).toLowerCase() === 'true';
+  const isQrOrder = String(fromQR) === '1';
   const maxQuantity = isFree ? Number(amount) || 1 : null;
 
   useEffect(() => {
@@ -532,33 +543,43 @@ export default function MenuItemScreen() {
   }, [cart_item_id, token, runWithLoading]);
 
   useEffect(() => {
-    if (!id) return;
+    console.log('MenuItemScreen params:', { id, outletId, token });
+    if (!id) {
+      console.log('Missing ID, skipping fetch');
+      return;
+    }
 
     const fetchMenuItem = async () => {
+      console.log('Fetching menu item...', id);
       await runWithLoading(async () => {
         try {
           const outletDetails = await AsyncStorage.getItem('outletDetails');
-          const outletId = outletDetails ? JSON.parse(outletDetails).outletId : 0;
+          const outletIdToUse = outletId || (outletDetails ? JSON.parse(outletDetails).outletId : 0);
+
           const customerJson = await AsyncStorage.getItem('customerData');
           const customerData = customerJson ? JSON.parse(customerJson) : null;
-          const customerTier = customerData ? customerData.customer_tier_id : 0;
-          const res = await axios.get(`${apiUrl}menu-items/${id}/${outletId}/${customerTier}`, {
+          const customerTier = isQrOrder ? 0 : (customerData ? customerData.customer_tier_id : 0);
+
+          console.log(`Requesting: ${apiUrl}menu-items/${id}/${outletIdToUse}/${customerTier}`);
+
+          const res = await axios.get(`${apiUrl}menu-items/${id}/${outletIdToUse}/${customerTier}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
+          console.log('Menu item fetched:', res.data.data[0]?.title);
           setMenuItem(res.data.data[0]);
           setBasePrice(Number(res.data.data[0]?.price) || 0);
           setBaseOptionGroupIds(res.data.data[0]?.menu_option_group?.map(g => g.id) || []);
-          setMainImageLoading(true); // Reset loading state for new item
+          setMainImageLoading(true);
         } catch (err) {
           console.error('Failed to load menu item:', err?.response?.data || err.message);
           setMenuItem(null);
-          setMainImageLoading(false); // Hide shimmer on error
+          setMainImageLoading(false);
         }
       });
     };
 
     fetchMenuItem();
-  }, [id, token, runWithLoading]);
+  }, [id, token, runWithLoading, isQrOrder]);
 
   // Reset loading state when menuItem image changes
   const menuItemImageUrl = menuItem?.image?.[0]?.image_url;
@@ -702,54 +723,7 @@ export default function MenuItemScreen() {
     };
     fetchOptionGroups();
   }, [menuItem, token, selectedCrustId, baseOptionGroupIds, runWithLoading]);
-  useEffect(() => {
-    if (!menuItem) return;
 
-    // First preference: variation groups
-    let groupList = [];
-    if (selectedCrustId && Array.isArray(menuItem.variation)) {
-      const selectedVariation = menuItem.variation.find(v => String(v.variation?.id) === String(selectedCrustId));
-      if (selectedVariation?.option_groups?.length) {
-        groupList = selectedVariation.option_groups;
-      }
-    }
-
-    // Fallback: base menu groups
-    if (!groupList.length && menuItem.menu_option_group?.length) {
-      groupList = menuItem.menu_option_group;
-    }
-
-    if (!groupList.length) return;
-
-    const fetchOptionGroups = async () => {
-      await runWithLoading(async () => {
-        try {
-          const results = await Promise.all(
-            groupList.map(group =>
-              axios.get(`${apiUrl}option/${group.id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-              }).catch(() => null)
-            )
-          );
-          const orderType = await AsyncStorage.getItem('orderType');
-          const successful = results.filter(Boolean).map(r => r.data.data);
-          // loop through successful groups and set is_required to 0 if title is 'Takeaway Packaging'
-          successful.forEach(group => {
-            if (group.title === 'Takeaway Packaging' && orderType === 'dinein') {
-              group.is_required = 0;
-            } else if (group.title === 'Takeaway Packaging' && orderType === 'dinein') {
-              group.is_required = 1;
-            }
-          });
-          setOptionGroups(successful);
-        } catch (err) {
-          console.error("Failed to load option groups:", err);
-        }
-      });
-    };
-
-    fetchOptionGroups();
-  }, [menuItem, token, selectedCrustId, runWithLoading]);
 
   useEffect(() => {
     if (!menuItem) return;
@@ -767,7 +741,7 @@ export default function MenuItemScreen() {
             id: v.variation.id,
             name: v.variation.title,
             price: Number(v.variation.price),
-            discount_price: Number(v.variation.discount_price),
+            discount_price: isQrOrder ? 0 : Number(v.variation.discount_price),
             image: imageUri,
             tags: v.tags || []
           };
@@ -785,13 +759,13 @@ export default function MenuItemScreen() {
         id: menuItem.variation.id,
         name: menuItem.variation.title,
         price: Number(menuItem.variation.price),
-        discount_price: Number(menuItem.variation.discount_price),
+        discount_price: isQrOrder ? 0 : Number(menuItem.variation.discount_price),
         image: imageUri,
       }]);
     } else {
       setCrustOptions([]);
     }
-  }, [menuItem]);
+  }, [menuItem, isQrOrder]);
 
   useEffect(() => {
     let total = 0;
@@ -983,6 +957,10 @@ export default function MenuItemScreen() {
       return;
     }
     const parsedOutletDetails = JSON.parse(outletDetails);
+    const uniqueQrDataRaw = await AsyncStorage.getItem('uniqueQrData');
+    const uniqueQrData = uniqueQrDataRaw ? JSON.parse(uniqueQrDataRaw) : null;
+    const deliveryAddressRaw = await AsyncStorage.getItem('deliveryAddressDetails');
+    const deliveryAddress = deliveryAddressRaw ? JSON.parse(deliveryAddressRaw) : null;
 
     const optionPayload = selectedOptions
       .filter(opt => opt.parents !== 0 && opt.options?.length > 0)
@@ -1002,6 +980,7 @@ export default function MenuItemScreen() {
       quantity: safeQty,
       ...(isFree ? { is_free_item: 1 } : {}),
       note: note,
+      unique_qr_code: isQrOrder ? (uniqueQrData?.unique_code || deliveryAddress?.unique_code || null) : null,
     };
     // console.log('freeee', payload);
 
@@ -1021,7 +1000,14 @@ export default function MenuItemScreen() {
         });
 
         setTimeout(() => {
-          router.push('/menu');
+          if (outletId && orderType) {
+            router.push({
+              pathname: 'screens/menu',
+              params: { outletId, orderType, fromQR: isQrOrder ? '1' : '0' }
+            });
+          } else {
+            router.push('/menu');
+          }
         }, 1000);
       }
       else if (response.data.status === 400) {
@@ -1123,7 +1109,7 @@ export default function MenuItemScreen() {
               })}
             />
             <View style={styles.priceRow}>
-              {menuItem?.discount_price && (
+              {!isQrOrder && menuItem?.discount_price && (
                 <Text style={styles.originalPrice}>RM {menuItem.discount_price}</Text>
               )}
               <Text style={styles.price}>RM {menuItem?.price || '0'}</Text>
@@ -1138,6 +1124,7 @@ export default function MenuItemScreen() {
               handleOptionToggle={handleOptionToggle}
               optionGroups={optionGroups}
               toast={toast}
+              isQrOrder={isQrOrder}
             />
           )}
           <View style={styles.separator} />
@@ -1148,6 +1135,7 @@ export default function MenuItemScreen() {
               selectedOptions={selectedOptions}
               handleOptionToggle={handleOptionToggle}
               toast={toast}
+              isQrOrder={isQrOrder}
             />
           ))}
           <View style={styles.noteSection}>

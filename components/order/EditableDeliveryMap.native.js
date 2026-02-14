@@ -26,15 +26,15 @@ export default function EditableDeliveryMapNative({
     const prevInitialLatLng = useRef(initialLatLng);
     useEffect(() => {
         if (mapReady) {
-            const hasChanged = 
+            const hasChanged =
                 prevInitialLatLng.current.latitude !== initialLatLng.latitude ||
                 prevInitialLatLng.current.longitude !== initialLatLng.longitude;
-            
+
             if (hasChanged) {
                 prevInitialLatLng.current = initialLatLng;
                 isProgrammaticChange.current = true;
                 reverseGeocode(initialLatLng.latitude, initialLatLng.longitude);
-                
+
                 // Animate map to initial location
                 if (mapInstance.current) {
                     mapInstance.current.animateToRegion({
@@ -55,7 +55,7 @@ export default function EditableDeliveryMapNative({
         if (!skipMapUpdate) {
             isProgrammaticChange.current = true;
         }
-        
+
         Geocoder.from(lat, lng)
             .then(json => {
                 const address = json.results[0]?.formatted_address || '';
@@ -72,7 +72,7 @@ export default function EditableDeliveryMapNative({
                 if (onLocationChange) {
                     onLocationChange(newLocation);
                 }
-                
+
                 if (!skipMapUpdate) {
                     // Reset flag after a short delay
                     setTimeout(() => {
@@ -90,7 +90,7 @@ export default function EditableDeliveryMapNative({
                     streetName: ''
                 };
                 setSelectedLocation(newLocation);
-                
+
                 if (!skipMapUpdate) {
                     setTimeout(() => {
                         isProgrammaticChange.current = false;
@@ -212,7 +212,8 @@ export default function EditableDeliveryMapNative({
                         placeholderTextColor: 'black',
                     }}
                     minLength={2}
-                    listViewDisplayed={true}
+                    onFail={(error) => console.error('GooglePlacesAutocomplete Error:', error)}
+                    timeout={10000}
                     debounce={300}
                     listUnderlayColor="transparent"
                     enablePoweredByContainer={false}
@@ -230,7 +231,7 @@ export default function EditableDeliveryMapNative({
                                 };
                                 setSelectedLocation(location);
                                 onLocationChange?.(location);
-                                
+
                                 // Animate map to new location
                                 if (mapInstance.current) {
                                     mapInstance.current.animateToRegion({
@@ -240,7 +241,7 @@ export default function EditableDeliveryMapNative({
                                         longitudeDelta: 0.005,
                                     }, 500);
                                 }
-                                
+
                                 setTimeout(() => {
                                     isProgrammaticChange.current = false;
                                 }, 600);
@@ -256,40 +257,39 @@ export default function EditableDeliveryMapNative({
 
                     }}
                     styles={{
+                        container: {
+                            flex: 1,
+                        },
                         textInputContainer: {
                             backgroundColor: 'white',
                             borderRadius: 8,
                             borderWidth: 1,
                             borderColor: '#ccc',
                             width: Math.min(width, 440) * 0.9,
-                            // paddingVertical: ,
                             paddingHorizontal: 8,
                             marginBottom: 10,
                             alignItems: 'center',
                             justifyContent: 'center',
-                            elevation: Platform.OS === 'android' ? 10 : 0,
-                            zIndex: Platform.OS === 'ios' ? 100 : 1,
                         },
                         textInput: {
-                            // height: 40,
                             color: 'black',
                             fontSize: 16,
-                            // placeholderTextColor: 'black'
+                            marginTop: 3, // align text better
                         },
                         listView: {
                             backgroundColor: 'white',
-                            zIndex: Platform.OS === 'ios' ? 100 : 1, // ensure dropdown appears on top
+                            zIndex: 9999,
                             elevation: 10, // for Android
                             position: 'absolute',
-                            top: 50, // push it below input
-
+                            top: 50,
+                            borderRadius: 5,
+                            borderWidth: 1,
+                            borderColor: '#ddd',
                         },
-
                         row: {
                             padding: 13,
                             height: 44,
                             flexDirection: 'row',
-                            zIndex: Platform.OS === 'ios' ? 100 : 1,
                         },
                         predefinedPlacesDescription: {
                             color: '#C2000E',

@@ -193,6 +193,12 @@ export const commonStyles = StyleSheet.create({
     top: 18,
     zIndex: 2,
   },
+  topBarRight: {
+    position: 'absolute',
+    right: 16,
+    top: 14,
+    zIndex: 2,
+  },
   topBarText: {
     color: '#E60012',
     fontWeight: 'bold',

@@ -24,6 +24,10 @@ export default function OTP() {
   const router = useRouter();
   const { phone_number, send_via } = useLocalSearchParams();
   const toast = useToast();
+  const normalizedPhoneNumber = String(phone_number || '').trim();
+  const fullPhoneNumber = normalizedPhoneNumber.startsWith('+')
+    ? normalizedPhoneNumber
+    : `+60${normalizedPhoneNumber}`;
 
   // Countdown timer for resend button
   useEffect(() => {
@@ -40,7 +44,7 @@ export default function OTP() {
       const response = await axios.post(
         apiUrl + "verify-api",
         {
-          phone_number: `+60${phone_number}`,
+          phone_number: fullPhoneNumber,
           otp: completedOTP
         }
       );
@@ -140,7 +144,7 @@ export default function OTP() {
       const response = await axios.post(
         apiUrl + "send-otp",
         {
-          phone_number: '+60' + phone_number,
+          phone_number: fullPhoneNumber,
           send_via: send_via
         }
       );
@@ -211,7 +215,7 @@ export default function OTP() {
                 {/* Title & subtitle */}
                 <Text style={styles.title}>US Pizza Malaysia Official</Text>
                 <Text style={styles.subtitle}>
-                  Your one-time password (OTP) has been sent to +60{phone_number}
+                  Your one-time password (OTP) has been sent to {fullPhoneNumber}
                 </Text>
 
                 {/* OTP Input */}

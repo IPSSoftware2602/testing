@@ -145,6 +145,49 @@ export default function HomeScreen() {
           // Only redirect to register if logged in but name is missing
           if (!customerData?.name) {
             router.push('/screens/auth/register');
+            return;
+          }
+
+          // Check for pending QR data (from QR scan before login)
+          const pendingQrStr = await AsyncStorage.getItem('pendingQrData');
+          if (pendingQrStr) {
+            try {
+              const pendingQr = JSON.parse(pendingQrStr);
+              await AsyncStorage.removeItem('pendingQrData');
+
+              // Store delivery data
+              await AsyncStorage.setItem('orderType', 'delivery');
+              if (pendingQr.delivery_address) {
+                await AsyncStorage.setItem('deliveryAddressDetails', JSON.stringify({
+                  name: pendingQr.delivery_address.name || '',
+                  phone: pendingQr.delivery_address.phone || '',
+                  address: pendingQr.delivery_address.address || '',
+                  unit: pendingQr.delivery_address.unit || '',
+                  note: pendingQr.delivery_address.note || '',
+                  latitude: pendingQr.delivery_address.latitude || '',
+                  longitude: pendingQr.delivery_address.longitude || '',
+                }));
+              }
+              await AsyncStorage.setItem('uniqueQrData', JSON.stringify({
+                unique_code: pendingQr.unique_code,
+                name: pendingQr.name,
+                logo: pendingQr.logo,
+                menu_item_ids: pendingQr.menu_item_ids || [],
+              }));
+
+              // Redirect to menu with QR params
+              router.replace({
+                pathname: '/screens/menu',
+                params: {
+                  orderType: 'delivery',
+                  outletId: String(pendingQr.outlet.id),
+                  fromQR: '1',
+                },
+              });
+              return;
+            } catch (qrErr) {
+              console.log('Error processing pending QR:', qrErr);
+            }
           }
         } else {
           // User is not logged in - allow browsing without redirect

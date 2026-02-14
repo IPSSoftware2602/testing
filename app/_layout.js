@@ -342,6 +342,7 @@ export default function RootLayout() {
           <Stack.Screen name="screens/auth/register" options={{ headerShown: false }} />
           {/* <Stack.Screen name="screens/auth/forgot-password" options={{ headerShown: false }} /> */}
           <Stack.Screen name="screens/auth/otp" options={{ headerShown: false }} />
+          <Stack.Screen name="qr/[code]" options={{ headerShown: false }} />
         </Stack>
       </ToastProvider>
     </SafeAreaProvider >

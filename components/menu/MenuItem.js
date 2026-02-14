@@ -14,7 +14,8 @@ const MenuItem = memo(({
   isFirstInCategory, 
   categories, 
   customer, 
-  onPress 
+  onPress,
+  isQrOrder = false,
 }) => {
   const [imageLoading, setImageLoading] = useState(true);
   const imageSourceRef = useRef(item.image);
@@ -112,7 +113,7 @@ const MenuItem = memo(({
             <View style={styles.menuPriceRow}>
               <View style={styles.menuOldPriceContainer}>
                 <Text style={styles.menuPrice}>RM {item.price}</Text>
-                {item.discount_price && <Text style={styles.menuPriceslash}>RM {item.discount_price}</Text>}
+                {!isQrOrder && item.discount_price && <Text style={styles.menuPriceslash}>RM {item.discount_price}</Text>}
               </View>
               {item.is_available ? (
                 <PolygonButton

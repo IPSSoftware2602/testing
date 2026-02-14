@@ -2,6 +2,7 @@ import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Dimensions, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Polygon, Svg } from 'react-native-svg';
 import GridBackground from '../../../components/slash/GridBackground';
@@ -17,6 +18,7 @@ const { width, height } = Dimensions.get('window');
 
 export default function Login() {
   const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+60');
   const router = useRouter();
   const toast = useToast();
   // useEffect(() => {
@@ -30,7 +32,7 @@ export default function Login() {
         const response = await axios.post(
           apiUrl + "send-otp",
           {
-            phone_number: `+60${phone}`,
+            phone_number: `${countryCode}${phone}`,
             send_via: sendVia
           }
         );
@@ -41,7 +43,7 @@ export default function Login() {
           router.push({
             pathname: '/screens/auth/otp',
             params: {
-              phone_number: phone,
+              phone_number: `${countryCode}${phone}`,
               send_via: sendVia
             }
           });
@@ -132,7 +134,18 @@ export default function Login() {
 
                 {/* Phone input */}
                 <View style={styles.inputRow}>
-                  <Text style={styles.countryCode}>+60</Text>
+                  <View style={styles.countryCodeDropdownWrap}>
+                    <Picker
+                      selectedValue={countryCode}
+                      onValueChange={(value) => setCountryCode(value)}
+                      style={styles.countryCodePicker}
+                      itemStyle={styles.countryCodePickerItem}
+                      dropdownIconColor="#C2000E"
+                    >
+                      <Picker.Item label="+60" value="+60" />
+                      <Picker.Item label="+862" value="+862" />
+                    </Picker>
+                  </View>
                   {Platform.OS === 'web' ? (
                     <div data-testid="phone-input" style={{ flex: 1 }}>
                       <TextInput
@@ -430,13 +443,24 @@ const styles = StyleSheet.create({
     marginBottom: width <= 390 ? '3%' : width >= 440 ? 0.05 * 440 : "3%",
     width: width <= 375 ? '70%' : width >= 440 ? 0.70 * 440 : "75%",
   },
-  countryCode: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: '#FFF',
-    fontSize: 16,
-    color: '#333',
+  countryCodeDropdownWrap: {
+    width: 96,
+    justifyContent: 'center',
     height: 45,
+  },
+  countryCodePicker: {
+    width: '100%',
+    height: 45,
+    color: '#333',
+    marginTop: Platform.OS === 'ios' ? -2 : 0,
+    borderWidth: 0,
+    outlineWidth: 0,
+    outlineStyle: 'none',
+    shadowColor: 'transparent',
+  },
+  countryCodePickerItem: {
+    fontSize: 14,
+    color: '#333',
     fontFamily: 'RobotoSlab-Regular',
   },
   input: {

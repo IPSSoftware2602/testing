@@ -569,7 +569,7 @@ const OrderSummary = ({ itemList }) => {
 export default function OrderDetails({ navigation }) {
   useAuthGuard();
   const router = useRouter();
-  const { orderId } = useLocalSearchParams();
+  const { orderId, outletId, orderType: qrOrderType } = useLocalSearchParams();
   const [driverPos, setDriverPos] = useState({
     latitude: pointA.latitude,
     longitude: pointA.longitude,
@@ -611,7 +611,27 @@ export default function OrderDetails({ navigation }) {
 
   const handlePaymentModalClose = async () => {
     setShowPaymentScreen(false);
-    router.replace('/orders');
+    try {
+      const id = order?.id || orderId;
+      if (!id) {
+        router.replace('/orders');
+        return;
+      }
+
+      let url = `/screens/orders/orders_details?orderId=${id}`;
+      const outlet = order?.outlet_id || outletId;
+      const type = order?.order_type || qrOrderType || 'delivery';
+
+      // Preserve QR/menu context if available
+      if ((order?.unique_qr_code || outlet) && type) {
+        if (outlet) url += `&outletId=${outlet}`;
+        url += `&orderType=${type}`;
+      }
+
+      router.replace(url);
+    } catch (e) {
+      router.replace('/orders');
+    }
   }
 
   const outletNameWithStatus = useMemo(() => {
@@ -1021,7 +1041,21 @@ export default function OrderDetails({ navigation }) {
             </View>
           }
           isBackButton={true}
-          navigatePage={() => router.push('(tabs)/orders')}
+          navigatePage={() => {
+            if (order?.unique_qr_code) {
+              router.push({
+                pathname: 'screens/menu',
+                params: { outletId: order.outlet_id, orderType: order.order_type || 'delivery', fromQR: '1' }
+              });
+            } else if (outletId) {
+              router.push({
+                pathname: 'screens/menu',
+                params: { outletId, orderType: qrOrderType || 'delivery' }
+              });
+            } else {
+              router.push('(tabs)/orders');
+            }
+          }}
         />
 
         <ScrollView
@@ -1246,8 +1280,12 @@ export default function OrderDetails({ navigation }) {
         {/* Bottom Bar */}
 
 
-        {/*if api return is_vip = 1 then hide the order again button */}
-        {(order?.is_vip === 1 || order?.deliveries?.[1]?.tracking_link) ? null : (
+        {/* Hide bottom bar when:
+            - VIP order, or
+            - Has secondary tracking link (legacy check), or
+            - QR order that is not active (prevents "Order Again" for QR)
+        */}
+        {(order?.is_vip === 1 || order?.deliveries?.[1]?.tracking_link || (order?.unique_qr_code && !isActive)) ? null : (
           <View style={styles.bottomBar}>
             <TouchableOpacity
               style={{
