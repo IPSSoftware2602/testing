@@ -172,6 +172,7 @@ export default function HomeScreen() {
                 unique_code: pendingQr.unique_code,
                 name: pendingQr.name,
                 logo: pendingQr.logo,
+                address: pendingQr.delivery_address?.address || '',
                 menu_item_ids: pendingQr.menu_item_ids || [],
               }));
 

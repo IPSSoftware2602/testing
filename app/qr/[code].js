@@ -96,6 +96,7 @@ export default function QrLandingScreen() {
                 unique_code: data.unique_code,
                 name: data.name,
                 logo: data.logo,
+                address: data.delivery_address?.address || '',
                 menu_item_ids: data.menu_item_ids || [],
             }));
 

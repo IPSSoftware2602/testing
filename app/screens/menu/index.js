@@ -270,7 +270,7 @@ export default function MenuScreen() {
       await runWithLoading(async () => {
         // await checkoutClearStorage();
         // QR entry resets order-flow storage and rehydrates outlet from QR params.
-        await checkoutClearStorage();
+        await checkoutClearStorage({ preserveDeliveryAddress: true });
 
         await AsyncStorage.setItem("orderType", String(orderType));
         setActiveOrderType(String(orderType));
@@ -815,7 +815,7 @@ export default function MenuScreen() {
     }
   }, [categoryLock]);
 
-  const checkoutClearStorage = async () => {
+  const checkoutClearStorage = async ({ preserveDeliveryAddress = false } = {}) => {
     const keysToRemove = [
       'estimatedTime',
       'deliveryAddressDetails',
@@ -823,12 +823,14 @@ export default function MenuScreen() {
       'outletDetails',
       'paymentMethod'
     ];
+    const finalKeysToRemove = preserveDeliveryAddress
+      ? keysToRemove.filter((key) => key !== 'deliveryAddressDetails')
+      : keysToRemove;
 
     try {
+      await AsyncStorage.multiRemove(finalKeysToRemove);
 
-      await AsyncStorage.multiRemove(keysToRemove);
-
-      const clearedStorage = await AsyncStorage.multiGet(keysToRemove);
+      const clearedStorage = await AsyncStorage.multiGet(finalKeysToRemove);
       const wereCleared = clearedStorage.every(([_, value]) => value === null);
 
       if (!wereCleared) {
@@ -1367,7 +1369,7 @@ export default function MenuScreen() {
                 {uniqueQrData.name || 'QR Order'}
               </Text>
               <Text style={styles.qrFooterAddress} numberOfLines={2}>
-                {selectedDeliveryAddress?.address || 'QR Delivery Address'}
+                {selectedDeliveryAddress?.address || uniqueQrData?.address || 'QR Delivery Address'}
               </Text>
             </View>
             {uniqueQrData.logo ? (
