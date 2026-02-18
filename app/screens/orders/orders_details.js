@@ -881,37 +881,13 @@ export default function OrderDetails({ navigation }) {
   }
 
   function getDeliveryTimeText(order) {
-    // Check if we have valid date/time
     if (!order?.selected_date || !order?.selected_time) {
-      return "ASAP (30 - 45min)";
-    }
-
-    try {
-      // Parse the order date/time
-      const [year, month, day] = order.selected_date.split('-');
-      const [hours, minutes] = order.selected_time.split(':');
-
-      const orderDateTime = new Date(
-        parseInt(year),
-        parseInt(month) - 1,
-        parseInt(day),
-        parseInt(hours),
-        parseInt(minutes)
-      );
-
-      // Get current date/time
-      const now = new Date();
-
-      // Compare and return appropriate string
-      if (orderDateTime < now) {
-        return "ASAP (30 - 45min)";
-      } else {
-        return `${order.selected_date}  ${order.selected_time}`;
+      if (order?.order_type === 'dinein') {
+        return "Now";
       }
-    } catch (error) {
-      console.error("Error parsing date/time:", error);
       return "ASAP (30 - 45min)";
     }
+    return `${order.selected_date}  ${order.selected_time}`;
   }
 
   const handlePayAgain = async (paymentMethod) => {
@@ -944,6 +920,14 @@ export default function OrderDetails({ navigation }) {
       const paymentData = await response.data;
 
       if (paymentData.status === 200) {
+        if (paymentData.selected_date && paymentData.selected_time) {
+          setOrder((prev) => prev ? ({
+            ...prev,
+            selected_date: paymentData.selected_date,
+            selected_time: paymentData.selected_time,
+          }) : prev);
+        }
+
         const redirectUrl = paymentData.redirect_url?.trim();
         console.log("Redirect URL:", redirectUrl);
         if (redirectUrl) {
@@ -954,6 +938,7 @@ export default function OrderDetails({ navigation }) {
             setShowPaymentScreen(true);
           }
         } else {
+          await getOrder();
           router.push('/orders');
         }
       }

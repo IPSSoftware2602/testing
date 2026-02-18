@@ -958,6 +958,7 @@ export default function MenuScreen() {
             outlet_id: selectedOutlet.outletId,
             address: selectedDeliveryAddress ? selectedDeliveryAddress.address : "",
             order_type: resolvedOrderType,
+            unique_qr_code: fromQR ? (uniqueQrData?.unique_code || selectedDeliveryAddress?.unique_code || null) : null,
             latitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.latitude) : "",
             longitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.longitude) : "",
             selected_date: estimatedTimeObj && estimatedTimeObj.estimatedTime === "ASAP" ? null : estimatedTimeObj?.date,
@@ -995,7 +996,7 @@ export default function MenuScreen() {
 
     }
     return 0;
-  }, [selectedOutlet, selectedDeliveryAddress, router, formatDateTime, runWithLoading, getResolvedOrderType]);
+  }, [selectedOutlet, selectedDeliveryAddress, router, formatDateTime, runWithLoading, getResolvedOrderType, fromQR, uniqueQrData]);
 
   useEffect(() => {
     const loadCartTotal = async () => {

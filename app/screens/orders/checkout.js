@@ -774,6 +774,10 @@ export default function CheckoutScreen({ navigation }) {
     return Math.floor(num * Math.pow(10, maxDecimals)) / Math.pow(10, maxDecimals);
   }
 
+  const resolvedUniqueQrCode = isQrOrder
+    ? (uniqueQrData?.unique_code || deliveryAddress?.unique_code || null)
+    : null;
+
   const refreshCartData = async () => {
     return runWithLoading(async () => {
       const token = await AsyncStorage.getItem('authToken') || '';
@@ -784,6 +788,7 @@ export default function CheckoutScreen({ navigation }) {
             outlet_id: selectedOutlet.outletId,
             address: deliveryAddress ? deliveryAddress.address : "",
             order_type: orderType,
+            unique_qr_code: resolvedUniqueQrCode,
             latitude: deliveryAddress ? limitDecimals(deliveryAddress.latitude) : "",
             longitude: deliveryAddress ? limitDecimals(deliveryAddress.longitude) : "",
             selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
@@ -796,6 +801,14 @@ export default function CheckoutScreen({ navigation }) {
         if (res.data.status === 200) {
           // console.log("refresh cart");
           const responseData = res.data.data;
+          const summary = responseData?.order_summary || {};
+          const normalizedEstimated = (summary.selected_date && summary.selected_time)
+            ? { estimatedTime: `${summary.selected_date} ${summary.selected_time}`, date: summary.selected_date, time: summary.selected_time }
+            : { estimatedTime: "ASAP", date: null, time: null };
+          setEstimatedtime(normalizedEstimated);
+          setSelectedDateTime(normalizedEstimated.estimatedTime);
+          await AsyncStorage.setItem('estimatedTime', JSON.stringify(normalizedEstimated));
+
           if (responseData.order_summary?.item_count === 0) {
             router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
           }
@@ -887,6 +900,7 @@ export default function CheckoutScreen({ navigation }) {
               outlet_id: selectedOutlet.outletId,
               address: deliveryAddress ? deliveryAddress.address : "",
               order_type: orderType,
+              unique_qr_code: resolvedUniqueQrCode,
               latitude: deliveryAddress ? limitDecimals(deliveryAddress.latitude) : "",
               longitude: deliveryAddress ? limitDecimals(deliveryAddress.longitude) : "",
               selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
@@ -901,6 +915,14 @@ export default function CheckoutScreen({ navigation }) {
           if (res.data.status === 200) {
             // console.log("fetch cart");
             const responseData = res.data.data;
+            const summary = responseData?.order_summary || {};
+            const normalizedEstimated = (summary.selected_date && summary.selected_time)
+              ? { estimatedTime: `${summary.selected_date} ${summary.selected_time}`, date: summary.selected_date, time: summary.selected_time }
+              : { estimatedTime: "ASAP", date: null, time: null };
+            setEstimatedtime(normalizedEstimated);
+            setSelectedDateTime(normalizedEstimated.estimatedTime);
+            await AsyncStorage.setItem('estimatedTime', JSON.stringify(normalizedEstimated));
+
             setCartData(responseData);
 
             if (responseData.order_summary?.item_count === 0) {
@@ -950,7 +972,7 @@ export default function CheckoutScreen({ navigation }) {
     };
 
     fetchCart();
-  }, [customerId, runWithLoading]);
+  }, [customerId, runWithLoading, resolvedUniqueQrCode]);
 
   useEffect(() => {
     if (voucherToApply && cartData && !hasAppliedPromo.current) {
@@ -1375,6 +1397,9 @@ export default function CheckoutScreen({ navigation }) {
   const formatEstimatedTime = (estimatedTime) => {
 
     if (estimatedTime && estimatedTime === "ASAP") {
+      if (orderType === "dinein") {
+        return "Now";
+      }
       return "ASAP (30 - 45 mins)";
     } else {
       return estimatedTime;
@@ -1613,11 +1638,11 @@ export default function CheckoutScreen({ navigation }) {
                   price: parseFloat(item.unit_price),
                   is_free_item: item.is_free_item,
                   max_quantity: item.is_free_item ? Number(freeItemMaxQty) : null,
-                  originalPrice: item.variation?.price
+                  originalPrice: isQrOrder ? null : (item.variation?.price
                     ? parseFloat(item.variation.price)
                     : item.original_price
                       ? parseFloat(item.original_price)
-                      : null,
+                      : null),
                   options: item.options,
                   variation: item.variation,
                   image: item?.variation?.images ? item?.variation?.images : (item?.image ? item?.image : 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500'),
