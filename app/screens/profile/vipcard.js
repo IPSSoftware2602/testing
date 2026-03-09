@@ -25,7 +25,7 @@ const benefitList = [
   },
   {
     title: 'Pizza Party Deals',
-    description: '50% OFF all pizzas + 20% OFF snacks & drinks.',
+    description: '50% OFF all pizzas + 20% OFF snacks.',
     iconName: 'percent',
   },
   {

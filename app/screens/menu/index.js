@@ -16,6 +16,7 @@ import CustomDateTimePickerModal from '../../../components/ui/CustomDateTimePick
 import MenuItem from '../../../components/menu/MenuItem';
 import CategoryItem from '../../../components/menu/CategoryItem';
 import { useToast } from '../../../hooks/useToast';
+const { validateStoredOrderDateTime, formatLocalDate } = require('../../../utils/order_datetime');
 
 const { width } = Dimensions.get('window');
 
@@ -54,7 +55,7 @@ export default function MenuScreen() {
   // const [activeCategory, setActiveCategory] = useState(categories[0].key);
   // const { outletId, distance, outletTitle } = useLocalSearchParams();
   const [activeCategory, setActiveCategory] = useState('');
-  const [activeOrderType, setActiveOrderType] = useState(orderTypes[0].key);
+  const [activeOrderType, setActiveOrderType] = useState('');
   const [categoryLock, setCategoryLock] = useState(false);
   const [totalPrice, setTotalPrice] = useState(0);
   const menuListRef = useRef(null);
@@ -71,6 +72,7 @@ export default function MenuScreen() {
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
   const [selectedDateTime, setSelectedDateTime] = useState(null);
   const [selectedDeliveryAddress, setSelectedDeliveryAddress] = useState({});
+  const [dateTimeModalMessage, setDateTimeModalMessage] = useState('');
   // const [estimatedTime, setEstimatedTime] = useState({});
   const [customer, setCustomer] = useState('');
   const isProgrammaticScroll = useRef(false);
@@ -89,21 +91,75 @@ export default function MenuScreen() {
   const navigation = useNavigation();
   const [uniqueQrData, setUniqueQrData] = useState(null);
   const [qrActiveOrderCount, setQrActiveOrderCount] = useState(0);
+  const [showOutletConfirmModal, setShowOutletConfirmModal] = useState(false);
 
   const toast = useToast();
   const getResolvedOrderType = useCallback(async () => {
     if (orderType && VALID_ORDER_TYPES.has(String(orderType))) {
       return String(orderType);
     }
-    if (activeOrderType && VALID_ORDER_TYPES.has(String(activeOrderType))) {
-      return String(activeOrderType);
-    }
     const storedOrderType = await AsyncStorage.getItem('orderType');
     if (storedOrderType && VALID_ORDER_TYPES.has(String(storedOrderType))) {
       return String(storedOrderType);
     }
+    if (activeOrderType && VALID_ORDER_TYPES.has(String(activeOrderType))) {
+      return String(activeOrderType);
+    }
     return 'delivery';
   }, [orderType, activeOrderType]);
+
+  const revalidateOrderDateTime = useCallback(async () => {
+    if (!selectedOutlet?.outletId) return;
+
+    const resolvedOrderType = await getResolvedOrderType();
+    if (resolvedOrderType !== 'pickup' && resolvedOrderType !== 'delivery') return;
+
+    try {
+      const [estimatedTimeStr, latestOutletResponse] = await Promise.all([
+        AsyncStorage.getItem('estimatedTime'),
+        axios.get(`${apiUrl}outlets/${selectedOutlet.outletId}`),
+      ]);
+
+      const latestOutlet = latestOutletResponse.data?.result;
+      if (!latestOutlet) return;
+
+      const mergedOutlet = {
+        ...selectedOutlet,
+        lead_time: latestOutlet.lead_time,
+        delivery_start: latestOutlet.delivery_start,
+        delivery_end: latestOutlet.delivery_end,
+        delivery_interval: latestOutlet.delivery_interval,
+        delivery_available_days: latestOutlet.delivery_available_days,
+        delivery_settings: latestOutlet.delivery_settings || [],
+      };
+
+      const outletScheduleChanged =
+        String(selectedOutlet?.lead_time ?? '') !== String(mergedOutlet.lead_time ?? '') ||
+        String(selectedOutlet?.delivery_start ?? '') !== String(mergedOutlet.delivery_start ?? '') ||
+        String(selectedOutlet?.delivery_end ?? '') !== String(mergedOutlet.delivery_end ?? '') ||
+        String(selectedOutlet?.delivery_interval ?? '') !== String(mergedOutlet.delivery_interval ?? '') ||
+        String(selectedOutlet?.delivery_available_days ?? '') !== String(mergedOutlet.delivery_available_days ?? '') ||
+        JSON.stringify(selectedOutlet?.delivery_settings || []) !== JSON.stringify(mergedOutlet.delivery_settings || []);
+
+      if (outletScheduleChanged) {
+        setSelectedOutlet(mergedOutlet);
+        await AsyncStorage.setItem('outletDetails', JSON.stringify(mergedOutlet));
+      }
+
+      const validation = validateStoredOrderDateTime({
+        orderType: resolvedOrderType,
+        estimatedTime: estimatedTimeStr ? JSON.parse(estimatedTimeStr) : null,
+        outlet: mergedOutlet,
+        now: new Date(),
+      });
+
+      if (!validation.isValid) {
+        setDateTimeModalMessage(validation.message);
+        setShowDateTimePicker(true);
+      }
+    } catch (_error) {
+    }
+  }, [getResolvedOrderType, selectedOutlet]);
 
   useEffect(() => {
     const checkShowDateTimePicker = async () => {
@@ -152,6 +208,8 @@ export default function MenuScreen() {
         router.push('/screens/home/outlet_select');
         return;
       }
+      console.log("selectedOutlet", selectedOutlet);
+
 
       return runWithLoading(async () => {
         // Allow menu viewing without authentication
@@ -294,6 +352,8 @@ export default function MenuScreen() {
               ? outlet.operating_schedule[new Date().toLocaleString("en-US", { weekday: "long" })]?.is_operated ?? true
               : true,
             operatingHours: outlet.operating_schedule ?? {},
+            address: outlet.address ? `${outlet.address}, ${outlet.postal_code || ''} ${outlet.state || ''}`.trim() : (outlet.outlet_address || ''),
+            image: outlet.image?.compressed_image_url || outlet.image?.image_url || null,
             lead_time: outlet.lead_time,
             delivery_start: outlet.delivery_start,
             delivery_end: outlet.delivery_end,
@@ -453,40 +513,18 @@ export default function MenuScreen() {
   }
 
   useEffect(() => {
-    const parseLocalDateTime = (dateStr, timeStr) => {
-      if (!dateStr || !timeStr) return null;
-
-      // Expecting: dateStr = "YYYY-MM-DD", timeStr = "HH:mm" or "HH:mm:ss"
-      const [y, m, d] = dateStr.split("-").map(Number);
-      const timeParts = timeStr.split(":").map(Number);
-
-      if (!y || !m || !d || timeParts.length < 2) return null;
-
-      const hh = timeParts[0];
-      const mm = timeParts[1];
-      const ss = timeParts[2] ?? 0;
-
-      // Create local time date (month is 0-based)
-      const dt = new Date(y, m - 1, d, hh, mm, ss);
-
-      // Guard invalid date
-      if (isNaN(dt.getTime())) return null;
-
-      return dt;
-    };
-
     const fetchOutletData = async () => {
       try {
-        if (fromQR) return;
         const storedOrderType = await AsyncStorage.getItem('orderType');
-        const resolvedOrderType = (storedOrderType && VALID_ORDER_TYPES.has(storedOrderType))
-          ? storedOrderType
-          : 'delivery';
+        const resolvedOrderType = (orderType && VALID_ORDER_TYPES.has(String(orderType)))
+          ? String(orderType)
+          : (storedOrderType && VALID_ORDER_TYPES.has(storedOrderType))
+            ? storedOrderType
+            : 'delivery';
         setActiveOrderType(resolvedOrderType);
-        const [outletDetailsStr, estimatedTimeStr, deliveryAddressDetails] = await Promise.all([
+        const [outletDetailsStr, estimatedTimeStr] = await Promise.all([
           AsyncStorage.getItem("outletDetails"),
           AsyncStorage.getItem("estimatedTime"),
-          AsyncStorage.getItem("deliveryAddressDetails"),
         ]);
 
         if (!outletDetailsStr) {
@@ -495,57 +533,42 @@ export default function MenuScreen() {
         }
 
         const parsedOutletDetails = JSON.parse(outletDetailsStr);
-        setSelectedOutlet(parsedOutletDetails);
+        let latestOutletDetails = parsedOutletDetails;
+
+        try {
+          const latestOutletResponse = await axios.get(`${apiUrl}outlets/${parsedOutletDetails.outletId}`);
+          if (latestOutletResponse.data?.result) {
+            const latestOutlet = latestOutletResponse.data.result;
+            latestOutletDetails = {
+              ...parsedOutletDetails,
+              lead_time: latestOutlet.lead_time,
+              delivery_start: latestOutlet.delivery_start,
+              delivery_end: latestOutlet.delivery_end,
+              delivery_interval: latestOutlet.delivery_interval,
+              delivery_available_days: latestOutlet.delivery_available_days,
+              delivery_settings: latestOutlet.delivery_settings || [],
+            };
+            await AsyncStorage.setItem("outletDetails", JSON.stringify(latestOutletDetails));
+          }
+        } catch (_latestOutletError) {
+        }
+
+        setSelectedOutlet(latestOutletDetails);
 
         const parsedEstimatedTime = estimatedTimeStr ? JSON.parse(estimatedTimeStr) : null;
+        const validation = validateStoredOrderDateTime({
+          orderType: resolvedOrderType,
+          estimatedTime: parsedEstimatedTime,
+          outlet: latestOutletDetails,
+          now: new Date(),
+        });
 
-        // 1) Over-time check (only for scheduled, not ASAP)
-        let is_over = false;
-        if (parsedEstimatedTime?.estimatedTime && parsedEstimatedTime.estimatedTime !== "ASAP") {
-          const estimatedAt = parseLocalDateTime(parsedEstimatedTime.date, parsedEstimatedTime.time);
-          if (estimatedAt) is_over = new Date() >= estimatedAt;
+        if (!validation.isValid) {
+          setDateTimeModalMessage(validation.message);
+          setShowDateTimePicker(true);
+        } else {
+          setDateTimeModalMessage('');
         }
-
-        // 2) Lead time validation — default to valid; only invalidate if lead_time
-        //    is known AND the selected time is too early.
-        let is_lead_time_valid = true;
-        if (
-          resolvedOrderType === "delivery" &&
-          deliveryAddressDetails &&
-          parsedEstimatedTime?.estimatedTime &&
-          parsedEstimatedTime.estimatedTime !== "ASAP"
-        ) {
-          const selectedDate = parseLocalDateTime(parsedEstimatedTime?.date, parsedEstimatedTime?.time);
-          if (selectedDate) {
-            // Use minimum lead_time from delivery_settings if available, else flat field
-            let leadMinutes = 0;
-            if (parsedOutletDetails.delivery_settings && Array.isArray(parsedOutletDetails.delivery_settings) && parsedOutletDetails.delivery_settings.length > 0) {
-              const selectedDay = selectedDate.getDay();
-              const matchingSettings = parsedOutletDetails.delivery_settings.filter(s => {
-                const days = (s.delivery_available_days || '').split(',').map(d => parseInt(d.trim())).filter(n => !isNaN(n));
-                return days.includes(selectedDay);
-              });
-              if (matchingSettings.length > 0) {
-                leadMinutes = Math.min(...matchingSettings.map(s => Number(s.lead_time) || 0));
-              }
-            } else if (parsedOutletDetails.lead_time) {
-              leadMinutes = Number(parsedOutletDetails.lead_time) || 0;
-            }
-
-            if (leadMinutes > 0) {
-              const minTime = new Date(Date.now() + leadMinutes * 60000);
-              is_lead_time_valid = selectedDate >= minTime;
-            }
-          }
-        }
-        // 3) Show picker logic
-        const noEstimatedTime = !estimatedTimeStr;
-
-        const shouldShow =
-          (resolvedOrderType === "delivery" && (noEstimatedTime || !is_lead_time_valid)) ||
-          (resolvedOrderType !== "dinein" && resolvedOrderType !== "delivery" && noEstimatedTime) ||
-          (is_over && resolvedOrderType !== "dinein");
-        if (shouldShow) setShowDateTimePicker(true);
       } catch (err) {
         console.warn("fetchOutletData error:", err);
       }
@@ -586,6 +609,12 @@ export default function MenuScreen() {
     fetchAddressData();
 
   }, [router, activeOrderType, fromQR])
+
+  useFocusEffect(
+    useCallback(() => {
+      revalidateOrderDateTime();
+    }, [revalidateOrderDateTime])
+  );
 
   useEffect(() => {
     const fetchOrderType = async () => {
@@ -923,7 +952,7 @@ export default function MenuScreen() {
         selectedDate.setHours(hours, minutes, 0, 0);
         // const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
-        finalDate = selectedDate.toISOString().split("T")[0];
+        finalDate = formatLocalDate(selectedDate);
         finalTime = `${String(selectedDate.getHours()).padStart(2, "0")}:${String(selectedDate.getMinutes()).padStart(2, "0")}`;
       } else {
         [finalDate, finalTime] = convertToDateTimeString(selectedDateTime);
@@ -1048,6 +1077,12 @@ export default function MenuScreen() {
 
     if (!authToken || !customerData) {
       setShowLoginModal(true);
+      return;
+    }
+
+    const currentOrderType = await AsyncStorage.getItem('orderType');
+    if (currentOrderType === 'pickup' || currentOrderType === 'delivery') {
+      setShowOutletConfirmModal(true);
       return;
     }
 
@@ -1387,6 +1422,9 @@ export default function MenuScreen() {
           setShowDateTimePicker={setShowDateTimePicker}
           setSelectedDateTime={setSelectedDateTime}
           outletId={selectedOutlet.outletId}
+          orderType={activeOrderType}
+          modalMessage={dateTimeModalMessage}
+          setModalMessage={setDateTimeModalMessage}
         /> : null}
 
         {isLoading ? (
@@ -1403,6 +1441,57 @@ export default function MenuScreen() {
           onConfirm={handleLoginModalConfirm}
           onCancel={() => setShowLoginModal(false)}
         />
+
+        {/* Outlet Confirmation Modal for Pickup / Delivery */}
+        <Modal transparent visible={showOutletConfirmModal} animationType="fade">
+          <View style={styles.outletModalOverlay}>
+            <View style={styles.outletModalBox}>
+              <Text style={styles.outletModalHeaderTitle}>
+                Please Confirm Your Outlet
+              </Text>
+
+              <Image
+                source={
+                  selectedOutlet?.image
+                    ? { uri: selectedOutlet.image }
+                    : require('../../../assets/images/uspizza-icon.png')
+                }
+                style={styles.outletModalImage}
+                resizeMode="cover"
+              />
+
+              <Text style={styles.outletModalName}>
+                {selectedOutlet?.outletTitle || 'US Pizza'}
+              </Text>
+
+              <View style={styles.outletModalButtonRow}>
+                <PolygonButton
+                  text="Cancel"
+                  width={Math.min(width, 400) * 0.35}
+                  height={30}
+                  color="#888"
+                  textColor="#fff"
+                  textStyle={{ fontSize: 15, fontFamily: 'Route159-HeavyItalic' }}
+                  onPress={() => setShowOutletConfirmModal(false)}
+                />
+
+                <PolygonButton
+                  text="Confirm"
+                  width={Math.min(width, 400) * 0.35}
+                  height={30}
+                  color="#C2000E"
+                  textColor="#fff"
+                  textStyle={{ fontSize: 15, fontFamily: 'Route159-HeavyItalic' }}
+                  onPress={() => {
+                    setShowOutletConfirmModal(false);
+                    formatDateTime();
+                    router.push('/screens/orders/checkout');
+                  }}
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
 
       </SafeAreaView>
       {/* </View>
@@ -1854,5 +1943,69 @@ const styles = StyleSheet.create({
     fontFamily: 'Route159-Bold',
     fontSize: 16,
     color: '#C2000E',
+  },
+  outletModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  outletModalBox: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    width: Math.min(width, 400) * 0.9,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  outletModalHeaderTitle: {
+    fontSize: 17,
+    fontFamily: 'Route159-Bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  outletModalImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 14,
+    marginBottom: 14,
+    backgroundColor: '#f0f0f0',
+  },
+  outletModalName: {
+    fontSize: 20,
+    fontFamily: 'Route159-Bold',
+    color: '#C2000E',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  outletModalAddress: {
+    fontSize: 13,
+    fontFamily: 'Route159-Regular',
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 8,
+    lineHeight: 20,
+  },
+  outletModalDistance: {
+    fontSize: 13,
+    fontFamily: 'Route159-Bold',
+    color: '#C2000E',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  outletModalButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 14,
+    width: '100%',
+    marginTop: 5,
   },
 });

@@ -150,8 +150,8 @@ export default function DeliveryAddressSelection() {
     const renderAddress = ({ item }) => (
         <>
             <TouchableOpacity
-                onPress={() => {
-                    setAddressDetials({ addressId: item.id, address: item.address, latitude: item.latitude, longitude: item.longitude });
+                onPress={async () => {
+                    await setAddressDetials({ addressId: item.id, address: item.address, latitude: item.latitude, longitude: item.longitude });
                     setSelectedAddress(item.id);
                     setTimeout(() => {
                         router.push('/screens/home/outlet_select');
@@ -163,8 +163,8 @@ export default function DeliveryAddressSelection() {
                         <View>
                             <TouchableOpacity
                                 style={styles.checkboxContainer}
-                                onPress={() => {
-                                    setAddressDetials({ addressId: item.id, address: item.address, latitude: item.latitude, longitude: item.longitude });
+                                onPress={async () => {
+                                    await setAddressDetials({ addressId: item.id, address: item.address, latitude: item.latitude, longitude: item.longitude });
                                     setSelectedAddress(item.id);
                                     setTimeout(() => {
                                         router.push('/screens/home/outlet_select');

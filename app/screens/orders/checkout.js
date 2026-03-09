@@ -45,6 +45,8 @@ import CustomDateTimePickerModal from '../../../components/ui/CustomDateTimePick
 import { FontAwesome6 } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { Modal } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+const { validateStoredOrderDateTime } = require('../../../utils/order_datetime');
 
 const { width } = Dimensions.get('window');
 
@@ -386,6 +388,7 @@ export default function CheckoutScreen({ navigation }) {
   const [estimatedTime, setEstimatedtime] = useState({});
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
   const [selectedDateTime, setSelectedDateTime] = useState(null);
+  const [dateTimeModalMessage, setDateTimeModalMessage] = useState('');
   const [deleteItem, setDeleteItem] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(null);
   const [showFreeItemsModal, setShowFreeItemsModal] = useState(false);
@@ -408,6 +411,7 @@ export default function CheckoutScreen({ navigation }) {
   const [qrRecipientPhone, setQrRecipientPhone] = useState('');
   const [uniqueQrData, setUniqueQrData] = useState(null);
   const [qrRecipientDraftLoaded, setQrRecipientDraftLoaded] = useState(false);
+  const [orderNote, setOrderNote] = useState('');
 
   const showLoading = useCallback(() => {
     setLoadingCount((prev) => prev + 1);
@@ -434,11 +438,86 @@ export default function CheckoutScreen({ navigation }) {
 
   const { vip } = useLocalSearchParams();
 
+  const revalidateOrderDateTime = useCallback(async () => {
+    if (!selectedOutlet?.outletId) return;
+    if (orderType !== 'pickup' && orderType !== 'delivery') return;
+
+    try {
+      const [estimatedTimeStr, latestOutletResponse] = await Promise.all([
+        AsyncStorage.getItem('estimatedTime'),
+        axios.get(`${apiUrl}outlets/${selectedOutlet.outletId}`),
+      ]);
+
+      const latestOutlet = latestOutletResponse.data?.result;
+      if (!latestOutlet) return;
+
+      const mergedOutlet = {
+        ...selectedOutlet,
+        lead_time: latestOutlet.lead_time,
+        delivery_start: latestOutlet.delivery_start,
+        delivery_end: latestOutlet.delivery_end,
+        delivery_interval: latestOutlet.delivery_interval,
+        delivery_available_days: latestOutlet.delivery_available_days,
+        delivery_settings: latestOutlet.delivery_settings || [],
+      };
+
+      const outletScheduleChanged =
+        String(selectedOutlet?.lead_time ?? '') !== String(mergedOutlet.lead_time ?? '') ||
+        String(selectedOutlet?.delivery_start ?? '') !== String(mergedOutlet.delivery_start ?? '') ||
+        String(selectedOutlet?.delivery_end ?? '') !== String(mergedOutlet.delivery_end ?? '') ||
+        String(selectedOutlet?.delivery_interval ?? '') !== String(mergedOutlet.delivery_interval ?? '') ||
+        String(selectedOutlet?.delivery_available_days ?? '') !== String(mergedOutlet.delivery_available_days ?? '') ||
+        JSON.stringify(selectedOutlet?.delivery_settings || []) !== JSON.stringify(mergedOutlet.delivery_settings || []);
+
+      if (outletScheduleChanged) {
+        setSelectedOutlet(mergedOutlet);
+        await AsyncStorage.setItem('outletDetails', JSON.stringify(mergedOutlet));
+      }
+
+      const validation = validateStoredOrderDateTime({
+        orderType,
+        estimatedTime: estimatedTimeStr ? JSON.parse(estimatedTimeStr) : null,
+        outlet: mergedOutlet,
+        now: new Date(),
+      });
+
+      if (!validation.isValid) {
+        setDateTimeModalMessage(validation.message);
+        setShowDateTimePicker(true);
+      } else {
+        setDateTimeModalMessage('');
+      }
+    } catch (_error) {
+    }
+  }, [orderType, selectedOutlet]);
+
   useEffect(() => {
     AsyncStorage.getItem("freeItemMaxQuantity").then((val) => {
       if (val) setFreeItemMaxQty(Number(val));
     });
   }, []);
+
+  useEffect(() => {
+    revalidateOrderDateTime();
+  }, [revalidateOrderDateTime]);
+
+  useFocusEffect(
+    useCallback(() => {
+      revalidateOrderDateTime();
+    }, [revalidateOrderDateTime])
+  );
+
+  // Load persisted order note
+  useEffect(() => {
+    AsyncStorage.getItem('orderNote').then(val => {
+      if (val) setOrderNote(val);
+    });
+  }, []);
+
+  // Save order note when it changes
+  useEffect(() => {
+    AsyncStorage.setItem('orderNote', orderNote);
+  }, [orderNote]);
 
   useEffect(() => {
     const fetchPaymentMethod = async () => {
@@ -538,7 +617,8 @@ export default function CheckoutScreen({ navigation }) {
     fetchOrderType();
     fetchEstimatedTime();
     fetchPaymentMethod();
-  }, [router, selectedDateTime])
+  }, [router])
+
 
   useEffect(() => {
     AsyncStorage.getItem('customerData').then((customerStr) => {
@@ -1057,7 +1137,8 @@ export default function CheckoutScreen({ navigation }) {
       'orderType',
       'outletDetails',
       'paymentMethod',
-      'freeItemMaxQuantity'
+      'freeItemMaxQuantity',
+      'orderNote'
     ];
 
     const finalKeysToRemove = preserveDeliveryAddress
@@ -1115,7 +1196,7 @@ export default function CheckoutScreen({ navigation }) {
         placed_at: '',
         selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
         selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
-        notes: ''
+        notes: orderNote
       };
 
       // console.log('Sending checkout payload:', payload);
@@ -1712,6 +1793,34 @@ export default function CheckoutScreen({ navigation }) {
               <View style={styles.separator} />
             </>
           )}
+
+          {/* Order Remark */}
+          <View style={styles.separator} />
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Remark</Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: '#ddd',
+                borderRadius: 8,
+                padding: 12,
+                minHeight: 80,
+                fontFamily: 'Route159-Regular',
+                fontSize: 14,
+                color: '#333',
+                textAlignVertical: 'top',
+                backgroundColor: '#fafafa',
+              }}
+              value={orderNote}
+              onChangeText={setOrderNote}
+              placeholder="Add a note for your order (optional) Exp: Room No/ House Unit/ Special Request"
+              placeholderTextColor="#999"
+              multiline
+              maxLength={200}
+            />
+          </View>
+          <View style={styles.separator} />
+
           {customerData ? <PaymentMethodButton
             selectedMethod={paymentMethod}
             navigation={navigation}
@@ -1916,6 +2025,9 @@ export default function CheckoutScreen({ navigation }) {
           setShowDateTimePicker={setShowDateTimePicker}
           setSelectedDateTime={setSelectedDateTime}
           outletId={selectedOutlet.outletId}
+          orderType={orderType}
+          modalMessage={dateTimeModalMessage}
+          setModalMessage={setDateTimeModalMessage}
         /> : null}
 
         <ConfirmationModal

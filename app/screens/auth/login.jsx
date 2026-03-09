@@ -1,7 +1,7 @@
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Dimensions, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform } from 'react-native';
+import { Dimensions, Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Polygon, Svg } from 'react-native-svg';
@@ -16,9 +16,16 @@ import { useToast } from '../../../hooks/useToast';
 
 const { width, height } = Dimensions.get('window');
 
+const COUNTRY_CODES = [
+  { label: '+60 (MY)', value: '+60' },
+  { label: '+862 (CN)', value: '+862' },
+];
+
 export default function Login() {
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+60');
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [tempCountryCode, setTempCountryCode] = useState('+60');
   const router = useRouter();
   const toast = useToast();
   // useEffect(() => {
@@ -134,18 +141,73 @@ export default function Login() {
 
                 {/* Phone input */}
                 <View style={styles.inputRow}>
-                  <View style={styles.countryCodeDropdownWrap}>
-                    <Picker
-                      selectedValue={countryCode}
-                      onValueChange={(value) => setCountryCode(value)}
-                      style={styles.countryCodePicker}
-                      itemStyle={styles.countryCodePickerItem}
-                      dropdownIconColor="#C2000E"
-                    >
-                      <Picker.Item label="+60" value="+60" />
-                      <Picker.Item label="+862" value="+862" />
-                    </Picker>
-                  </View>
+                  {/* Country Code Selector */}
+                  {Platform.OS === 'ios' ? (
+                    <>
+                      <TouchableOpacity
+                        style={styles.countryCodeDropdownWrap}
+                        onPress={() => {
+                          setTempCountryCode(countryCode);
+                          setPickerVisible(true);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.countryCodeText}>{countryCode}</Text>
+                        <Text style={styles.countryCodeChevron}>▼</Text>
+                      </TouchableOpacity>
+
+                      {/* iOS Modal Picker */}
+                      <Modal
+                        visible={pickerVisible}
+                        transparent
+                        animationType="slide"
+                        onRequestClose={() => setPickerVisible(false)}
+                      >
+                        <TouchableOpacity
+                          style={styles.modalOverlay}
+                          activeOpacity={1}
+                          onPress={() => setPickerVisible(false)}
+                        />
+                        <View style={styles.modalPickerContainer}>
+                          <View style={styles.modalPickerHeader}>
+                            <TouchableOpacity onPress={() => setPickerVisible(false)}>
+                              <Text style={styles.modalPickerCancel}>Cancel</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.modalPickerTitle}>Country Code</Text>
+                            <TouchableOpacity onPress={() => {
+                              setCountryCode(tempCountryCode);
+                              setPickerVisible(false);
+                            }}>
+                              <Text style={styles.modalPickerDone}>Done</Text>
+                            </TouchableOpacity>
+                          </View>
+                          <Picker
+                            selectedValue={tempCountryCode}
+                            onValueChange={(value) => setTempCountryCode(value)}
+                            itemStyle={styles.countryCodePickerItem}
+                          >
+                            {COUNTRY_CODES.map((item) => (
+                              <Picker.Item key={item.value} label={item.label} value={item.value} />
+                            ))}
+                          </Picker>
+                        </View>
+                      </Modal>
+                    </>
+                  ) : (
+                    <View style={styles.countryCodeDropdownWrap}>
+                      <Picker
+                        selectedValue={countryCode}
+                        onValueChange={(value) => setCountryCode(value)}
+                        style={styles.countryCodePicker}
+                        itemStyle={styles.countryCodePickerItem}
+                        dropdownIconColor="#C2000E"
+                      >
+                        {COUNTRY_CODES.map((item) => (
+                          <Picker.Item key={item.value} label={item.label} value={item.value} />
+                        ))}
+                      </Picker>
+                    </View>
+                  )}
                   {Platform.OS === 'web' ? (
                     <div data-testid="phone-input" style={{ flex: 1 }}>
                       <TextInput
@@ -154,7 +216,7 @@ export default function Login() {
                         placeholderTextColor="#999"
                         keyboardType="phone-pad"
                         value={phone}
-                    onChangeText={setPhone}
+                        onChangeText={setPhone}
                       />
                     </div>
                   ) : (
@@ -164,31 +226,16 @@ export default function Login() {
                       placeholderTextColor="#999"
                       keyboardType="phone-pad"
                       value={phone}
-                    onChangeText={setPhone}
+                      onChangeText={setPhone}
                     />
                   )}
                 </View>
 
                 {/* SMS / WhatsApp buttons */}
-                  <View style={styles.buttonRow}>
-                    {Platform.OS === 'web' ? (
-                      <div data-testid="sms-button" style={{ flex: 1 }}>
-                        <TouchableOpacity
-                          style={[styles.button, phone ? styles.smsButtonActive : styles.smsButton]}
-                          onPress={() => handleSendOTP("sms")}
-                          disabled={!phone}
-                        >
-                          <Ionicons
-                            name="chatbubble-outline"
-                            size={width >= 440 ? 20 : 18}
-                            color="#fff"
-                          />
-                          <Text style={styles.buttonText}>SMS</Text>
-                        </TouchableOpacity>
-                      </div>
-                    ) : (
+                <View style={styles.buttonRow}>
+                  {Platform.OS === 'web' ? (
+                    <div data-testid="sms-button" style={{ flex: 1 }}>
                       <TouchableOpacity
-                        testID="sms-button"
                         style={[styles.button, phone ? styles.smsButtonActive : styles.smsButton]}
                         onPress={() => handleSendOTP("sms")}
                         disabled={!phone}
@@ -200,24 +247,39 @@ export default function Login() {
                         />
                         <Text style={styles.buttonText}>SMS</Text>
                       </TouchableOpacity>
-                    )}
-
-
-                    <Text style={styles.orText}>OR</Text>
-
+                    </div>
+                  ) : (
                     <TouchableOpacity
-                      style={[styles.button, phone ? styles.whatsappButtonActive : styles.whatsappButton]}
-                      onPress={() => handleSendOTP("whatsapp")}
+                      testID="sms-button"
+                      style={[styles.button, phone ? styles.smsButtonActive : styles.smsButton]}
+                      onPress={() => handleSendOTP("sms")}
                       disabled={!phone}
                     >
-                      <FontAwesome5
-                        name="whatsapp"
+                      <Ionicons
+                        name="chatbubble-outline"
                         size={width >= 440 ? 20 : 18}
                         color="#fff"
                       />
-                      <Text style={styles.buttonText}>WhatsApp</Text>
+                      <Text style={styles.buttonText}>SMS</Text>
                     </TouchableOpacity>
-                  </View>
+                  )}
+
+
+                  <Text style={styles.orText}>OR</Text>
+
+                  <TouchableOpacity
+                    style={[styles.button, phone ? styles.whatsappButtonActive : styles.whatsappButton]}
+                    onPress={() => handleSendOTP("whatsapp")}
+                    disabled={!phone}
+                  >
+                    <FontAwesome5
+                      name="whatsapp"
+                      size={width >= 440 ? 20 : 18}
+                      color="#fff"
+                    />
+                    <Text style={styles.buttonText}>WhatsApp</Text>
+                  </TouchableOpacity>
+                </View>
 
               </View>
             </View>
@@ -446,7 +508,24 @@ const styles = StyleSheet.create({
   countryCodeDropdownWrap: {
     width: 96,
     justifyContent: 'center',
+    alignItems: 'center',
     height: 45,
+    flexDirection: 'row',
+    paddingHorizontal: 6,
+    borderRightWidth: 1,
+    borderRightColor: '#eee',
+  },
+  countryCodeText: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: 'RobotoSlab-Regular',
+    flex: 1,
+    textAlign: 'center',
+  },
+  countryCodeChevron: {
+    fontSize: 10,
+    color: '#C2000E',
+    marginLeft: 2,
   },
   countryCodePicker: {
     width: '100%',
@@ -461,6 +540,42 @@ const styles = StyleSheet.create({
   countryCodePickerItem: {
     fontSize: 14,
     color: '#333',
+    fontFamily: 'RobotoSlab-Regular',
+  },
+  // iOS Modal Picker styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  modalPickerContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 30,
+  },
+  modalPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalPickerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    fontFamily: 'RobotoSlab-Bold',
+  },
+  modalPickerDone: {
+    fontSize: 16,
+    color: '#C2000E',
+    fontFamily: 'RobotoSlab-Bold',
+  },
+  modalPickerCancel: {
+    fontSize: 16,
+    color: '#888',
     fontFamily: 'RobotoSlab-Regular',
   },
   input: {

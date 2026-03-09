@@ -69,6 +69,20 @@ export default function VoucherDetails() {
 
   const showRedeemButton = from !== 'profile';
 
+  const isNotYetActive = (() => {
+    if (!voucherData?.voucher_start_date) return false;
+    try {
+      const startDate = new Date(voucherData.voucher_start_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return startDate > today;
+    } catch (e) {
+      return false;
+    }
+  })();
+
+  const isRedeemDisabled = voucherData.voucher_status !== 'active' || isNotYetActive;
+
   return (
     <ResponsiveBackground>
       <SafeAreaView style={styles.container}>
@@ -95,6 +109,15 @@ export default function VoucherDetails() {
             <Text style={styles.voucherCode}>
               Voucher Code: {voucherData.voucher_code}
             </Text>
+
+            {voucherData.voucher_start_date ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Start Date</Text>
+                <Text style={styles.sectionContentValidity}>
+                  {voucherData.voucher_start_date}
+                </Text>
+              </View>
+            ) : null}
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Expiry Date</Text>
@@ -124,17 +147,16 @@ export default function VoucherDetails() {
             <TouchableOpacity
               style={styles.redeemButton}
               onPress={handleRedeem}
-              disabled={voucherData.voucher_status !== 'active'}
+              disabled={isRedeemDisabled}
             >
               <CustomTabBarBackground />
               <Text
                 style={[
                   styles.confirmButtonText,
-                  voucherData.voucher_status !== 'active' &&
-                    styles.disabledButtonText,
+                  isRedeemDisabled && styles.disabledButtonText,
                 ]}
               >
-                {voucherData.voucher_status === 'active'
+                {voucherData.voucher_status === 'active' && !isNotYetActive
                   ? 'REDEEM VOUCHER'
                   : 'INACTIVE VOUCHER'}
               </Text>

@@ -99,6 +99,11 @@ export default function EditableDeliveryMapNative({
             });
     };
 
+    const handleConfirmLocation = () => {
+        const { latitude, longitude } = selectedLocation;
+        reverseGeocode(latitude || initialLatLng.latitude, longitude || initialLatLng.longitude);
+    };
+
     const getStreetName = (result) => {
         if (!result) return '';
         const streetComponent = result.address_components.find(component =>
@@ -157,7 +162,7 @@ export default function EditableDeliveryMapNative({
                     setMapReady(true);
                 }}
                 onRegionChangeComplete={(region) => {
-                    // Only update location when user pans the map (not programmatic)
+                    // Only update coordinates when user pans the map (not programmatic)
                     if (!isProgrammaticChange.current) {
                         const newLat = region.latitude;
                         const newLng = region.longitude;
@@ -165,7 +170,7 @@ export default function EditableDeliveryMapNative({
                         const latDiff = Math.abs(newLat - (selectedLocation.latitude || initialLatLng.latitude));
                         const lngDiff = Math.abs(newLng - (selectedLocation.longitude || initialLatLng.longitude));
                         if (latDiff > 0.0001 || lngDiff > 0.0001) {
-                            reverseGeocode(newLat, newLng, true);
+                            setSelectedLocation(prev => ({ ...prev, latitude: newLat, longitude: newLng }));
                         }
                     }
                 }}
@@ -183,7 +188,7 @@ export default function EditableDeliveryMapNative({
                     draggable
                     onDragEnd={(e) => {
                         const { latitude, longitude } = e.nativeEvent.coordinate;
-                        reverseGeocode(latitude, longitude); // updates address and calls onLocationChange
+                        setSelectedLocation(prev => ({ ...prev, latitude, longitude }));
                     }}
                     title="Selected Location"
                     description="Delivery Location"
@@ -214,7 +219,7 @@ export default function EditableDeliveryMapNative({
                     minLength={2}
                     onFail={(error) => console.error('GooglePlacesAutocomplete Error:', error)}
                     timeout={10000}
-                    debounce={300}
+                    debounce={800}
                     listUnderlayColor="transparent"
                     enablePoweredByContainer={false}
                     keepResultsAfterBlur={false}
@@ -297,6 +302,33 @@ export default function EditableDeliveryMapNative({
                     }}
                 />
             </View>}
+
+            {/* Confirm Location Button */}
+            <View style={{
+                position: 'absolute',
+                bottom: 20,
+                alignSelf: 'center',
+                width: '90%',
+                zIndex: Platform.OS === 'ios' ? 100 : 1,
+            }}>
+                <TouchableOpacity
+                    style={{
+                        backgroundColor: '#C2000E',
+                        padding: 15,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        elevation: 5,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.25,
+                        shadowRadius: 3.84,
+                    }}
+                    onPress={handleConfirmLocation}
+                >
+                    <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>Confirm Location</Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };

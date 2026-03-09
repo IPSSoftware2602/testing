@@ -950,7 +950,7 @@ export default function OrderDetails({ navigation }) {
   };
 
   const message = () => {
-    var text = '';
+    let text = '';
     switch (orderType) {
       case 'delivery':
         switch (orderStatus) {

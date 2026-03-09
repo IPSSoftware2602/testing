@@ -2,20 +2,19 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet, Text, View, Dimensions, TextInput, Image, FlatList, TouchableOpacity, Alert, Linking, Platform } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, TextInput, Image, FlatList, TouchableOpacity } from 'react-native';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import TopNavigation from '../../../components/ui/TopNavigation';
 import { fonts, colors } from '../../../styles/common';
 import { FontAwesome6 } from '@expo/vector-icons';
 import PolygonButton from '../../../components/ui/PolygonButton';
-import * as Location from 'expo-location';
 import { apiUrl } from '../../constant/constants';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // Removed useAuthGuard import - outlet selection accessible without login (App Store requirement)
 // import { useToast } from 'react-native-toast-notifications';
 import { useToast } from '../../../hooks/useToast';
-import { Ellipse } from 'react-native-svg';
+import { getStoredCurrentLocation, requestLatestLocation } from '../../../utils/location_bootstrap';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,7 +28,12 @@ export default function OutletSelection() {
     const [outletData, setOutletData] = useState([]);
     const [authToken, setAuthToken] = useState("");
     const [orderType, setOrderType] = useState("");
-    const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+    const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
+
+    const buildMenuRoute = useCallback(() => ({
+        pathname: '(tabs)/menu',
+        params: orderType ? { orderType } : undefined,
+    }), [orderType]);
 
 
 
@@ -60,6 +64,11 @@ export default function OutletSelection() {
                     if (deliveryAddressDetails) {
                         const parseddeliveryAddressDetails = JSON.parse(deliveryAddressDetails);
                         setLocation({ lat: parseFloat(parseddeliveryAddressDetails.latitude), lng: parseFloat(parseddeliveryAddressDetails.longitude) });
+                    }
+                } else {
+                    const currentLocation = await getStoredCurrentLocation();
+                    if (currentLocation?.lat != null && currentLocation?.lng != null) {
+                        setLocation({ lat: currentLocation.lat, lng: currentLocation.lng });
                     }
                 }
 
@@ -104,20 +113,13 @@ export default function OutletSelection() {
                 }
             }
 
-            // PICKUP / DINEIN: best-effort GPS, but DO NOT BLOCK if denied
+            // PICKUP / DINEIN: use latest startup location when available
             if (orderTypeStored && orderTypeStored !== 'delivery' && (lat == null || lng == null)) {
-                const { status } = await Location.requestForegroundPermissionsAsync();
-                if (status === 'granted') {
-                    const currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-                    lat = currentLocation?.coords?.latitude ?? null;
-                    lng = currentLocation?.coords?.longitude ?? null;
-                    if (lat != null && lng != null) {
-                        updateLocationIfChanged(lat, lng);
-                    }
-                    setLocationPermissionDenied(false);
-                } else {
-                    // IMPORTANT: don't return; proceed with null coordinates
-                    setLocationPermissionDenied(true);
+                const currentLocation = await getStoredCurrentLocation();
+                if (currentLocation?.lat != null && currentLocation?.lng != null) {
+                    lat = currentLocation.lat;
+                    lng = currentLocation.lng;
+                    updateLocationIfChanged(currentLocation.lat, currentLocation.lng);
                 }
             }
 
@@ -155,51 +157,27 @@ export default function OutletSelection() {
         }, [loadOutlets])
     );
 
-    const getCoordinates = async (retry = false) => {
+    const getCoordinates = async () => {
         try {
-            const { status } = await Location.getForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                setLocationPermissionDenied(true);
-                return;
-            }
-
-            let currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-            if (!currentLocation?.coords && !retry) {
-                setTimeout(() => getCoordinates(true), 1000); // retry after 1s
-                return;
-            }
-
+            setIsRefreshingLocation(true);
+            const currentLocation = await requestLatestLocation({ timeoutMs: 8000 });
             setLocation({
-                lat: currentLocation.coords.latitude,
-                lng: currentLocation.coords.longitude
+                lat: currentLocation.lat,
+                lng: currentLocation.lng
             });
-            setLocationPermissionDenied(false);
+            toast.show('Latest location updated', {
+                type: 'custom_toast',
+                data: { title: 'Location Refreshed', status: 'success' }
+            });
             loadOutlets();
         } catch (error) {
             console.error('Error getting location:', error);
-        }
-    };
-
-
-    const openLocationSettings = async () => {
-        try {
-            if (Platform.OS === 'android') {
-                await Linking.openSettings();
-                return;
-            }
-
-            if (Platform.OS === 'ios') {
-                await Linking.openURL('app-settings:');
-                return;
-            }
-
-            // Web fallback
-            Alert.alert(
-                "Enable Location",
-                "Please allow location access in your browser or phone settings."
-            );
-        } catch (error) {
-            console.error("Error opening location settings:", error);
+            toast.show('Failed to get your current location', {
+                type: 'custom_toast',
+                data: { title: 'Location Unavailable', status: 'danger' }
+            });
+        } finally {
+            setIsRefreshingLocation(false);
         }
     };
 
@@ -331,12 +309,14 @@ export default function OutletSelection() {
                             }
                         });
                         await AsyncStorage.setItem('showDateTimePicker', 'true');
-                        router.push('(tabs)/menu'); // proceed for  dine-in even is closed 
+                        await setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen, operatingHours: item.operating_schedule });
+                        router.push(buildMenuRoute()); // proceed for  dine-in even is closed 
+                        return;
                     }
 
-                    setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen, operatingHours: item.operating_schedule });
+                    await setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen, operatingHours: item.operating_schedule });
                     if (getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')) {
-                        router.push('(tabs)/menu')
+                        router.push(buildMenuRoute())
                     }
                 }}
                 // onPress={() => {
@@ -396,11 +376,11 @@ export default function OutletSelection() {
                         color="#C2000E"
                         textColor="#fff"
                         textStyle={{ fontWeight: 'bold', fontSize: 20, fontFamily: 'Route159-HeavyItalic' }}
-                        onPress={() => {
+                        onPress={async () => {
                             // setSelectedOutlet(item.id);
-                            setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen });
+                            await setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen });
                             if (getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')) {
-                                router.push('(tabs)/menu')
+                                router.push(buildMenuRoute())
                             }
                         }}
                     />
@@ -420,6 +400,16 @@ export default function OutletSelection() {
         <ResponsiveBackground>
             <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF2E2' }}>
                 <TopNavigation title="Select Outlet Location" isBackButton={true} navigatePage={() => router.push('(tabs)')} />
+                <TouchableOpacity
+                    style={styles.locationRefreshRow}
+                    onPress={getCoordinates}
+                    disabled={isRefreshingLocation}
+                >
+                    <FontAwesome6 name="location-crosshairs" style={styles.locationRefreshIcon} />
+                    <Text style={styles.locationRefreshText}>
+                        {isRefreshingLocation ? 'Getting latest location...' : 'Get latest location'}
+                    </Text>
+                </TouchableOpacity>
                 <View style={styles.searchBar}>
                     <FontAwesome6 name="magnifying-glass" style={styles.searchIcon} />
                     <TextInput
@@ -432,21 +422,6 @@ export default function OutletSelection() {
                         autoCapitalize="none"
                     />
                 </View>
-
-                {/* {locationPermissionDenied && (
-                    <View style={styles.permissionWarning}>
-                        <Text style={styles.permissionTitle}>We can&apos;t seem to find you.</Text>
-                        <Text style={styles.permissionSubtitle}>
-                            Turn on location to sort by nearest outlet. You can still proceed without it.
-                        </Text>
-
-                        {Platform.OS !== 'web' && (
-                            <TouchableOpacity onPress={openLocationSettings} style={styles.enableLocationBtn}>
-                                <Text style={styles.enableLocationText}>Turn on your location now</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                )} */}
 
                 <FlatList
                     data={filteredOutlets}
@@ -464,6 +439,24 @@ export default function OutletSelection() {
 }
 
 const styles = StyleSheet.create({
+    locationRefreshRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'center',
+        marginTop: height * 0.02,
+        marginBottom: 10,
+        gap: 8,
+    },
+    locationRefreshIcon: {
+        fontSize: 16,
+        color: '#C2000E',
+    },
+    locationRefreshText: {
+        color: '#C2000E',
+        fontSize: 15,
+        fontFamily: 'Route159-SemiBold',
+        textDecorationLine: 'underline',
+    },
     input: {
         flex: 1,
         fontSize: 16,
@@ -481,7 +474,6 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         paddingHorizontal: 16,
         height: 50,
-        marginTop: height * 0.02,
     },
     searchIcon: {
         fontSize: 18,

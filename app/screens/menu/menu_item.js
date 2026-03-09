@@ -50,7 +50,7 @@ const OptionCard = React.memo(({
 
   const handlePress = useCallback(() => {
     onOptionToggle(item.id, item.price, selected, selectedCount, maxQ, minQ, group);
-  }, [item.id, item.price, selected, selectedCount, maxQ, minQ, group, onOptionToggle]);
+  }, [item.isDisabled, item.id, item.price, selected, selectedCount, maxQ, minQ, group, onOptionToggle]);
 
   const imageStyle = useMemo(() =>
     type === 'variation'
@@ -123,10 +123,12 @@ const OptionCard = React.memo(({
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.9}
+      disabled={item.isDisabled}
       style={[
         styles.commonCard,
         type === 'option' && styles.optionCardExtra,
-        { borderColor: selected ? '#C2000E' : '#eee' }
+        { borderColor: selected ? '#C2000E' : '#eee' },
+        item.isDisabled && { opacity: 0.5, backgroundColor: '#f9f9f9' }
       ]}
     >
       <View style={imageContainerStyle}>
@@ -153,19 +155,23 @@ const OptionCard = React.memo(({
         )}
       </View>
       <View style={styles.optionDetails}>
-        <Text style={styles.optionName}>{item.name}</Text>
+        <Text style={[styles.optionName, item.isDisabled && { color: '#aaa', textDecorationLine: 'line-through' }]}>{item.name}</Text>
         <View style={styles.optionRow}>
-          <Text style={styles.optionPrice}>{priceText}</Text>
+          <Text style={[styles.optionPrice, item.isDisabled && { color: '#bbb' }]}>{priceText}</Text>
           {discountPriceText && (
-            <Text style={styles.optionDiscountPrice}>{discountPriceText}</Text>
+            <Text style={[styles.optionDiscountPrice, item.isDisabled && { color: '#bbb' }]}>{discountPriceText}</Text>
           )}
           <TouchableOpacity
             onPress={handlePress}
             activeOpacity={0.8}
-            style={[styles.addButton, selected && { backgroundColor: '#C2000E' }]}
-            disabled={!selected && selectedCount >= maxQ}
+            style={[
+              styles.addButton,
+              selected && { backgroundColor: '#C2000E' },
+              item.isDisabled && { backgroundColor: '#eee', borderColor: '#ccc' }
+            ]}
+            disabled={(!selected && selectedCount >= maxQ) || item.isDisabled}
           >
-            <AntDesign name={selected ? 'check' : 'plus'} size={12} color={selected ? '#fff' : '#C2000E'} />
+            <AntDesign name={selected ? 'check' : 'plus'} size={12} color={selected ? '#fff' : (item.isDisabled ? '#aaa' : '#C2000E')} />
           </TouchableOpacity>
         </View>
       </View>
@@ -179,6 +185,7 @@ const OptionCard = React.memo(({
     prevProps.item.price === nextProps.item.price &&
     prevProps.item.discount_price === nextProps.item.discount_price &&
     prevProps.item.image === nextProps.item.image &&
+    prevProps.item.isDisabled === nextProps.item.isDisabled &&
     prevProps.selected === nextProps.selected &&
     prevProps.selectedCount === nextProps.selectedCount &&
     prevProps.maxQ === nextProps.maxQ &&
@@ -206,6 +213,7 @@ OptionCard.propTypes = {
   selectedCount: PropTypes.number.isRequired,
   maxQ: PropTypes.number.isRequired,
   minQ: PropTypes.number.isRequired,
+  isDisabled: PropTypes.bool,
   toast: PropTypes.object.isRequired,
   isQrOrder: PropTypes.bool,
 };
@@ -251,6 +259,7 @@ const OptionGroup = React.memo(({
         selectedCount,
         maxQ,
         minQ,
+        isDisabled: opt.is_disabled === true || opt.is_disabled === 'true' || opt.is_disabled === 1 || opt.is_disabled === '1',
       };
     });
   }, [group, selectedOptions, isQrOrder]);
@@ -338,6 +347,13 @@ const OptionGroup = React.memo(({
   if (prevProps.group.id !== nextProps.group.id) return false;
   if (prevProps.group.options?.length !== nextProps.group.options?.length) return false;
 
+  // Check if any option's disabled state changed
+  for (let i = 0; i < (prevProps.group.options?.length || 0); i++) {
+    if (prevProps.group.options[i].is_disabled !== nextProps.group.options[i].is_disabled) {
+      return false;
+    }
+  }
+
   const prevSelected = prevProps.selectedOptions.find(opt => opt.parents === prevProps.group.id);
   const nextSelected = nextProps.selectedOptions.find(opt => opt.parents === nextProps.group.id);
 
@@ -384,6 +400,7 @@ const CrustOptionsGroup = React.memo(({
       selectedCount,
       maxQ,
       minQ,
+      isDisabled: opt.is_disabled === true || opt.is_disabled === 'true' || opt.is_disabled === 1 || opt.is_disabled === '1',
     }));
   }, [crustOptions, selectedCrustId]);
 
@@ -425,6 +442,12 @@ const CrustOptionsGroup = React.memo(({
   if (!prevSelected && !nextSelected) return true;
   if (!prevSelected || !nextSelected) return false;
   if (prevSelected.options[0] !== nextSelected.options[0]) return false;
+
+  for (let i = 0; i < prevProps.crustOptions.length; i++) {
+    const prevDis = prevProps.crustOptions[i].is_disabled;
+    const nextDis = nextProps.crustOptions[i].is_disabled;
+    if (prevDis !== nextDis) return false;
+  }
 
   return true;
 });
@@ -619,9 +642,11 @@ export default function MenuItemScreen() {
 
     let groupList = [];
     let shouldFetchOptions = false;
+    let isVariation = false;
 
     // Case 1: Variation is selected
     if (selectedCrustId) {
+      isVariation = true;
       const selectedVariationObj = Array.isArray(menuItem.variation)
         ? menuItem.variation.find(v => String(v.variation?.id) === String(selectedCrustId))
         : (menuItem.variation?.id === selectedCrustId ? menuItem.variation : null);
@@ -656,8 +681,13 @@ export default function MenuItemScreen() {
     const fetchOptionGroups = async () => {
       await runWithLoading(async () => {
         try {
+          const outletDetails = await AsyncStorage.getItem('outletDetails');
+          const outletId = outletDetails ? JSON.parse(outletDetails).outletId : 0;
+          const crustId = selectedCrustId || 0;
+          const optionUrl = (groupId) =>
+            `${apiUrl}option/${groupId}/${outletId}/${id}/${crustId}`;
           const promises = validGroups.map(group =>
-            axios.get(`${apiUrl}option/${group.id}`, {
+            axios.get(optionUrl(group.id), {
               headers: { Authorization: `Bearer ${token}` },
               timeout: 5000
             }).catch(err => {
@@ -743,7 +773,8 @@ export default function MenuItemScreen() {
             price: Number(v.variation.price),
             discount_price: isQrOrder ? 0 : Number(v.variation.discount_price),
             image: imageUri,
-            tags: v.tags || []
+            tags: v.tags || [],
+            is_disabled: v.variation.is_disabled === true || v.variation.is_disabled === 'true' || v.variation.is_disabled === 1 || v.variation.is_disabled === '1'
           };
         })
       );
@@ -761,6 +792,7 @@ export default function MenuItemScreen() {
         price: Number(menuItem.variation.price),
         discount_price: isQrOrder ? 0 : Number(menuItem.variation.discount_price),
         image: imageUri,
+        is_disabled: menuItem.variation.is_disabled === true || menuItem.variation.is_disabled === 'true' || menuItem.variation.is_disabled === 1 || menuItem.variation.is_disabled === '1'
       }]);
     } else {
       setCrustOptions([]);

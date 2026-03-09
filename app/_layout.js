@@ -10,6 +10,17 @@ import { ToastProvider, } from "react-native-toast-notifications";
 // import { fonts } from '../styles/common';
 import { useState, createContext } from 'react';
 import useAuthGuard from './auth/check_token_expiry';
+// Only import and configure Firebase Messaging on native platforms.
+// A static import crashes on Web because the module itself calls firebase.app()
+// at module evaluation time — even if the call-site is guarded.
+if (Platform.OS !== 'web') {
+  const messaging = require('@react-native-firebase/messaging').default;
+
+  // Register background handler
+  messaging().setBackgroundMessageHandler(async remoteMessage => {
+    console.log('Message handled in the background!', remoteMessage);
+  });
+}
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -175,6 +186,43 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    const messaging = require('@react-native-firebase/messaging').default;
+
+    // App running in the background, tapped notification
+    const unsubscribeOnNotificationOpenedApp = messaging().onNotificationOpenedApp(remoteMessage => {
+      console.log(
+        'Notification caused app to open from background state:',
+        remoteMessage.notification,
+      );
+      // Navigation logic could be added here
+    });
+
+    // App completely closed, tapped notification
+    messaging()
+      .getInitialNotification()
+      .then(remoteMessage => {
+        if (remoteMessage) {
+          console.log(
+            'Notification caused app to open from quit state:',
+            remoteMessage.notification,
+          );
+        }
+      });
+
+    // Foreground message handler
+    const unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
+      console.log('A new FCM message arrived!', JSON.stringify(remoteMessage));
+    });
+
+    return () => {
+      unsubscribeOnNotificationOpenedApp();
+      unsubscribeOnMessage();
+    };
+  }, []);
 
   return (
     <SafeAreaProvider>

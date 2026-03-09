@@ -21,6 +21,9 @@ export default function EditableDeliveryMapWeb({
     const geocoderRef = useRef(null);
     const inputRef = useRef(null);
 
+    // Keep track of the current marker position to use on confirm
+    const currentMarkerPositionRef = useRef(initialLatLng);
+
     useEffect(() => {
         if (typeof window !== 'undefined') {
             setIsClient(true);
@@ -103,32 +106,11 @@ export default function EditableDeliveryMapWeb({
         });
 
 
-        // When user drags marker, update location
+        // When user drags marker, update local ref but don't geocode
         marker.addListener('dragend', (e) => {
             const lat = e.latLng.lat();
             const lng = e.latLng.lng();
-
-            // Create geocoder if it doesn't exist
-            if (!geocoderRef.current) {
-                geocoderRef.current = new window.google.maps.Geocoder();
-            }
-
-            // Reverse geocode the position
-            geocoderRef.current.geocode({ location: { lat, lng } }, (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    const address = results[0].formatted_address;
-                    const streetName = getStreetName(results[0]); // Helper function
-
-                    if (onLocationChange) {
-                        onLocationChange({
-                            latitude: lat,
-                            longitude: lng,
-                            address,          // Full formatted address
-                            streetName       // Just the street name
-                        });
-                    }
-                }
-            });
+            currentMarkerPositionRef.current = { latitude: lat, longitude: lng };
         });
 
         // Listen for map drag/pan events to update marker position
@@ -137,32 +119,11 @@ export default function EditableDeliveryMapWeb({
             const lat = center.lat();
             const lng = center.lng();
 
-            // Update marker position
+            // Update marker position and local ref
             if (markerRef.current) {
                 markerRef.current.setPosition({ lat, lng });
             }
-
-            // Create geocoder if it doesn't exist
-            if (!geocoderRef.current) {
-                geocoderRef.current = new window.google.maps.Geocoder();
-            }
-
-            // Reverse geocode the position
-            geocoderRef.current.geocode({ location: { lat, lng } }, (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    const address = results[0].formatted_address;
-                    const streetName = getStreetName(results[0]);
-
-                    if (onLocationChange) {
-                        onLocationChange({
-                            latitude: lat,
-                            longitude: lng,
-                            address,
-                            streetName
-                        });
-                    }
-                }
-            });
+            currentMarkerPositionRef.current = { latitude: lat, longitude: lng };
         });
 
         // Store refs
@@ -187,6 +148,30 @@ export default function EditableDeliveryMapWeb({
         return route ? route.long_name : '';
     }
 
+    const handleConfirmLocation = () => {
+        if (!geocoderRef.current) {
+            geocoderRef.current = new window.google.maps.Geocoder();
+        }
+
+        const { latitude, longitude } = currentMarkerPositionRef.current;
+
+        geocoderRef.current.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
+            if (status === 'OK' && results[0]) {
+                const address = results[0].formatted_address;
+                const streetName = getStreetName(results[0]);
+
+                if (onLocationChange) {
+                    onLocationChange({
+                        latitude,
+                        longitude,
+                        address,
+                        streetName
+                    });
+                }
+            }
+        });
+    };
+
     const initAutocompleteSearch = (map) => {
         // const input = document.getElementById("autocomplete-input");
         if (!inputRef.current) return;
@@ -202,6 +187,8 @@ export default function EditableDeliveryMapWeb({
             const location = place.geometry.location;
             const lat = location.lat();
             const lng = location.lng();
+
+            currentMarkerPositionRef.current = { latitude: lat, longitude: lng };
 
             // Move map and marker
             map.panTo(location);
@@ -269,6 +256,38 @@ export default function EditableDeliveryMapWeb({
                 ref={mapRef}
                 style={{ height: '100%', width: '100%', borderRadius: 10 }}
             />
+
+            {/* Confirm Location Button */}
+            <div style={{
+                position: 'absolute',
+                bottom: '20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: '90%',
+                zIndex: 100,
+                display: 'flex',
+                justifyContent: 'center'
+            }}>
+                <button
+                    style={{
+                        backgroundColor: '#C2000E',
+                        color: 'white',
+                        padding: '15px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        width: '100%',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                    }}
+                    onClick={() => {
+                        handleConfirmLocation();
+                    }}
+                >
+                    Confirm Location
+                </button>
+            </div>
         </View >
     );
 }

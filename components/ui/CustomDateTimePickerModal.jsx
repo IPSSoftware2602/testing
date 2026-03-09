@@ -1,13 +1,14 @@
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Text, TouchableOpacity, View, ScrollView, Modal, Dimensions, StyleSheet, Alert } from 'react-native';
+import { Text, TouchableOpacity, View, ScrollView, Modal, Dimensions, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { apiUrl } from '../../app/constant/constants';
+const { validateStoredOrderDateTime, formatLocalDate } = require('../../utils/order_datetime');
 
 const { width, height } = Dimensions.get('window');
 
-export default function CustomDateTimePickerModal({ showDateTimePicker = false, setShowDateTimePicker, setSelectedDateTime = null, outletId }) {
+export default function CustomDateTimePickerModal({ showDateTimePicker = false, setShowDateTimePicker, setSelectedDateTime = null, outletId, orderType = 'delivery', modalMessage = '', setModalMessage = null }) {
     const router = useRouter();
     // const [showDateTimePicker, setShowDateTimePicker] = useState(false);
     const [selectedDate, setSelectedDate] = useState(null);
@@ -21,10 +22,14 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
     // const [partialOpenDate, setPartialOpenDate] = useState(null); // Deprecated
     const [estimatedTime, setEstimatedtime] = useState({});
     const [selectedTimeIndex, setSelectedTimeIndex] = useState(null);
+    const [noticeMessage, setNoticeMessage] = useState('');
 
     useEffect(() => {
+        setNoticeMessage(modalMessage || '');
+    }, [modalMessage]);
 
-        const fetchEstimatedTime = async () => {
+    useEffect(() => {
+        const syncModalData = async () => {
             try {
                 const estimatedTime = await AsyncStorage.getItem('estimatedTime');
                 if (estimatedTime) {
@@ -34,17 +39,16 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
             } catch (err) {
                 console.log(err?.response?.data?.message);
             }
-        }
-        fetchEstimatedTime();
 
-    }, [])
+            if (outletId) {
+                fetchOutlets();
+            }
+        };
 
-    useEffect(() => {
-        if (outletId) {
-            // console.log(outletId);
-            fetchOutlets();
+        if (showDateTimePicker) {
+            syncModalData();
         }
-    }, [outletId])
+    }, [showDateTimePicker, outletId])
 
     // useEffect(() => {
     //     if (outlet) {
@@ -68,6 +72,13 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
             setOutlet(outletData.result);
         } catch (error) {
             console.error('Error fetching addresses:', error);
+        }
+    };
+
+    const updateNoticeMessage = (message) => {
+        setNoticeMessage(message || '');
+        if (setModalMessage) {
+            setModalMessage(message || '');
         }
     };
 
@@ -274,7 +285,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                 date.setDate(date.getDate() + i);
 
                 const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-                const dateString = date.toISOString().split('T')[0];
+                const dateString = formatLocalDate(date);
 
                 // Calculate slots to determine if operate
                 const slots = getAvailableSlots(date, outlet);
@@ -395,6 +406,11 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
             <View style={styles.modalOverlay}>
                 <View style={styles.modalContainer}>
                     <Text style={styles.modalTitle}>Select Desire Time</Text>
+                    {noticeMessage ? (
+                        <View style={styles.noticeContainer}>
+                            <Text style={styles.noticeText}>{noticeMessage}</Text>
+                        </View>
+                    ) : null}
 
                     {/* Date Picker */}
                     <Text style={styles.sectionTitle}>Date</Text>
@@ -423,6 +439,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                                     style={[styles.dateOption, isSelected && styles.selectedOption]}
                                     onPress={() => {
                                         if (isOperating) {
+                                            updateNoticeMessage('');
                                             setSelectedDate(actualDate);
                                             generateTimesForDate(actualDate);
                                         }
@@ -451,6 +468,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                                     style={[styles.timeOption, isSelected && styles.selectedOption]}
                                     onPress={() => {
                                         if (isOperating) {
+                                            updateNoticeMessage('');
                                             setSelectedTime(time);
                                             setSelectedTimeIndex(index);
                                         }
@@ -480,27 +498,30 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                             ]}
                             disabled={!selectedDate || !selectedTime}
                             onPress={() => {
-                                // Handle the selected date and time
-                                if (selectedTime !== 'ASAP') {
-                                    const now = new Date();
-                                    const [hours, minutes] = selectedTime.split(':').map(Number);
-                                    const checkDate = new Date(selectedDate);
-                                    checkDate.setHours(hours, minutes, 0, 0);
+                                const selectedDateValue = selectedDate instanceof Date ? selectedDate : new Date(selectedDate);
+                                const yyyy = selectedDateValue.getFullYear();
+                                const mm = String(selectedDateValue.getMonth() + 1).padStart(2, '0');
+                                const dd = String(selectedDateValue.getDate()).padStart(2, '0');
 
-                                    // Add a small buffer (e.g., 1 minute) to allow for minor time differences
-                                    // or just strict check. User said "not over current time".
-                                    // if (checkDate < now) {
-                                    // Strict check might be annoying if user takes a minute to decide.
-                                    // Let's rely on strict check for now as requested.
-                                    if (checkDate < now) {
-                                        Alert.alert("Invalid Time", "The selected time has already passed. Please select a valid time.");
-                                        // Refresh times?
-                                        generateTimesForDate(selectedDate);
-                                        return;
-                                    }
+                                const validation = validateStoredOrderDateTime({
+                                    orderType,
+                                    estimatedTime: {
+                                        estimatedTime: `${yyyy}-${mm}-${dd} ${selectedTime}`,
+                                        date: `${yyyy}-${mm}-${dd}`,
+                                        time: selectedTime,
+                                    },
+                                    outlet,
+                                    now: new Date(),
+                                });
+
+                                if (!validation.isValid) {
+                                    updateNoticeMessage(validation.message);
+                                    generateTimesForDate(selectedDateValue);
+                                    return;
                                 }
 
                                 getSelectedDateTime();
+                                updateNoticeMessage('');
                                 setShowDateTimePicker(false);
                             }}
                         >
@@ -545,6 +566,21 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#C2000E',
         marginBottom: 20,
+        textAlign: 'center',
+    },
+    noticeContainer: {
+        backgroundColor: '#FFF2E2',
+        borderRadius: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#F4B5B9',
+    },
+    noticeText: {
+        color: '#9B1C23',
+        fontSize: 13,
+        lineHeight: 18,
         textAlign: 'center',
     },
     sectionTitle: {

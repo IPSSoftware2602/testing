@@ -107,9 +107,9 @@ export function CustomTabBar({ state, descriptors, navigation }) {
     }
   }
 
-  const handleOrderTypeSelect = (type) => {
+  const handleOrderTypeSelect = async (type) => {
     setOrderTypeModalVisible(false);
-    handleSetOrderType(type);
+    await handleSetOrderType(type);
     if (type === "delivery") {
       router.push("/screens/home/address_select");
     } else {

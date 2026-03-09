@@ -1,10 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { use, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import useAuthGuard from '../../auth/check_token_expiry';
+import {
+  requestLatestLocation,
+  STARTUP_LOCATION_TOAST_KEY,
+} from '../../../utils/location_bootstrap';
 // Removed useAuthGuard import - splash screen allows access without login (App Store requirement)
 
 const { width, height } = Dimensions.get('window');
@@ -17,33 +21,66 @@ export default function Splash() {
   useAuthGuard();
   const router = useRouter();
   const { referral_id } = useLocalSearchParams();
-  // console.log(referral_id);
+  const [countdown, setCountdown] = useState(8);
+  const hasNavigatedRef = useRef(false);
+
   useEffect(() => {
     const checkStoredData = async () => {
+      let countdownTimer = null;
+      let timeoutTimer = null;
+
+      const finishBoot = async ({ failed = false } = {}) => {
+        if (hasNavigatedRef.current) return;
+        hasNavigatedRef.current = true;
+
+        if (countdownTimer) clearInterval(countdownTimer);
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+
+        if (failed) {
+          await AsyncStorage.setItem(STARTUP_LOCATION_TOAST_KEY, 'Failed to get your current location');
+        } else {
+          await AsyncStorage.removeItem(STARTUP_LOCATION_TOAST_KEY);
+        }
+
+        await SplashScreen.hideAsync();
+        router.replace('(tabs)');
+      };
+
       try {
         if (referral_id) {
           await AsyncStorage.setItem('referralId', referral_id);
         }
 
-        const authToken = await AsyncStorage.getItem('authToken');
-        const customerJson = await AsyncStorage.getItem('customerData');
-        // const customerJson = null;
-        const customerData = customerJson ? JSON.parse(customerJson) : null;
+        countdownTimer = setInterval(() => {
+          setCountdown(prev => (prev > 0 ? prev - 1 : 0));
+        }, 1000);
 
-        // Navigate directly to home page (App Store requirement - allow access without login)
-        setTimeout(async () => {
-          await SplashScreen.hideAsync();
-          // Always navigate to home page, regardless of login status
-          router.replace('(tabs)');
-        }, 2000);
+        timeoutTimer = setTimeout(() => {
+          finishBoot({ failed: true });
+        }, 8000);
+
+        await requestLatestLocation({ timeoutMs: 7500 });
+        await finishBoot();
 
       } catch (err) {
-        console.log(err);
+        console.log('Startup location bootstrap failed:', err?.message || err);
       }
+
+      return () => {
+        if (countdownTimer) clearInterval(countdownTimer);
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+      };
     };
 
-    checkStoredData();
-  }, [router]);
+    let cleanup;
+    checkStoredData().then(result => {
+      cleanup = result;
+    });
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [referral_id, router]);
 
   return (
     <ResponsiveBackground>
@@ -55,6 +92,10 @@ export default function Splash() {
         </View>
         <View style={styles.middleSection}>
           <Image source={require('../../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.loadingTitle}>Getting your latest location...</Text>
+          <Text style={styles.loadingSubtitle}>
+            Entering the app in {countdown}s if location is still unavailable
+          </Text>
         </View>
         <View style={styles.bottomSection}>
           <Image source={require('../../../assets/images/www_uspizza.png')} style={styles.logoFooter} resizeMode="contain" />
@@ -111,6 +152,22 @@ const styles = StyleSheet.create({
     height: 120,
     alignSelf: 'center',
     marginVertical: 10,
+  },
+  loadingTitle: {
+    color: '#E60012',
+    fontSize: 18,
+    textAlign: 'center',
+    fontFamily: 'Route159-Heavy',
+    marginTop: 12,
+  },
+  loadingSubtitle: {
+    color: '#A31B1B',
+    fontSize: 12,
+    textAlign: 'center',
+    fontFamily: 'Route159-Regular',
+    marginTop: 8,
+    paddingHorizontal: 18,
+    lineHeight: 18,
   },
   bottomSection: {
     alignItems: 'center',

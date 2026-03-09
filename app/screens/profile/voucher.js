@@ -161,6 +161,42 @@ export default function VoucherSelectScreen() {
         checkStoredData();
     }, [])
 
+    const isExpired = (expiryDate) => {
+        if (!expiryDate) return false;
+        try {
+            // Check if format is DD/MM/YYYY
+            const ddmmyyyyMatch = expiryDate.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+            let date;
+            if (ddmmyyyyMatch) {
+                date = new Date(ddmmyyyyMatch[3], ddmmyyyyMatch[2] - 1, ddmmyyyyMatch[1]);
+            } else {
+                date = new Date(expiryDate);
+            }
+            return date < new Date().setHours(0, 0, 0, 0);
+        } catch (e) {
+            return false;
+        }
+    };
+
+    const isNotYetActive = (startDate) => {
+        if (!startDate) return false;
+        try {
+            const ddmmyyyyMatch = startDate.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+            let date;
+            if (ddmmyyyyMatch) {
+                date = new Date(ddmmyyyyMatch[3], ddmmyyyyMatch[2] - 1, ddmmyyyyMatch[1]);
+            } else {
+                date = new Date(startDate);
+            }
+            date.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return date > today;
+        } catch (e) {
+            return false;
+        }
+    };
+
     useEffect(() => {
         const fetchCustomerVoucher = async () => {
             try {
@@ -176,8 +212,21 @@ export default function VoucherSelectScreen() {
                         },
                     });
 
-                const voucherData = await response.data;
-                setVoucherData(voucherData.data);
+                const resData = await response.data;
+                const vouchers = resData.data || [];
+
+                // Sort: active first, not-yet-active second, expired at bottom
+                const sortedVouchers = [...vouchers].sort((a, b) => {
+                    const aExpired = isExpired(a.voucher_expiry_date);
+                    const bExpired = isExpired(b.voucher_expiry_date);
+                    const aNotYet = isNotYetActive(a.voucher_start_date);
+                    const bNotYet = isNotYetActive(b.voucher_start_date);
+                    const aOrder = aExpired ? 2 : aNotYet ? 1 : 0;
+                    const bOrder = bExpired ? 2 : bNotYet ? 1 : 0;
+                    return aOrder - bOrder;
+                });
+
+                setVoucherData(sortedVouchers);
 
             } catch (err) {
                 console.log(err);
@@ -190,35 +239,35 @@ export default function VoucherSelectScreen() {
     }, [authToken, customerData])
 
     const renderEmptyVoucher = () => (
-  <View style={styles.emptyWrapper}>
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>No vouchers available.</Text>
-      <Text style={styles.emptySubText}>
-        You may proceed to Market to redeem a Voucher.
-      </Text>
+        <View style={styles.emptyWrapper}>
+            <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No vouchers available.</Text>
+                <Text style={styles.emptySubText}>
+                    You may proceed to Market to redeem a Voucher.
+                </Text>
 
-      {/* Go to Market button */}
-      <TouchableOpacity
-        style={styles.addVoucherButton}
-        activeOpacity={0.8}
-        onPress={() =>
-          router.push({
-            pathname: '(tabs)/market',
-            params: { from: 'voucher-select' },
-          })
-        }
-      >
-        <Ionicons
-          name="add-circle-outline"
-          size={22}
-          color="#fff"
-          style={{ marginRight: 8 }}
-        />
-        <Text style={styles.addVoucherText}>Go to Market</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-);
+                {/* Go to Market button */}
+                <TouchableOpacity
+                    style={styles.addVoucherButton}
+                    activeOpacity={0.8}
+                    onPress={() =>
+                        router.push({
+                            pathname: '(tabs)/market',
+                            params: { from: 'voucher-select' },
+                        })
+                    }
+                >
+                    <Ionicons
+                        name="add-circle-outline"
+                        size={22}
+                        color="#fff"
+                        style={{ marginRight: 8 }}
+                    />
+                    <Text style={styles.addVoucherText}>Go to Market</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
 
 
     return (
@@ -261,65 +310,85 @@ export default function VoucherSelectScreen() {
                     showsVerticalScrollIndicator={false}
                 >
                     {voucherData.length === 0 ? renderEmptyVoucher() : (
-                        voucherData.map((voucher) => (
-                            <View
-                                key={voucher.id}
-                                style={styles.voucherCard}
-                            >
-                                {/* Top 70% Image Section */}
-                                <TouchableOpacity
-                                    activeOpacity={0.8}
-                                    onPress={() =>
-                                        router.push({
-                                            pathname: '/screens/voucher/voucher_details',
-                                            params: { voucher: JSON.stringify(voucher), from: 'profile' },
-                                        })
-                                    }
+                        voucherData.map((voucher) => {
+                            const expired = isExpired(voucher.voucher_expiry_date);
+                            const notYetActive = !expired && isNotYetActive(voucher.voucher_start_date);
+                            const disabled = expired || notYetActive;
+                            return (
+                                <View
+                                    key={voucher.id}
+                                    style={[styles.voucherCard, expired && styles.expiredVoucher, notYetActive && styles.notYetActiveVoucher]}
                                 >
-                                    <View style={styles.imageContainer}>
-                                        <Image
-                                            source={{ uri: voucher.voucher_image_url || 'https://icom.ipsgroup.com.my/backend/uploads/menu_images/6_1760066613_0.jpg' }}
-                                            style={styles.voucherImage}
-                                            resizeMode="cover"
-                                        />
-                                    </View>
-                                </TouchableOpacity>
+                                    {/* Top 70% Image Section */}
+                                    <TouchableOpacity
+                                        activeOpacity={disabled ? 1 : 0.8}
+                                        onPress={() => {
+                                            if (disabled) return;
+                                            router.push({
+                                                pathname: '/screens/voucher/voucher_details',
+                                                params: { voucher: JSON.stringify(voucher), from: 'profile' },
+                                            });
+                                        }}
+                                    >
+                                        <View style={styles.imageContainer}>
+                                            <Image
+                                                source={{ uri: voucher.voucher_image_url || 'https://icom.ipsgroup.com.my/backend/uploads/menu_images/6_1760066613_0.jpg' }}
+                                                style={[styles.voucherImage, disabled && styles.grayscale]}
+                                                resizeMode="cover"
+                                            />
+                                            {expired && (
+                                                <View style={styles.expiredOverlay}>
+                                                    <Text style={styles.expiredText}>EXPIRED</Text>
+                                                </View>
+                                            )}
+                                            {notYetActive && (
+                                                <View style={styles.notYetActiveOverlay}>
+                                                    <Text style={styles.notYetActiveText}>NOT YET ACTIVE</Text>
+                                                    <Text style={styles.notYetActiveDateText}>
+                                                        {voucher.voucher_start_date || ''}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                    </TouchableOpacity>
 
 
-                                <TouchableOpacity
-                                    activeOpacity={0.8}
-                                    onPress={() => {
-                                        if (selectedVoucher?.voucher_code === voucher.voucher_code) {
-                                            setSelectedVoucher(null);
-                                        } else {
-                                            setSelectedVoucher(voucher);
-                                        }
-                                    }}
-                                >
-                                    <View style={styles.voucherInfo}>
-                                        <View style={styles.infoColumn}>
-                                            {/* Icon beside label */}
-                                            <View style={styles.infoHeaderRow}>
-                                                <Ionicons name="time-outline" size={16} color="#aaa" style={styles.infoIcon} />
-                                                <Text style={styles.infoLabel}>Validity</Text>
+                                    <TouchableOpacity
+                                        activeOpacity={disabled ? 1 : 0.8}
+                                        onPress={() => {
+                                            if (disabled) return;
+                                            if (selectedVoucher?.voucher_code === voucher.voucher_code) {
+                                                setSelectedVoucher(null);
+                                            } else {
+                                                setSelectedVoucher(voucher);
+                                            }
+                                        }}
+                                    >
+                                        <View style={[styles.voucherInfo, expired && styles.expiredVoucherInfo, notYetActive && styles.notYetActiveVoucherInfo]}>
+                                            <View style={styles.infoColumn}>
+                                                {/* Icon beside label */}
+                                                <View style={styles.infoHeaderRow}>
+                                                    <Ionicons name="time-outline" size={16} color={disabled ? "#999" : "#aaa"} style={styles.infoIcon} />
+                                                    <Text style={[styles.infoLabel, disabled && styles.mutedText]}>Validity</Text>
+                                                </View>
+                                                <Text style={[styles.infoValue, { color: disabled ? '#777' : '#C2000E' }]}>{voucher.voucher_expiry_date || 'No validity period'}</Text>
                                             </View>
-                                            <Text style={styles.infoValue}>{voucher.voucher_expiry_date || 'No validity period'}</Text>
+
+                                            <View style={styles.infoColumn}>
+                                                {/* Icon beside label */}
+                                                <View style={styles.infoHeaderRow}>
+                                                    <Ionicons name="cash-outline" size={16} color={disabled ? "#999" : "#aaa"} style={styles.infoIcon} />
+                                                    <Text style={[styles.infoLabel, disabled && styles.mutedText]}>Title</Text>
+                                                </View>
+                                                <Text style={[styles.infoValue, { color: disabled ? '#777' : '#C2000E' }]}>{voucher.title || 'No title provided.'}</Text>
+                                            </View>
                                         </View>
 
-                                        <View style={styles.infoColumn}>
-                                            {/* Icon beside label */}
-                                            <View style={styles.infoHeaderRow}>
-                                                <Ionicons name="cash-outline" size={16} color="#aaa" style={styles.infoIcon} />
-                                                <Text style={styles.infoLabel}>Title</Text>
-                                            </View>
-                                            <Text style={styles.infoValue}>{voucher.title || 'No title provided.'}</Text>
-                                        </View>
-                                    </View>
+                                    </TouchableOpacity>
 
-                                </TouchableOpacity>
-
-                            </View>
-                        ))
+                                </View>
+                            );
+                        })
                     )}
                 </ScrollView>
             </SafeAreaView>
@@ -586,13 +655,77 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 24,
     },
-    emptyWrapper: {
-  flex: 1,
-  justifyContent: 'center', // centers vertically
-  alignItems: 'center',     // centers horizontally
-  minHeight: Dimensions.get('window').height * 0.7, // ensures it stays mid-screen
-},
-
+    expiredVoucher: {
+        opacity: 0.5,
+        backgroundColor: '#ECECEC',
+    },
+    expiredVoucherInfo: {
+        backgroundColor: '#ECECEC',
+    },
+    notYetActiveVoucher: {
+        opacity: 0.7,
+        backgroundColor: '#F0F4FF',
+    },
+    notYetActiveVoucherInfo: {
+        backgroundColor: '#F0F4FF',
+    },
+    mutedText: {
+        color: '#999',
+    },
+    expiredOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(150, 150, 150, 0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    expiredText: {
+        color: '#fff',
+        fontSize: 24,
+        fontFamily: 'Route159-Bold',
+        letterSpacing: 2,
+        borderWidth: 2,
+        borderColor: '#fff',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 4,
+        transform: [{ rotate: '-15deg' }],
+        backgroundColor: 'rgba(0,0,0,0.2)', // Slight backing for contrast
+    },
+    notYetActiveOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(50, 80, 150, 0.35)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    notYetActiveText: {
+        color: '#fff',
+        fontSize: 16,
+        fontFamily: 'Route159-Bold',
+        letterSpacing: 1,
+        textAlign: 'center',
+    },
+    notYetActiveDateText: {
+        color: '#fff',
+        fontSize: 22,
+        fontFamily: 'Route159-Bold',
+        letterSpacing: 1,
+        marginTop: 4,
+        borderWidth: 2,
+        borderColor: '#fff',
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderRadius: 4,
+        backgroundColor: 'rgba(0,0,0,0.15)',
+        textAlign: 'center',
+    },
 
 
 });

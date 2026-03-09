@@ -21,6 +21,8 @@ import useCheckValidOrderType from '../home/check_valid_order_type';
 import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
 import { registerPushToken } from '../../../hooks/usePushNotifications';
 import Constants from 'expo-constants';
+import { useToast } from '../../../hooks/useToast';
+import { STARTUP_LOCATION_TOAST_KEY } from '../../../utils/location_bootstrap';
 
 const { width } = Dimensions.get('window');
 
@@ -55,12 +57,32 @@ export default function HomeScreen() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showForceUpdateModal, setShowForceUpdateModal] = useState(false);
   const lastFetchedCustomerIdRef = useRef(null);
+  const toast = useToast();
 
   const showError = (msg, title) => {
     setNotificationMessage(msg);
     setNotificationTitle(title);
     setNotificationVisible(true);
   };
+
+  useEffect(() => {
+    const showPendingStartupToast = async () => {
+      try {
+        const pendingToast = await AsyncStorage.getItem(STARTUP_LOCATION_TOAST_KEY);
+        if (!pendingToast) return;
+
+        await AsyncStorage.removeItem(STARTUP_LOCATION_TOAST_KEY);
+        toast.show(pendingToast, {
+          type: 'custom_toast',
+          data: { title: 'Location Unavailable', status: 'danger' }
+        });
+      } catch (err) {
+        console.log('Failed to show startup location toast:', err);
+      }
+    };
+
+    showPendingStartupToast();
+  }, [toast]);
 
   useEffect(() => {
     const checkAppVersion = async () => {
@@ -292,7 +314,7 @@ export default function HomeScreen() {
     setOrderTypeModalVisible(false);
     // Clear the showModal parameter when modal is closed
     router.setParams({ showModal: undefined });
-    handleSetOrderType(type);
+    await handleSetOrderType(type);
     if (type === "delivery") {
       router.push('/screens/home/address_select');
     }
@@ -404,8 +426,8 @@ export default function HomeScreen() {
                 <View style={styles.orderTypes}>
                   <TouchableOpacity
                     style={styles.orderType}
-                    onPress={() => {
-                      handleSetOrderType("dinein")
+                    onPress={async () => {
+                      await handleSetOrderType("dinein");
                       router.push('/screens/home/outlet_select')
                     }}>
                     <Image source={dineInIcon} style={styles.orderTypeIcon} />
@@ -414,8 +436,8 @@ export default function HomeScreen() {
                   <View style={[styles.orderTypeDivider]} />
                   <TouchableOpacity
                     style={styles.orderType}
-                    onPress={() => {
-                      handleSetOrderType("pickup")
+                    onPress={async () => {
+                      await handleSetOrderType("pickup");
                       router.push('/screens/home/outlet_select')
                     }
                     }>
@@ -435,7 +457,7 @@ export default function HomeScreen() {
                         return;
                       }
 
-                      handleSetOrderType("delivery")
+                      await handleSetOrderType("delivery");
                       router.push('/screens/home/address_select')
                     }
                     }>
