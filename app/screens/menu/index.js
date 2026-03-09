@@ -17,6 +17,7 @@ import MenuItem from '../../../components/menu/MenuItem';
 import CategoryItem from '../../../components/menu/CategoryItem';
 import { useToast } from '../../../hooks/useToast';
 const { validateStoredOrderDateTime, formatLocalDate } = require('../../../utils/order_datetime');
+const { shouldRedirectToOutletSelect } = require('../../../utils/menuQrGuard');
 
 const { width } = Dimensions.get('window');
 
@@ -527,7 +528,11 @@ export default function MenuScreen() {
           AsyncStorage.getItem("estimatedTime"),
         ]);
 
-        if (!outletDetailsStr) {
+        if (shouldRedirectToOutletSelect({
+          outletDetailsStr,
+          fromQR,
+          outletIdParam: outletId,
+        })) {
           router.push("/screens/home/outlet_select");
           return;
         }

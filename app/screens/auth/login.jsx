@@ -1,5 +1,5 @@
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Dimensions, Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
@@ -27,6 +27,7 @@ export default function Login() {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [tempCountryCode, setTempCountryCode] = useState('+60');
   const router = useRouter();
+  const { redirect, qrCode } = useLocalSearchParams();
   const toast = useToast();
   // useEffect(() => {
   //   console.log(width);
@@ -51,7 +52,9 @@ export default function Login() {
             pathname: '/screens/auth/otp',
             params: {
               phone_number: `${countryCode}${phone}`,
-              send_via: sendVia
+              send_via: sendVia,
+              redirect: redirect || '',
+              qrCode: qrCode || '',
             }
           });
         }

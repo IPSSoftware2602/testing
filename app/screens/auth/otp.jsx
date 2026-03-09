@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
 // import { useToast } from 'react-native-toast-notifications';
 import { useToast } from '../../../hooks/useToast';
+const { extractQrResult, buildQrStorageData } = require('../../../utils/qrFlow');
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,7 +23,7 @@ export default function OTP() {
   const [retryCount, setRetryCount] = useState(0);
   const [resendCooldown, setResendCooldown] = useState(0);
   const router = useRouter();
-  const { phone_number, send_via } = useLocalSearchParams();
+  const { phone_number, send_via, redirect, qrCode } = useLocalSearchParams();
   const toast = useToast();
   const normalizedPhoneNumber = String(phone_number || '').trim();
   const fullPhoneNumber = normalizedPhoneNumber.startsWith('+')
@@ -84,6 +85,42 @@ export default function OTP() {
             type: 'custom_toast',
             data: { title: 'Successfully Login', status: 'success' }
           });
+          const resumeQrFlow = async () => {
+            if (String(redirect) !== 'qr') return false;
+
+            try {
+              const pendingQrStr = await AsyncStorage.getItem('pendingQrData');
+              let qrResult = pendingQrStr ? JSON.parse(pendingQrStr) : null;
+
+              if (!qrResult && qrCode) {
+                const qrResponse = await axios.get(`${apiUrl}qr/${String(qrCode)}`);
+                qrResult = extractQrResult(qrResponse.data);
+              }
+
+              const qrStorageData = buildQrStorageData(qrResult);
+              if (!qrStorageData) return false;
+
+              await AsyncStorage.setItem('orderType', qrStorageData.orderType);
+              await AsyncStorage.setItem('deliveryAddressDetails', JSON.stringify(qrStorageData.deliveryAddress));
+              await AsyncStorage.setItem('uniqueQrData', JSON.stringify(qrStorageData.uniqueQrData));
+              await AsyncStorage.removeItem('pendingQrData');
+
+              router.replace({
+                pathname: '/screens/menu',
+                params: qrStorageData.routeParams,
+              });
+              return true;
+            } catch (qrErr) {
+              console.log('Failed to resume QR flow after OTP:', qrErr);
+              return false;
+            }
+          };
+
+          const redirectedToQrMenu = await resumeQrFlow();
+          if (redirectedToQrMenu) {
+            return;
+          }
+
           if (verifyType === "register") {
             router.push('/screens/auth/register');
           } else {

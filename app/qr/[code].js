@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { apiUrl, imageUrl } from '../constant/constants';
 import ResponsiveBackground from '../../components/ResponsiveBackground';
+const { extractQrResult, buildQrStorageData } = require('../../utils/qrFlow');
 
 const { width } = Dimensions.get('window');
 
@@ -38,7 +39,7 @@ export default function QrLandingScreen() {
         try {
             setStatus('loading');
             const response = await axios.get(`${apiUrl}qr/${qrCode}`);
-            const result = response.data?.result;
+            const result = extractQrResult(response.data);
 
             if (!result || !result.outlet) {
                 setStatus('error');
@@ -59,7 +60,13 @@ export default function QrLandingScreen() {
             } else {
                 // Not logged in — store pendingQrData and redirect to login
                 await AsyncStorage.setItem('pendingQrData', JSON.stringify(result));
-                router.replace('/screens/auth/login');
+                router.replace({
+                    pathname: '/screens/auth/login',
+                    params: {
+                        redirect: 'qr',
+                        qrCode: String(qrCode),
+                    },
+                });
             }
         } catch (err) {
             console.error('QR resolve error:', err);
@@ -74,31 +81,17 @@ export default function QrLandingScreen() {
 
     const storeQrDataAndNavigate = async (data) => {
         try {
+            const qrStorageData = buildQrStorageData(data);
+            if (!qrStorageData) {
+                setErrorMsg('This QR code is invalid or no longer active.');
+                setStatus('error');
+                return;
+            }
+
             // Set order type to delivery
-            await AsyncStorage.setItem('orderType', 'delivery');
-
-            // Store delivery address from QR data
-            const addressObj = {
-                name: data.delivery_address?.name || '',
-                phone: data.delivery_address?.phone || '',
-                address: data.delivery_address?.address || '',
-                unit: data.delivery_address?.unit || '',
-                note: data.delivery_address?.note || '',
-                latitude: data.delivery_address?.latitude || '',
-                longitude: data.delivery_address?.longitude || '',
-                isQrAddress: true,
-                unique_code: data.unique_code,
-            };
-            await AsyncStorage.setItem('deliveryAddressDetails', JSON.stringify(addressObj));
-
-            // Store QR-specific data (menu_item_ids, logo, unique_code)
-            await AsyncStorage.setItem('uniqueQrData', JSON.stringify({
-                unique_code: data.unique_code,
-                name: data.name,
-                logo: data.logo,
-                address: data.delivery_address?.address || '',
-                menu_item_ids: data.menu_item_ids || [],
-            }));
+            await AsyncStorage.setItem('orderType', qrStorageData.orderType);
+            await AsyncStorage.setItem('deliveryAddressDetails', JSON.stringify(qrStorageData.deliveryAddress));
+            await AsyncStorage.setItem('uniqueQrData', JSON.stringify(qrStorageData.uniqueQrData));
 
             // Clear any pending QR data
             await AsyncStorage.removeItem('pendingQrData');
@@ -106,11 +99,7 @@ export default function QrLandingScreen() {
             // Navigate to menu with QR params (menu screen's handleQR will fetch outlet details)
             router.replace({
                 pathname: '/screens/menu',
-                params: {
-                    orderType: 'delivery',
-                    outletId: String(data.outlet.id),
-                    fromQR: '1',
-                },
+                params: qrStorageData.routeParams,
             });
         } catch (err) {
             console.error('Error storing QR data:', err);

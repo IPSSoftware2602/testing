@@ -47,6 +47,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 const { validateStoredOrderDateTime } = require('../../../utils/order_datetime');
+const { validateQrCheckoutNote } = require('../../../utils/checkoutValidation');
 
 const { width } = Dimensions.get('window');
 
@@ -1179,6 +1180,16 @@ export default function CheckoutScreen({ navigation }) {
     setIsCheckoutProcessing(true);
     // await runWithLoading(async () => {
     try {
+      const qrNoteValidation = validateQrCheckoutNote(isQrOrder, orderNote);
+      if (!qrNoteValidation.isValid) {
+        toast.show(qrNoteValidation.message, {
+          type: 'custom_toast',
+          data: { title: 'Please remark your unit no.', status: 'warning' }
+        });
+        return;
+      }
+
+      const normalizedOrderNote = typeof orderNote === 'string' ? orderNote.trim() : '';
       const token = await AsyncStorage.getItem('authToken') || '';
 
       const payload = {
@@ -1196,7 +1207,7 @@ export default function CheckoutScreen({ navigation }) {
         placed_at: '',
         selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
         selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
-        notes: orderNote
+        notes: normalizedOrderNote
       };
 
       // console.log('Sending checkout payload:', payload);
@@ -1813,7 +1824,11 @@ export default function CheckoutScreen({ navigation }) {
               }}
               value={orderNote}
               onChangeText={setOrderNote}
-              placeholder="Add a note for your order (optional) Exp: Room No/ House Unit/ Special Request"
+              placeholder={
+                isQrOrder
+                  ? "Add a note for your QR order (required) Exp: Room No/ House Unit/ Special Request"
+                  : "Add a note for your order (optional) Exp: Room No/ House Unit/ Special Request"
+              }
               placeholderTextColor="#999"
               multiline
               maxLength={200}
