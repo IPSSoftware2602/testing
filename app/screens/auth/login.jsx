@@ -190,12 +190,30 @@ export default function Login() {
                             itemStyle={styles.countryCodePickerItem}
                           >
                             {COUNTRY_CODES.map((item) => (
-                              <Picker.Item key={item.value} label={item.label} value={item.value} />
+                              <Picker.Item key={item.value} label={item.label} value={item.value} color="#000" />
                             ))}
                           </Picker>
                         </View>
                       </Modal>
                     </>
+                  ) : Platform.OS === 'android' ? (
+                    <View style={styles.countryCodeDropdownWrap}>
+                      <View style={styles.countryCodeLabelWrap} pointerEvents="none">
+                        <Text style={styles.countryCodeText}>{countryCode}</Text>
+                        <Text style={styles.countryCodeChevron}>▼</Text>
+                      </View>
+                      <Picker
+                        selectedValue={countryCode}
+                        onValueChange={(value) => setCountryCode(value)}
+                        style={styles.countryCodePickerOverlay}
+                        itemStyle={styles.countryCodePickerItem}
+                        dropdownIconColor="transparent"
+                      >
+                        {COUNTRY_CODES.map((item) => (
+                          <Picker.Item key={item.value} label={item.label} value={item.value} color="#fff" />
+                        ))}
+                      </Picker>
+                    </View>
                   ) : (
                     <View style={styles.countryCodeDropdownWrap}>
                       <Picker
@@ -206,7 +224,7 @@ export default function Login() {
                         dropdownIconColor="#C2000E"
                       >
                         {COUNTRY_CODES.map((item) => (
-                          <Picker.Item key={item.value} label={item.label} value={item.value} />
+                          <Picker.Item key={item.value} label={item.label} value={item.value} color="#000" />
                         ))}
                       </Picker>
                     </View>
@@ -518,6 +536,14 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: '#eee',
   },
+  countryCodeLabelWrap: {
+    width: '100%',
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
   countryCodeText: {
     fontSize: 14,
     color: '#333',
@@ -531,55 +557,34 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   countryCodePicker: {
-    width: '100%',
+    width: 100,
     height: 45,
-    color: '#333',
+    color: '#000',
     marginTop: Platform.OS === 'ios' ? -2 : 0,
     borderWidth: 0,
     outlineWidth: 0,
     outlineStyle: 'none',
-    shadowColor: 'transparent',
+    shadowColor: 'transparent'
   },
   countryCodePickerItem: {
-    fontSize: 14,
-    color: '#333',
+    fontSize: 5,
+    color: '#000',
     fontFamily: 'RobotoSlab-Regular',
+  },
+  countryCodePickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0,
   },
   // iOS Modal Picker styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalPickerContainer: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingBottom: 30,
-  },
-  modalPickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  modalPickerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    fontFamily: 'RobotoSlab-Bold',
-  },
-  modalPickerDone: {
-    fontSize: 16,
-    color: '#C2000E',
-    fontFamily: 'RobotoSlab-Bold',
-  },
-  modalPickerCancel: {
-    fontSize: 16,
-    color: '#888',
-    fontFamily: 'RobotoSlab-Regular',
+    backgroundColor: 'rgba(255, 255, 255, 1)',
   },
   input: {
     flex: 1,

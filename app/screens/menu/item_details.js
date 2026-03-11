@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
 import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiUrl, imageUrl } from '../../constant/constants';
+const { buildCachedExpoImageSource, REMOTE_IMAGE_CACHE_POLICY } = require('../../../utils/remoteImage');
 // Removed useAuthGuard import - item details viewing accessible without login (App Store requirement)
 
 export default function ItemDetailsScreen() {
@@ -30,7 +32,14 @@ export default function ItemDetailsScreen() {
         const customerData = customerJson ? JSON.parse(customerJson) : null;
         const customerTier = customerData ? customerData.customer_tier_id : 0;
         const outletId = outletDetails ? JSON.parse(outletDetails).outletId : 0;
-        const res = await axios.get(`${apiUrl}menu-items/${id}/${outletId}/${customerTier}`, { headers });
+        const qrDataRaw = await AsyncStorage.getItem('uniqueQrData');
+        const qrData = qrDataRaw ? JSON.parse(qrDataRaw) : null;
+        const qrCode = qrData?.unique_code || null;
+
+        const res = await axios.get(`${apiUrl}menu-items/${id}/${outletId}/${customerTier}`, {
+          params: { unique_qr_code: qrCode },
+          headers
+        });
         if (res.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
           setMenuItem(res.data.data[0]);
           setItemPrice(Number(res.data.data[0]?.price) || 0);
@@ -48,18 +57,26 @@ export default function ItemDetailsScreen() {
     fetchMenuItem();
   }, [id]);
 
+  const resolvedMenuImageUri = menuItem?.image?.[0]?.image_url
+    ? (
+      String(menuItem.image[0].image_url).startsWith('http')
+        ? String(menuItem.image[0].image_url)
+        : imageUrl + 'menu_images/' + String(menuItem.image[0].image_url)
+    )
+    : null;
+
   return (
     <ResponsiveBackground>
       <SafeAreaView style={styles.container}>
         <ScrollView>
           <View style={styles.imageContainer}>
             <Image
-              source={
-                menuItem?.image?.[0]?.image_url
-                  ? { uri: String(menuItem.image[0].image_url) }
-                  : require('../../../assets/images/menu_default.jpg')
-              }
+              source={buildCachedExpoImageSource(resolvedMenuImageUri, require('../../../assets/images/menu_default.jpg'))}
               style={styles.image}
+              contentFit="cover"
+              transition={150}
+              cachePolicy={REMOTE_IMAGE_CACHE_POLICY}
+              recyclingKey={resolvedMenuImageUri || 'menu-default'}
             />
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Ionicons name="chevron-back" size={28} color="#C2000E" />

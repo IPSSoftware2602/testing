@@ -1,8 +1,10 @@
 import React, { memo, useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
 import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import PolygonButton from '../ui/PolygonButton';
+const { buildCachedExpoImageSource, REMOTE_IMAGE_CACHE_POLICY } = require('../../utils/remoteImage');
 
 const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
 
@@ -23,9 +25,7 @@ const MenuItem = memo(({
 
   // Memoize image source to prevent unnecessary re-renders
   const imageSource = useMemo(() => {
-    return item.image
-      ? { uri: String(item.image) }
-      : require('../../assets/icons/burger.png');
+    return buildCachedExpoImageSource(item.image, require('../../assets/icons/burger.png'));
   }, [item.image]);
 
   // Reset loading state only when image source actually changes
@@ -62,6 +62,10 @@ const MenuItem = memo(({
             <Image
               source={imageSource}
               style={styles.menuImage}
+              contentFit="cover"
+              transition={120}
+              cachePolicy={REMOTE_IMAGE_CACHE_POLICY}
+              recyclingKey={String(item.id)}
               onLoadStart={() => {
                 if (!hasLoadedRef.current) {
                   setImageLoading(true);
@@ -105,7 +109,7 @@ const MenuItem = memo(({
             <View style={styles.menuTagContainer}>
               {item.tags.map(tag => (
                 <View key={tag.id} style={styles.tagWrapper}>
-                  <Image source={tag.icon} style={styles.menuTag} />
+                  <Image source={tag.icon} style={styles.menuTag} cachePolicy={REMOTE_IMAGE_CACHE_POLICY} />
                 </View>
               ))}
             </View>
@@ -113,7 +117,7 @@ const MenuItem = memo(({
             <View style={styles.menuPriceRow}>
               <View style={styles.menuOldPriceContainer}>
                 <Text style={styles.menuPrice}>RM {item.price}</Text>
-                {!isQrOrder && item.discount_price && <Text style={styles.menuPriceslash}>RM {item.discount_price}</Text>}
+                {item.discount_price && <Text style={styles.menuPriceslash}>RM {item.discount_price}</Text>}
               </View>
               {item.is_available ? (
                 <PolygonButton

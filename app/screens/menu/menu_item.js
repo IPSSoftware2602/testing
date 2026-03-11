@@ -18,12 +18,30 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from '../../../hooks/useToast';
 import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
 import PropTypes from 'prop-types';
+const { buildCachedExpoImageSource, REMOTE_IMAGE_CACHE_POLICY } = require('../../../utils/remoteImage');
 // Removed useAuthGuard import - menu item viewing accessible without login (App Store requirement)
 
 const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
 
 const { width } = Dimensions.get('window');
 const OPTIONS_VIRTUALIZATION_THRESHOLD = Platform.OS === 'web' ? 1000 : 12; // Use FlatList when options > 12 (disable on web)
+const OPTION_IMAGE_FALLBACK = require('../../../assets/images/menu_default.jpg');
+
+const buildRemoteAssetImageUrl = (imgPath, folder) => {
+  if (!imgPath) return '';
+  const normalizedPath = String(imgPath);
+  if (normalizedPath.startsWith('http')) return normalizedPath;
+  return `${imageUrl}${folder}/${normalizedPath}`;
+};
+
+const prefetchRemoteImageUris = async (uris) => {
+  const uniqueUris = [...new Set((uris || []).filter(Boolean).map(String))];
+  if (uniqueUris.length === 0 || typeof Image.prefetch !== 'function') return;
+
+  await Promise.allSettled(
+    uniqueUris.map((uri) => Image.prefetch(uri, REMOTE_IMAGE_CACHE_POLICY))
+  );
+};
 
 const OptionCard = React.memo(({
   item,
@@ -39,13 +57,19 @@ const OptionCard = React.memo(({
   isQrOrder = false,
 }) => {
   const [imageLoading, setImageLoading] = useState(true);
+  const imageSourceRef = useRef(item.image);
+  const hasLoadedRef = useRef(false);
 
   const imageSource = useMemo(() => {
-    if (!item.image) {
-      return require('../../../assets/images/menu_default.jpg');
+    return buildCachedExpoImageSource(item.image, OPTION_IMAGE_FALLBACK);
+  }, [item.image]);
+
+  useEffect(() => {
+    if (imageSourceRef.current !== item.image) {
+      imageSourceRef.current = item.image;
+      hasLoadedRef.current = false;
+      setImageLoading(true);
     }
-    // Image is already a full URL from the data preparation
-    return { uri: item.image, cachePolicy: 'memory-disk' };
   }, [item.image]);
 
   const handlePress = useCallback(() => {
@@ -137,13 +161,23 @@ const OptionCard = React.memo(({
           style={imageStyle}
           contentFit="cover"
           transition={100}
-          cachePolicy="memory-disk"
+          cachePolicy={REMOTE_IMAGE_CACHE_POLICY}
           recyclingKey={String(item.id)}
           priority={selected ? "high" : "low"}
-          placeholder={require('../../../assets/images/menu_default.jpg')}
-          onLoadStart={() => setImageLoading(true)}
-          onLoadEnd={() => setImageLoading(false)}
-          onError={() => setImageLoading(false)}
+          placeholder={OPTION_IMAGE_FALLBACK}
+          onLoadStart={() => {
+            if (!hasLoadedRef.current) {
+              setImageLoading(true);
+            }
+          }}
+          onLoadEnd={() => {
+            setImageLoading(false);
+            hasLoadedRef.current = true;
+          }}
+          onError={() => {
+            setImageLoading(false);
+            hasLoadedRef.current = true;
+          }}
         />
         {imageLoading && (
           <ShimmerPlaceHolder
@@ -242,13 +276,8 @@ const OptionGroup = React.memo(({
     const maxQ = (minQ === 0 && rawMaxQ === 0) ? Infinity : (rawMaxQ || 99);
 
     return (group.options || []).map(opt => {
-      let imageUri = '';
-      if (opt.images_compressed || opt.images) {
-        const imgPath = opt.images_compressed || opt.images;
-        imageUri = imgPath.startsWith('http')
-          ? imgPath
-          : `${imageUrl}menu_options/${imgPath}`;
-      }
+      const imgPath = opt.images_compressed || opt.images || '';
+      const imageUri = buildRemoteAssetImageUrl(imgPath, 'menu_options');
       return {
         id: opt.id,
         name: opt.title,
@@ -581,11 +610,14 @@ export default function MenuItemScreen() {
 
           const customerJson = await AsyncStorage.getItem('customerData');
           const customerData = customerJson ? JSON.parse(customerJson) : null;
-          const customerTier = isQrOrder ? 0 : (customerData ? customerData.customer_tier_id : 0);
+          const customerTier = (customerData ? customerData.customer_tier_id : 0);
 
-          console.log(`Requesting: ${apiUrl}menu-items/${id}/${outletIdToUse}/${customerTier}`);
+          const uniqueQrDataRaw = await AsyncStorage.getItem('uniqueQrData');
+          const uniqueQrData = uniqueQrDataRaw ? JSON.parse(uniqueQrDataRaw) : null;
+          const qrCode = isQrOrder ? (uniqueQrData?.unique_code || null) : null;
 
           const res = await axios.get(`${apiUrl}menu-items/${id}/${outletIdToUse}/${customerTier}`, {
+            params: { unique_qr_code: qrCode },
             headers: { Authorization: `Bearer ${token}` }
           });
           console.log('Menu item fetched:', res.data.data[0]?.title);
@@ -720,6 +752,13 @@ export default function MenuItemScreen() {
               }
             }
 
+            const optionImageUris = groupsData.flatMap((group) =>
+              (group.options || []).map((opt) =>
+                buildRemoteAssetImageUrl(opt.images_compressed || opt.images || '', 'menu_options')
+              )
+            );
+            void prefetchRemoteImageUris(optionImageUris);
+
             setOptionGroups(groupsData);
 
             // 👇 Auto-select logic for required groups
@@ -758,42 +797,34 @@ export default function MenuItemScreen() {
   useEffect(() => {
     if (!menuItem) return;
     if (Array.isArray(menuItem.variation) && menuItem.variation.length > 0) {
-      setCrustOptions(
-        menuItem.variation.map(v => {
-          let imageUri = '';
-          const imgPath = v.variation.images || v.variation.images_compressed || '';
-          if (imgPath) {
-            imageUri = imgPath.startsWith('http')
-              ? imgPath
-              : `${imageUrl}menu_variations/${imgPath}`;
-          }
-          return {
-            id: v.variation.id,
-            name: v.variation.title,
-            price: Number(v.variation.price),
-            discount_price: isQrOrder ? 0 : Number(v.variation.discount_price),
-            image: imageUri,
-            tags: v.tags || [],
-            is_disabled: v.variation.is_disabled === true || v.variation.is_disabled === 'true' || v.variation.is_disabled === 1 || v.variation.is_disabled === '1'
-          };
-        })
-      );
+      const mappedVariations = menuItem.variation.map(v => {
+        const imgPath = v.variation.images || v.variation.images_compressed || '';
+        const imageUri = buildRemoteAssetImageUrl(imgPath, 'menu_variations');
+        return {
+          id: v.variation.id,
+          name: v.variation.title,
+          price: Number(v.variation.price),
+          discount_price: isQrOrder ? 0 : Number(v.variation.discount_price),
+          image: imageUri,
+          tags: v.tags || [],
+          is_disabled: v.variation.is_disabled === true || v.variation.is_disabled === 'true' || v.variation.is_disabled === 1 || v.variation.is_disabled === '1'
+        };
+      });
+      setCrustOptions(mappedVariations);
+      void prefetchRemoteImageUris(mappedVariations.map((variation) => variation.image));
     } else if (menuItem.variation && menuItem.variation.id) {
-      let imageUri = '';
       const imgPath = menuItem.variation.images || menuItem.variation.images_compressed || '';
-      if (imgPath) {
-        imageUri = imgPath.startsWith('http')
-          ? imgPath
-          : `${imageUrl}menu_variations/${imgPath}`;
-      }
-      setCrustOptions([{
+      const imageUri = buildRemoteAssetImageUrl(imgPath, 'menu_variations');
+      const singleVariation = {
         id: menuItem.variation.id,
         name: menuItem.variation.title,
         price: Number(menuItem.variation.price),
-        discount_price: isQrOrder ? 0 : Number(menuItem.variation.discount_price),
+        discount_price: Number(menuItem.variation.discount_price),
         image: imageUri,
         is_disabled: menuItem.variation.is_disabled === true || menuItem.variation.is_disabled === 'true' || menuItem.variation.is_disabled === 1 || menuItem.variation.is_disabled === '1'
-      }]);
+      };
+      setCrustOptions([singleVariation]);
+      void prefetchRemoteImageUris([singleVariation.image]);
     } else {
       setCrustOptions([]);
     }
@@ -1148,7 +1179,7 @@ export default function MenuItemScreen() {
               })}
             />
             <View style={styles.priceRow}>
-              {!isQrOrder && menuItem?.discount_price && (
+              {menuItem?.discount_price && (
                 <Text style={styles.originalPrice}>RM {menuItem.discount_price}</Text>
               )}
               <Text style={styles.price}>RM {menuItem?.price || '0'}</Text>

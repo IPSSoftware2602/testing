@@ -227,18 +227,22 @@ export default function MenuScreen() {
           const token = await AsyncStorage.getItem('authToken');
           const customerJson = await AsyncStorage.getItem('customerData');
           const customerData = customerJson ? JSON.parse(customerJson) : null;
-          const customerTier = fromQR ? 0 : (customerData ? customerData.customer_tier_id : 0);
+          const customerTier = (customerData ? customerData.customer_tier_id : 0);
           const headers = token ? { Authorization: `Bearer ${token}` } : {};
-          const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}/${customerTier}`, { headers });
-
           const uniqueQrDataStr = await AsyncStorage.getItem('uniqueQrData');
+          const uniqueQrData = uniqueQrDataStr ? JSON.parse(uniqueQrDataStr) : null;
+          const qrCode = (fromQR && uniqueQrData) ? uniqueQrData.unique_code : null;
+
+          // Fetch menu items with QR discount support
+          const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}/${customerTier}`, {
+            params: { unique_qr_code: qrCode },
+            headers
+          });
+
+          // Check for allowed menu items from QR configuration
           let allowedMenuItemIds = null;
-          if (fromQR && uniqueQrDataStr) {
+          if (fromQR && uniqueQrData) {
             try {
-              const uniqueQrData = JSON.parse(uniqueQrDataStr);
-              // Check if menu_item_ids exists and is an array with length > 0
-              // User said: "If no items selected ... show ALL items (default behavior)" -> confirmed "Yes correct".
-              // So we only filter if we have specific IDs.
               if (uniqueQrData.menu_item_ids && Array.isArray(uniqueQrData.menu_item_ids) && uniqueQrData.menu_item_ids.length > 0) {
                 allowedMenuItemIds = uniqueQrData.menu_item_ids.map(String);
               }
@@ -273,7 +277,7 @@ export default function MenuScreen() {
                 name: item.title,
                 description: item.short_description,
                 price: item.price,
-                discount_price: fromQR ? 0 : item.discount_price,
+                discount_price: item.discount_price,
                 image: imageUrlFull,
                 categoryIds: (item.category_ids || []).map(id => String(id)),
                 tags: mappedTags,
@@ -528,11 +532,8 @@ export default function MenuScreen() {
           AsyncStorage.getItem("estimatedTime"),
         ]);
 
-        if (shouldRedirectToOutletSelect({
-          outletDetailsStr,
-          fromQR,
-          outletIdParam: outletId,
-        })) {
+        if (!outletDetailsStr) {
+          if (fromQR) return; // Wait for handleQR to resolve the outlet
           router.push("/screens/home/outlet_select");
           return;
         }
