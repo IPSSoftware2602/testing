@@ -19,6 +19,7 @@ const { width, height } = Dimensions.get('window');
 const COUNTRY_CODES = [
   { label: '+60 (MY)', value: '+60' },
   { label: '+862 (CN)', value: '+862' },
+  { label: '+65 (SG)', value: '+65' },
 ];
 
 export default function Login() {

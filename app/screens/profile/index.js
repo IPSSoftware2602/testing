@@ -17,6 +17,7 @@ import ConfirmationModal from '../../../components/ui/ConfirmationModal';
 import axios from 'axios'
 import { apiUrl } from '../../constant/constants';
 import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
+import Constants from 'expo-constants';
 // import useAuthGuard from '../../auth/check_token_expiry';
 
 const { width } = Dimensions.get('window');
@@ -59,10 +60,10 @@ export default function Profile() {
   useEffect(() => {
     const fetchCustomerProfile = async () => {
       if (!authToken || !customerData?.id) return;
-      
+
       // Prevent duplicate fetches for the same customer ID
       if (lastFetchedCustomerIdRef.current === customerData.id) return;
-      
+
       try {
         const response = await axios.get(
           `${apiUrl}customers/profile/${customerData.id}`,
@@ -81,13 +82,13 @@ export default function Profile() {
             ...prev,
             ...updatedCustomerData,
           };
-          
+
           // Update AsyncStorage with merged data
           AsyncStorage.setItem('customerData', JSON.stringify(mergedData)).catch(console.error);
-          
+
           // Track that we've fetched for this customer ID
           lastFetchedCustomerIdRef.current = customerData.id;
-          
+
           return mergedData;
         });
 
@@ -240,36 +241,48 @@ export default function Profile() {
                       </>
                     )}
                     {authToken && (
-                     <View style={styles.usPizzaBadge}>
-                       <USPizzaLogo width={32} height={20} color={customerData?.customer_tier_color} />
-                     </View>
+                      <View style={styles.usPizzaBadge}>
+                        <USPizzaLogo width={32} height={20} color={customerData?.customer_tier_color} />
+                      </View>
                     )}
                   </View>
                   {authToken && (
-                   <BeansUpgradeIndicator
-                     beansNeeded={customerData?.point_needed_for_next_tier}
-                     totalBeansForUpgrade={customerData?.next_tier_min_points}
-                     nextTierName={customerData?.next_tier}
-                     currentTierName={customerData?.customer_tier_name}
-                   />
+                    <BeansUpgradeIndicator
+                      beansNeeded={customerData?.point_needed_for_next_tier}
+                      totalBeansForUpgrade={customerData?.next_tier_min_points}
+                      nextTierName={customerData?.next_tier}
+                      currentTierName={customerData?.customer_tier_name}
+                    />
                   )}
                 </View>
                 {authToken && (
-                <View style={{ alignItems: 'flex-start', width: '40%' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between', width: '100%' }}>
-                    <TouchableOpacity
-                      style={{ flexDirection: 'column', alignItems: 'flex-start', width: '55%' }}
-                      onPress={() => router.push('/screens/profile/points_history')}
-                    >
-                      <Text style={styles.pointsLabel}>Points</Text>
-                      {customerData && customerData.customer_point ? (
-                        <Text style={styles.pointsValue}>{parseInt(customerData.customer_point)} Sedap Points</Text>
+                  <View style={{ alignItems: 'flex-start', width: '40%' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between', width: '100%' }}>
+                      <TouchableOpacity
+                        style={{ flexDirection: 'column', alignItems: 'flex-start', width: '55%' }}
+                        onPress={() => router.push('/screens/profile/points_history')}
+                      >
+                        <Text style={styles.pointsLabel}>Points</Text>
+                        {customerData && customerData.customer_point ? (
+                          <Text style={styles.pointsValue}>{parseInt(customerData.customer_point)} Sedap Points</Text>
+                        ) : (
+                          <Text style={styles.pointsValue}>888 Sedap Points</Text>
+                        )}
+                      </TouchableOpacity>
+                      {Platform.OS === 'web' ? (
+                        <div data-testid="recharge-points-button">
+                          <PolygonButton
+                            text="Exchange"
+                            width={60}
+                            height={22}
+                            color="#C2000E"
+                            textColor="#fff"
+                            textStyle={styles.memberText2}
+                            style={{ marginLeft: 6 }}
+                            onPress={() => router.push('(tabs)/market')}
+                          />
+                        </div>
                       ) : (
-                        <Text style={styles.pointsValue}>888 Sedap Points</Text>
-                      )}
-                    </TouchableOpacity>
-                    {Platform.OS === 'web' ? (
-                      <div data-testid="recharge-points-button">
                         <PolygonButton
                           text="Exchange"
                           width={60}
@@ -280,36 +293,36 @@ export default function Profile() {
                           style={{ marginLeft: 6 }}
                           onPress={() => router.push('(tabs)/market')}
                         />
-                      </div>
-                    ) : (
-                      <PolygonButton
-                        text="Exchange"
-                        width={60}
-                        height={22}
-                        color="#C2000E"
-                        textColor="#fff"
-                        textStyle={styles.memberText2}
-                        style={{ marginLeft: 6 }}
-                        onPress={() => router.push('(tabs)/market')}
-                      />
-                    )}
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5, justifyContent: 'space-between', width: '100%' }}>
-                    <TouchableOpacity
-                      style={{ flexDirection: 'column', width: '55%' }}
-                      onPress={() => router.push('/screens/profile/wallet_history')}
-                    >
-                      <Text style={styles.pointsLabel}>Balances</Text>
-                      {customerData && customerData.customer_wallet ? (
-                        <Text style={styles.pointsValue}>RM {customerData.customer_wallet}</Text>
-                      ) : (
-                        <Text style={styles.pointsValue}>RM 666.00</Text>
                       )}
-                      {/* <Text style={styles.pointsValue}>RM 666.00</Text> */}
-                    </TouchableOpacity>
-                    {customerData?.enable_wallet && (
-                      Platform.OS === 'web' ? (
-                        <div data-testid="recharge-balance-button">
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5, justifyContent: 'space-between', width: '100%' }}>
+                      <TouchableOpacity
+                        style={{ flexDirection: 'column', width: '55%' }}
+                        onPress={() => router.push('/screens/profile/wallet_history')}
+                      >
+                        <Text style={styles.pointsLabel}>Balances</Text>
+                        {customerData && customerData.customer_wallet ? (
+                          <Text style={styles.pointsValue}>RM {customerData.customer_wallet}</Text>
+                        ) : (
+                          <Text style={styles.pointsValue}>RM 666.00</Text>
+                        )}
+                        {/* <Text style={styles.pointsValue}>RM 666.00</Text> */}
+                      </TouchableOpacity>
+                      {customerData?.enable_wallet && (
+                        Platform.OS === 'web' ? (
+                          <div data-testid="recharge-balance-button">
+                            <PolygonButton
+                              text="Recharge"
+                              width={60}
+                              height={22}
+                              color="#C2000E"
+                              textColor="#fff"
+                              textStyle={styles.memberText2}
+                              style={{ marginLeft: 6 }}
+                              onPress={() => router.push('/screens/profile/topup')}
+                            />
+                          </div>
+                        ) : (
                           <PolygonButton
                             text="Recharge"
                             width={60}
@@ -320,20 +333,8 @@ export default function Profile() {
                             style={{ marginLeft: 6 }}
                             onPress={() => router.push('/screens/profile/topup')}
                           />
-                        </div>
-                      ) : (
-                        <PolygonButton
-                          text="Recharge"
-                          width={60}
-                          height={22}
-                          color="#C2000E"
-                          textColor="#fff"
-                          textStyle={styles.memberText2}
-                          style={{ marginLeft: 6 }}
-                          onPress={() => router.push('/screens/profile/topup')}
-                        />
-                      )
-                    )}
+                        )
+                      )}
                     </View>
                   </View>
                 )}
@@ -343,53 +344,53 @@ export default function Profile() {
 
           {/* VIP Card */}
           {authToken && (
-          <View style={[styles.vipCard, { backgroundColor: getVipCardColor(customerData?.customer_tier_name) }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <View style={styles.vipCardHeader}>
-                <Image source={require('../../../assets/elements/profile/uspizza_chop.png')} style={styles.vipCardLogo} />
-                <View style={styles.vipCardContent}>
-                  {customerData && customerData.customer_type ? (
-                    <Text style={styles.vipCardTitle}>{customerData.customer_type} </Text>
-                  ) : (
-                    <Text style={styles.vipCardTitle}>Member Card</Text>
-                  )}
+            <View style={[styles.vipCard, { backgroundColor: getVipCardColor(customerData?.customer_tier_name) }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <View style={styles.vipCardHeader}>
+                  <Image source={require('../../../assets/elements/profile/uspizza_chop.png')} style={styles.vipCardLogo} />
+                  <View style={styles.vipCardContent}>
+                    {customerData && customerData.customer_type ? (
+                      <Text style={styles.vipCardTitle}>{customerData.customer_type} </Text>
+                    ) : (
+                      <Text style={styles.vipCardTitle}>Member Card</Text>
+                    )}
 
-                  {customerData && customerData.customer_tier_name ? (
-                    <Text style={styles.vipCardSubtitle}>{customerData.customer_tier_name} </Text>
-                  ) : null}
+                    {customerData && customerData.customer_tier_name ? (
+                      <Text style={styles.vipCardSubtitle}>{customerData.customer_tier_name} </Text>
+                    ) : null}
+                  </View>
                 </View>
+                <TouchableOpacity style={{ width: '30%', height: '100%', alignItems: 'flex-end', justifyContent: 'flex-start', padding: 5 }} onPress={() => qrValue && qrValue.trim() !== '' ? setQRModalVisible(true) : null}>
+                  {qrValue && qrValue.trim() !== '' ? (
+                    <QRCode
+                      value={qrValue.trim()}
+                      size={width < 440 ? width < 375 ? 50 : 55 : 60}
+                    />
+                  ) : (
+                    <Text style={{ color: '#C2000E', fontSize: 14 }}>No QR Available</Text>
+                  )}
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity style={{ width: '30%', height: '100%', alignItems: 'flex-end', justifyContent: 'flex-start', padding: 5 }} onPress={() => qrValue && qrValue.trim() !== '' ? setQRModalVisible(true) : null}>
-                {qrValue && qrValue.trim() !== '' ? (
-                  <QRCode
-                    value={qrValue.trim()}
-                    size={width < 440 ? width < 375 ? 50 : 55 : 60}
-                  />
-                ) : (
-                  <Text style={{ color: '#C2000E', fontSize: 14 }}>No QR Available</Text>
-                )}
-              </TouchableOpacity>
+              <Image source={require('../../../assets/elements/profile/uspizza_card_background.png')} style={styles.vipCardWatermark} />
             </View>
-            <Image source={require('../../../assets/elements/profile/uspizza_card_background.png')} style={styles.vipCardWatermark} />
-          </View>
           )}
           {/* My Order Button */}
           {authToken && (
-          <TouchableOpacity onPress={() => router.push('(tabs)/orders')}>
-            <View style={styles.section}>
-              <PolygonButton
-                text="MY ORDER"
-                width={100}
-                height={30}
-                style={styles.memberBadge}
-                textStyle={styles.memberText}
-              />
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12 }}>
-                <Text style={styles.recentOrdersText}>View recent orders</Text>
-                <Entypo name="chevron-thin-right" size={24} color="#C2000E" />
+            <TouchableOpacity onPress={() => router.push('(tabs)/orders')}>
+              <View style={styles.section}>
+                <PolygonButton
+                  text="MY ORDER"
+                  width={100}
+                  height={30}
+                  style={styles.memberBadge}
+                  textStyle={styles.memberText}
+                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12 }}>
+                  <Text style={styles.recentOrdersText}>View recent orders</Text>
+                  <Entypo name="chevron-thin-right" size={24} color="#C2000E" />
+                </View>
               </View>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
           )}
           {/* Quick Actions Grid */}
           <View style={[styles.quickActionsGrid, { marginTop: authToken ? 0 : 10 }]}>
@@ -437,7 +438,7 @@ export default function Profile() {
 
           <View style={styles.logoutSection}>
             <PolygonButton
-              text="v1.0.0"
+              text={Constants.expoConfig?.version || Constants.manifest?.version || "1.0.0"}
               width={80}
               height={20}
               color="#C2000E"
@@ -456,7 +457,7 @@ export default function Profile() {
                 textStyle={{ fontSize: 14 }}
                 onPress={handleLogout}
               />
-              )}
+            )}
           </View>
 
         </ScrollView>
