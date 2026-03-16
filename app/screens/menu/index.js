@@ -16,10 +16,14 @@ import CustomDateTimePickerModal from '../../../components/ui/CustomDateTimePick
 import MenuItem from '../../../components/menu/MenuItem';
 import CategoryItem from '../../../components/menu/CategoryItem';
 import { useToast } from '../../../hooks/useToast';
-const { validateStoredOrderDateTime, formatLocalDate } = require('../../../utils/order_datetime');
+const { validateStoredOrderDateTime } = require('../../../utils/order_datetime');
 const { shouldRedirectToOutletSelect } = require('../../../utils/menuQrGuard');
 const { buildQrBootstrapKey, shouldRunQrBootstrap } = require('../../../utils/menuQrBootstrap');
-const { getEstimatedTimeFromStorage } = require('../../../utils/estimatedTimeRequest');
+const {
+  getEstimatedTimeFromStorage,
+  buildEstimatedTimeFromSelectedDateTime,
+  toDisplayEstimatedTimeLabel,
+} = require('../../../utils/estimatedTimeRequest');
 
 const { width } = Dimensions.get('window');
 
@@ -602,8 +606,8 @@ export default function MenuScreen() {
         const estimatedTime = await AsyncStorage.getItem('estimatedTime');
         if (estimatedTime) {
           const parsedEstimatedTime = JSON.parse(estimatedTime);
-
-          setSelectedDateTime(parsedEstimatedTime.estimatedTime);
+          const displayEstimatedTime = toDisplayEstimatedTimeLabel(parsedEstimatedTime, new Date());
+          setSelectedDateTime(displayEstimatedTime || parsedEstimatedTime.estimatedTime);
           // setEstimatedtime(parsedOutletDetails);
         }
       } catch (_err) {
@@ -958,30 +962,11 @@ export default function MenuScreen() {
   }
 
   const formatDateTime = useCallback(() => {
-    if (!selectedDateTime) return;
+    const estimatedTimeObj = buildEstimatedTimeFromSelectedDateTime(selectedDateTime, new Date());
+    if (!estimatedTimeObj) return;
 
-    const now = new Date();
-    let finalDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    let finalTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    if (selectedDateTime.split(" ").length > 1) {
-      const [dayLabel, timeString] = selectedDateTime.split(" ");
-      let selectedDate = new Date();
-
-      if (dayLabel.toLowerCase() === "today") {
-        const [hours, minutes] = timeString.split(":").map(Number);
-        selectedDate.setHours(hours, minutes, 0, 0);
-        // const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
-
-        finalDate = formatLocalDate(selectedDate);
-        finalTime = `${String(selectedDate.getHours()).padStart(2, "0")}:${String(selectedDate.getMinutes()).padStart(2, "0")}`;
-      } else {
-        [finalDate, finalTime] = convertToDateTimeString(selectedDateTime);
-      }
-    }
-
-    setAsyncEstimatedTime({ estimatedTime: selectedDateTime, date: finalDate, time: finalTime });
-    return { estimatedTime: selectedDateTime, date: finalDate, time: finalTime };
+    setAsyncEstimatedTime(estimatedTimeObj);
+    return estimatedTimeObj;
   }, [selectedDateTime]);
 
   const fetchCartTotal = useCallback(async () => {
@@ -1005,10 +990,6 @@ export default function MenuScreen() {
         if (!estimatedTimeObj) {
           const estimatedTimeStr = await AsyncStorage.getItem('estimatedTime');
           estimatedTimeObj = getEstimatedTimeFromStorage(estimatedTimeStr);
-        }
-
-        if (!estimatedTimeObj && (resolvedOrderType === 'pickup' || resolvedOrderType === 'delivery')) {
-          return 0;
         }
 
         const response = await axios.get(`${apiUrl}cart/get`, {
@@ -1074,31 +1055,6 @@ export default function MenuScreen() {
       loadCartTotal();
     }, [fetchCartTotal])
   );
-
-  function convertToDateTimeString(input) {
-    // input format: "Jul 31 14:00"
-    const [monthStr, dayStr, timeStr] = input.split(" "); // "Jul", "31", "14:00"
-    const [hours, minutes] = timeStr.split(":").map(Number);
-
-    // Create a Date object using current year
-    const now = new Date();
-    const year = now.getFullYear();
-
-    // Parse month string to month index (0-11)
-    const monthIndex = new Date(`${monthStr} 1, ${year}`).getMonth();
-
-    // Create date
-    const date = new Date(year, monthIndex, Number(dayStr), hours, minutes);
-
-    // Format as "YYYY-MM-DD HH:MM"
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    const hh = String(date.getHours()).padStart(2, "0");
-    const min = String(date.getMinutes()).padStart(2, "0");
-
-    return [`${yyyy}-${mm}-${dd}`, `${hh}:${min}`];
-  }
 
   const handleCheckout = async () => {
     // Check if user is logged in - required for checkout (order placement)
