@@ -95,6 +95,8 @@ export default function HomeScreen() {
           platform: Platform.OS
         });
 
+        console.log(response.data.data.update)
+
         if (response.data?.data?.update === true) {
           setShowForceUpdateModal(true);
         }

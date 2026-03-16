@@ -89,9 +89,11 @@ export default function useAuthGuard({ requireAuth = true } = {}) {
                     const customerDataStr = await AsyncStorage.getItem('customerData');
                     const customerData = customerDataStr ? JSON.parse(customerDataStr) : null;
 
-                    if (customerData?.phone_number) {
+                    const phoneNumber = customerData?.phone_number || customerData?.phone;
+
+                    if (phoneNumber) {
                         const response = await axios.post(apiUrl + "verify-api", {
-                            phone_number: customerData.phone_number,
+                            phone_number: phoneNumber,
                             session_login: true
                         });
 

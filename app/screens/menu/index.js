@@ -18,6 +18,8 @@ import CategoryItem from '../../../components/menu/CategoryItem';
 import { useToast } from '../../../hooks/useToast';
 const { validateStoredOrderDateTime, formatLocalDate } = require('../../../utils/order_datetime');
 const { shouldRedirectToOutletSelect } = require('../../../utils/menuQrGuard');
+const { buildQrBootstrapKey, shouldRunQrBootstrap } = require('../../../utils/menuQrBootstrap');
+const { getEstimatedTimeFromStorage } = require('../../../utils/estimatedTimeRequest');
 
 const { width } = Dimensions.get('window');
 
@@ -87,6 +89,7 @@ export default function MenuScreen() {
   const [pendingOrderType, setPendingOrderType] = useState(null);
   const { orderType, outletId, fromQR: fromQRParam } = useLocalSearchParams();
   const fromQR = String(fromQRParam) === '1';
+  const qrBootstrapKeyRef = useRef(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loadingCount, setLoadingCount] = useState(0);
   const navigation = useNavigation();
@@ -328,14 +331,26 @@ export default function MenuScreen() {
 
   useEffect(() => {
     const handleQR = async () => {
-      if (!fromQR || !orderType || !outletId) return;
+      const qrBootstrapKey = buildQrBootstrapKey({ fromQR, orderType, outletId });
+      if (!qrBootstrapKey) {
+        qrBootstrapKeyRef.current = null;
+        return;
+      }
+      if (!shouldRunQrBootstrap({ previousKey: qrBootstrapKeyRef.current, nextKey: qrBootstrapKey })) {
+        return;
+      }
+      qrBootstrapKeyRef.current = qrBootstrapKey;
 
       await runWithLoading(async () => {
-        // await checkoutClearStorage();
-        // QR entry resets order-flow storage and rehydrates outlet from QR params.
-        await checkoutClearStorage({ preserveDeliveryAddress: true });
+        const previousQrBootstrapKey = await AsyncStorage.getItem('lastQrBootstrapKey');
+        const shouldResetQrFlow = previousQrBootstrapKey !== qrBootstrapKey;
+        if (shouldResetQrFlow) {
+          // QR entry resets order-flow storage only when switching to a new QR context.
+          await checkoutClearStorage({ preserveDeliveryAddress: true });
+        }
 
         await AsyncStorage.setItem("orderType", String(orderType));
+        await AsyncStorage.setItem('lastQrBootstrapKey', qrBootstrapKey);
         setActiveOrderType(String(orderType));
 
         try {
@@ -986,7 +1001,16 @@ export default function MenuScreen() {
 
       return await runWithLoading(async () => {
         const resolvedOrderType = await getResolvedOrderType();
-        const estimatedTimeObj = formatDateTime();
+        let estimatedTimeObj = formatDateTime();
+        if (!estimatedTimeObj) {
+          const estimatedTimeStr = await AsyncStorage.getItem('estimatedTime');
+          estimatedTimeObj = getEstimatedTimeFromStorage(estimatedTimeStr);
+        }
+
+        if (!estimatedTimeObj && (resolvedOrderType === 'pickup' || resolvedOrderType === 'delivery')) {
+          return 0;
+        }
+
         const response = await axios.get(`${apiUrl}cart/get`, {
           params: {
             customer_id: customer.id,

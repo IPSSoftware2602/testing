@@ -387,6 +387,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="screens/auth/login" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/auth/auto-login" options={{ headerShown: false }} />
           <Stack.Screen name="screens/auth/register" options={{ headerShown: false }} />
           {/* <Stack.Screen name="screens/auth/forgot-password" options={{ headerShown: false }} /> */}
           <Stack.Screen name="screens/auth/otp" options={{ headerShown: false }} />

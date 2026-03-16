@@ -82,7 +82,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
         }
     };
 
-    const getSelectedDateTime = () => {
+    const getSelectedDateTime = async () => {
         const date = selectedDate;
         if (!date) return;
         const options = { month: 'short', day: 'numeric' };
@@ -110,7 +110,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
         }
         // console.log(combinedValue);
         setSelectedDateTime(combinedValue);
-        handleDateTimeChange(combinedValue);
+        await handleDateTimeChange(combinedValue);
     }
 
     function convertToDateTimeString(input) {
@@ -153,7 +153,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
         }
     }
 
-    const handleDateTimeChange = (selectedDateTime) => {
+    const handleDateTimeChange = async (selectedDateTime) => {
         if (!selectedDateTime) return;
 
         const now = new Date();
@@ -191,7 +191,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                 finalTime = convertToDateTimeString(selectedDateTime)[1];
             }
         }
-        setEstimaedTime({ estimatedTime: selectedDateTime, date: finalDate, time: finalTime });
+        await setEstimaedTime({ estimatedTime: selectedDateTime, date: finalDate, time: finalTime });
         // router.push('/screens/orders/checkout');
 
         // router.push({
@@ -497,7 +497,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                                 (!selectedDate || !selectedTime) && styles.disabledOption
                             ]}
                             disabled={!selectedDate || !selectedTime}
-                            onPress={() => {
+                            onPress={async () => {
                                 const selectedDateValue = selectedDate instanceof Date ? selectedDate : new Date(selectedDate);
                                 const yyyy = selectedDateValue.getFullYear();
                                 const mm = String(selectedDateValue.getMonth() + 1).padStart(2, '0');
@@ -520,7 +520,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                                     return;
                                 }
 
-                                getSelectedDateTime();
+                                await getSelectedDateTime();
                                 updateNoticeMessage('');
                                 setShowDateTimePicker(false);
                             }}
