@@ -14,6 +14,11 @@ import DatePicker from 'react-native-ui-datepicker';
 import dayjs from 'dayjs';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
+import {
+  resolveWebCalendarBaseDate,
+  applyWebCalendarYearMonthChange,
+  detectWebCalendarMonthView,
+} from '../../utils/date_selector_web_state';
 
 const { width } = Dimensions.get('window');
 
@@ -46,12 +51,33 @@ const DateSelector = ({
 }) => {
   const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState(value);
+  const [hideCalendarNav, setHideCalendarNav] = useState(false);
   const colorScheme = useColorScheme();
   const colors = colorScheme === 'dark' ? Colors.dark : Colors.light;
 
   useEffect(() => {
-    if (value) setTempDate(value);
+    setTempDate(value || null);
   }, [value]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !showPicker) {
+      setHideCalendarNav(false);
+      return undefined;
+    }
+
+    const detectMonthView = () => {
+      try {
+        setHideCalendarNav(detectWebCalendarMonthView(document));
+      } catch {
+        setHideCalendarNav(false);
+      }
+    };
+
+    detectMonthView();
+    const timer = setInterval(detectMonthView, 120);
+
+    return () => clearInterval(timer);
+  }, [showPicker]);
 
   // --- Mobile (iOS + Android) Picker ---
   const renderMobilePicker = () => {
@@ -165,20 +191,43 @@ const DateSelector = ({
             <View style={styles.webDropdown}>
               <View style={styles.webCalendarWrapper}>
                 <DatePicker
+                  className="uspizza-web-datepicker"
                   mode="single"
-                  date={dayjs(value)}
+                  date={resolveWebCalendarBaseDate(tempDate, value)}
                   onChange={({ date }) => {
                     if (date) {
                       const formatted = dayjs(date).format('YYYY-MM-DD');
+                      setTempDate(formatted);
                       onDateChange(formatted);
                       setShowPicker(false);
                     }
+                  }}
+                  onMonthChange={(month) => {
+                    const next = applyWebCalendarYearMonthChange(tempDate || value, { month });
+                    setTempDate(next.format('YYYY-MM-DD'));
+                  }}
+                  onYearChange={(year) => {
+                    const next = applyWebCalendarYearMonthChange(tempDate || value, { year });
+                    setTempDate(next.format('YYYY-MM-DD'));
                   }}
                   minDate={dayjs('1900-01-01')}
                   maxDate={dayjs('2100-12-31')}
                   components={{
                     IconPrev: <Ionicons name="chevron-back" size={20} color="#333" />,
                     IconNext: <Ionicons name="chevron-forward" size={20} color="#333" />,
+                  }}
+                  styles={{
+                    month_selector: { marginRight: 36, paddingHorizontal: 14 },
+                    year_selector: { marginLeft: 36, paddingHorizontal: 14 },
+                    month_selector_label: { fontWeight: '700' },
+                    year_selector_label: { fontWeight: '700' },
+                    button_prev: hideCalendarNav ? { display: 'none' } : {},
+                    button_next: hideCalendarNav ? { display: 'none' } : {},
+                  }}
+                  classNames={{
+                    button_prev: 'uspizza-date-prev',
+                    button_next: 'uspizza-date-next',
+                    months: 'uspizza-date-months',
                   }}
                 />
               </View>

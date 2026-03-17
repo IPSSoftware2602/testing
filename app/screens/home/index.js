@@ -383,12 +383,12 @@ export default function HomeScreen() {
                     />
                   ) : (
                     <PolygonButton
-                      text="GUEST"
-                      width={width <= 440 ? (width <= 375 ? (width <= 360 ? 60 : 65) : 80) : 90}
+                      text="Login/Register"
+                      width={width <= 440 ? (width <= 375 ? (width <= 360 ? 90 : 95) : 110) : 120}
                       height={35}
                       style={styles.memberBadge}
                       textStyle={styles.memberText}
-                      onPress={() => router.push('(tabs)/profile')}
+                      onPress={() => router.push('/screens/auth/login')}
                     />
                   )}
                 </View>

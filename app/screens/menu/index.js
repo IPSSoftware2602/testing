@@ -24,6 +24,7 @@ const {
   buildEstimatedTimeFromSelectedDateTime,
   toDisplayEstimatedTimeLabel,
 } = require('../../../utils/estimatedTimeRequest');
+const { resolveMenuOrderType } = require('../../../utils/order_type');
 
 const { width } = Dimensions.get('window');
 
@@ -32,7 +33,6 @@ const orderTypes = [
   { key: 'pickup', label: 'Pick Up' },
   { key: 'delivery', label: 'Delivery' },
 ];
-const VALID_ORDER_TYPES = new Set(orderTypes.map((item) => item.key));
 
 const getOrderTypeLabel = (key) => {
   const orderType = orderTypes.find(type => type.key === key);
@@ -103,17 +103,12 @@ export default function MenuScreen() {
 
   const toast = useToast();
   const getResolvedOrderType = useCallback(async () => {
-    if (orderType && VALID_ORDER_TYPES.has(String(orderType))) {
-      return String(orderType);
-    }
     const storedOrderType = await AsyncStorage.getItem('orderType');
-    if (storedOrderType && VALID_ORDER_TYPES.has(String(storedOrderType))) {
-      return String(storedOrderType);
-    }
-    if (activeOrderType && VALID_ORDER_TYPES.has(String(activeOrderType))) {
-      return String(activeOrderType);
-    }
-    return 'delivery';
+    return resolveMenuOrderType({
+      routeOrderType: orderType,
+      activeOrderType,
+      storedOrderType,
+    });
   }, [orderType, activeOrderType]);
 
   const revalidateOrderDateTime = useCallback(async () => {
@@ -134,6 +129,7 @@ export default function MenuScreen() {
       const mergedOutlet = {
         ...selectedOutlet,
         lead_time: latestOutlet.lead_time,
+        pickup_lead_time: latestOutlet.pickup_lead_time,
         delivery_start: latestOutlet.delivery_start,
         delivery_end: latestOutlet.delivery_end,
         delivery_interval: latestOutlet.delivery_interval,
@@ -143,6 +139,7 @@ export default function MenuScreen() {
 
       const outletScheduleChanged =
         String(selectedOutlet?.lead_time ?? '') !== String(mergedOutlet.lead_time ?? '') ||
+        String(selectedOutlet?.pickup_lead_time ?? '') !== String(mergedOutlet.pickup_lead_time ?? '') ||
         String(selectedOutlet?.delivery_start ?? '') !== String(mergedOutlet.delivery_start ?? '') ||
         String(selectedOutlet?.delivery_end ?? '') !== String(mergedOutlet.delivery_end ?? '') ||
         String(selectedOutlet?.delivery_interval ?? '') !== String(mergedOutlet.delivery_interval ?? '') ||
@@ -379,6 +376,7 @@ export default function MenuScreen() {
             address: outlet.address ? `${outlet.address}, ${outlet.postal_code || ''} ${outlet.state || ''}`.trim() : (outlet.outlet_address || ''),
             image: outlet.image?.compressed_image_url || outlet.image?.image_url || null,
             lead_time: outlet.lead_time,
+            pickup_lead_time: outlet.pickup_lead_time,
             delivery_start: outlet.delivery_start,
             delivery_end: outlet.delivery_end,
             delivery_interval: outlet.delivery_interval,
@@ -540,11 +538,11 @@ export default function MenuScreen() {
     const fetchOutletData = async () => {
       try {
         const storedOrderType = await AsyncStorage.getItem('orderType');
-        const resolvedOrderType = (orderType && VALID_ORDER_TYPES.has(String(orderType)))
-          ? String(orderType)
-          : (storedOrderType && VALID_ORDER_TYPES.has(storedOrderType))
-            ? storedOrderType
-            : 'delivery';
+        const resolvedOrderType = resolveMenuOrderType({
+          routeOrderType: orderType,
+          activeOrderType,
+          storedOrderType,
+        });
         setActiveOrderType(resolvedOrderType);
         const [outletDetailsStr, estimatedTimeStr] = await Promise.all([
           AsyncStorage.getItem("outletDetails"),
@@ -567,6 +565,7 @@ export default function MenuScreen() {
             latestOutletDetails = {
               ...parsedOutletDetails,
               lead_time: latestOutlet.lead_time,
+              pickup_lead_time: latestOutlet.pickup_lead_time,
               delivery_start: latestOutlet.delivery_start,
               delivery_end: latestOutlet.delivery_end,
               delivery_interval: latestOutlet.delivery_interval,

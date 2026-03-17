@@ -40,6 +40,18 @@ function normalizeSettingsList(outlet) {
   return [];
 }
 
+function getLeadTimeMinutes(setting, outlet, orderType) {
+  if (orderType === "pickup") {
+    const pickupLeadTime = Number(
+      outlet?.pickup_lead_time ?? setting?.pickup_lead_time ?? 0
+    );
+    return Number.isNaN(pickupLeadTime) ? 0 : pickupLeadTime;
+  }
+
+  const leadTime = Number(setting?.lead_time ?? 0);
+  return Number.isNaN(leadTime) ? 0 : leadTime;
+}
+
 function getMatchingSettings(date, outlet) {
   const selectedDay = date.getDay();
   return normalizeSettingsList(outlet).filter((setting) => {
@@ -52,7 +64,7 @@ function getMatchingSettings(date, outlet) {
   });
 }
 
-function getAvailableSlotsForDate(date, outlet, now = new Date()) {
+function getAvailableSlotsForDate(date, outlet, now = new Date(), orderType = "delivery") {
   if (!date || !outlet) return [];
 
   const slots = [];
@@ -63,7 +75,7 @@ function getAvailableSlotsForDate(date, outlet, now = new Date()) {
     const interval = parseInt(setting.delivery_interval || "0", 10);
     if (!setting.delivery_start || !setting.delivery_end || interval <= 0) return;
 
-    const leadTimeMinutes = parseInt(setting.lead_time || "0", 10);
+    const leadTimeMinutes = getLeadTimeMinutes(setting, outlet, orderType);
     const minimumAllowed = new Date(now.getTime() + leadTimeMinutes * 60000);
 
     const [startH, startM] = setting.delivery_start.split(":").map(Number);
@@ -91,11 +103,15 @@ function getAvailableSlotsForDate(date, outlet, now = new Date()) {
   return slots.sort((a, b) => a.localeCompare(b));
 }
 
-function getMinimumLeadTimeForDate(date, outlet) {
+function getMinimumLeadTimeForDate(date, outlet, orderType = "delivery") {
   const matchingSettings = getMatchingSettings(date, outlet);
   if (matchingSettings.length === 0) return 0;
 
-  return Math.min(...matchingSettings.map((setting) => Number(setting.lead_time) || 0));
+  return Math.min(
+    ...matchingSettings.map((setting) =>
+      getLeadTimeMinutes(setting, outlet, orderType)
+    )
+  );
 }
 
 function validateStoredOrderDateTime({
@@ -125,7 +141,7 @@ function validateStoredOrderDateTime({
     };
   }
 
-  const minimumLeadMinutes = getMinimumLeadTimeForDate(selectedDateTime, outlet);
+  const minimumLeadMinutes = getMinimumLeadTimeForDate(selectedDateTime, outlet, orderType);
   if (minimumLeadMinutes > 0) {
     const minimumAllowed = new Date(now.getTime() + minimumLeadMinutes * 60000);
     if (selectedDateTime < minimumAllowed) {
@@ -137,7 +153,7 @@ function validateStoredOrderDateTime({
     }
   }
 
-  const availableSlots = getAvailableSlotsForDate(selectedDateTime, outlet, now);
+  const availableSlots = getAvailableSlotsForDate(selectedDateTime, outlet, now, orderType);
   if (!availableSlots.includes(estimatedTime.time)) {
     return {
       isValid: false,

@@ -244,7 +244,9 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
             if (!delivery_start || !delivery_end || !delivery_interval) continue;
 
             const interval = parseInt(delivery_interval);
-            const leadTimeMinutes = parseInt(lead_time || "0");
+            const pickupLeadTime = parseInt(outletData.pickup_lead_time ?? 0);
+            const deliveryLeadTime = parseInt(lead_time || "0");
+            const leadTimeMinutes = orderType === 'pickup' ? pickupLeadTime : deliveryLeadTime;
             const minTime = new Date(now.getTime() + leadTimeMinutes * 60000);
 
             const [startH, startM] = delivery_start.split(':').map(Number);
@@ -256,14 +258,30 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
             const end = new Date(date);
             end.setHours(endH, endM, 0, 0);
 
-            while (current <= end) {
+            while (current < end) {
+                const slotEnd = new Date(current);
+                slotEnd.setMinutes(slotEnd.getMinutes() + interval);
+                if (slotEnd > end) {
+                    break;
+                }
+
                 if (current >= minTime) {
-                    const h = String(current.getHours()).padStart(2, '0');
-                    const m = String(current.getMinutes()).padStart(2, '0');
-                    const timeStr = `${h}:${m}`;
+                    const formatSlotTime = (value) => {
+                        const h = String(value.getHours()).padStart(2, '0');
+                        const m = String(value.getMinutes()).padStart(2, '0');
+                        return `${h}:${m}`;
+                    };
+
+                    const timeStr = formatSlotTime(current);
+                    const endTimeStr = formatSlotTime(slotEnd);
                     if (!allSlotTimes.has(timeStr)) {
                         allSlotTimes.add(timeStr);
-                        allSlots.push({ time: timeStr, isOperate: true });
+                        allSlots.push({
+                            time: timeStr,
+                            endTime: endTimeStr,
+                            label: `${timeStr} - ${endTimeStr}`,
+                            isOperate: true,
+                        });
                     }
                 }
                 current.setMinutes(current.getMinutes() + interval);
@@ -476,7 +494,9 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                                     nestedScrollEnabled={true}
                                     disabled={!isOperating}
                                 >
-                                    <Text style={[styles.timeText, isSelected && styles.selectedText, !isOperating && styles.disabledText]}>{time}</Text>
+                                    <Text style={[styles.timeText, isSelected && styles.selectedText, !isOperating && styles.disabledText]}>
+                                        {timeObj.label || time}
+                                    </Text>
                                 </TouchableOpacity>
 
                             );
@@ -624,7 +644,7 @@ const styles = StyleSheet.create({
         // margingBottom: height * 0.2
     },
     timeOption: {
-        width: width <= 360 ? '45%' : '30%',
+        width: width <= 360 ? '45%' : '45%',
         padding: 12,
         margin: 5,
         backgroundColor: '#F5F5F5',
