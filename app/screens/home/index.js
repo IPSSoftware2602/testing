@@ -23,6 +23,7 @@ import { registerPushToken } from '../../../hooks/usePushNotifications';
 import Constants from 'expo-constants';
 import { useToast } from '../../../hooks/useToast';
 import { STARTUP_LOCATION_TOAST_KEY } from '../../../utils/location_bootstrap';
+const { getHomeQrCleanupPlan } = require('../../../utils/homeQrCleanup');
 
 const { width } = Dimensions.get('window');
 
@@ -42,7 +43,7 @@ export default function HomeScreen() {
   // Removed useAuthGuard - home screen accessible without login (App Store requirement)
   useCheckValidOrderType();
   // const route = useRoute();
-  const { showModal, setErrorModal } = useLocalSearchParams();
+  const { showModal, setErrorModal, clearQr } = useLocalSearchParams();
   // console.log(modalFlag)
   const [orderTypeModalVisible, setOrderTypeModalVisible] = useState(false);
   const [isQRModalVisible, setQRModalVisible] = useState(false);
@@ -64,6 +65,26 @@ export default function HomeScreen() {
     setNotificationTitle(title);
     setNotificationVisible(true);
   };
+
+  useEffect(() => {
+    // Only clear QR context when explicitly navigated to home with clearQr param.
+    // This prevents losing QR state on app refresh / initial load.
+    if (String(clearQr) !== '1') return;
+
+    const clearQrContextOnHomeLoad = async () => {
+      try {
+        const deliveryAddressRaw = await AsyncStorage.getItem('deliveryAddressDetails');
+        const { keysToRemove } = getHomeQrCleanupPlan(deliveryAddressRaw);
+        if (keysToRemove.length > 0) {
+          await AsyncStorage.multiRemove(keysToRemove);
+        }
+      } catch (err) {
+        console.log('Failed to clear QR context on home load:', err);
+      }
+    };
+
+    clearQrContextOnHomeLoad();
+  }, [clearQr]);
 
   useEffect(() => {
     const showPendingStartupToast = async () => {
@@ -94,8 +115,6 @@ export default function HomeScreen() {
           version: currentVersion,
           platform: Platform.OS
         });
-
-        console.log(response.data.data.update)
 
         if (response.data?.data?.update === true) {
           setShowForceUpdateModal(true);
@@ -384,7 +403,7 @@ export default function HomeScreen() {
                   ) : (
                     <PolygonButton
                       text="Login/Register"
-                      width={width <= 440 ? (width <= 375 ? (width <= 360 ? 90 : 95) : 110) : 120}
+                      width={width <= 440 ? (width <= 375 ? (width <= 360 ? 90 : 95) : 130) : 140}
                       height={35}
                       style={styles.memberBadge}
                       textStyle={styles.memberText}
@@ -646,7 +665,7 @@ export default function HomeScreen() {
             onCancel={() => setShowLoginModal(false)}
           />
 
-          <ForceUpdateModal isVisible={showForceUpdateModal} />
+          {/* <ForceUpdateModal isVisible={showForceUpdateModal} /> */}
         </View>
 
         {/* </View> */}

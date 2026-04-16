@@ -1,15 +1,10 @@
+// REQ-002: Parse a "YYYY-MM-DD" date and "HH:MM" time as Malaysia local time.
+// Returns a Date object representing the absolute UTC instant of that MY moment.
 function parseLocalDateTime(dateStr, timeStr) {
   if (!dateStr || !timeStr) return null;
-
-  const [y, m, d] = String(dateStr).split("-").map(Number);
-  const timeParts = String(timeStr).split(":").map(Number);
-  if (!y || !m || !d || timeParts.length < 2) return null;
-
-  const hh = timeParts[0];
-  const mm = timeParts[1];
-  const ss = timeParts[2] ?? 0;
-  const value = new Date(y, m - 1, d, hh, mm, ss);
-  return Number.isNaN(value.getTime()) ? null : value;
+  const { parseMYDateTime } = require('./timezone');
+  const parsed = parseMYDateTime(dateStr, timeStr);
+  return parsed ? parsed.toDate() : null;
 }
 
 function formatLocalDate(date) {
@@ -64,7 +59,9 @@ function getMatchingSettings(date, outlet) {
   });
 }
 
-function getAvailableSlotsForDate(date, outlet, now = new Date(), orderType = "delivery") {
+// REQ-002: All slot generation uses Malaysia time. Callers should pass `now`
+// from `nowInMY().toDate()` so device timezone never leaks in.
+function getAvailableSlotsForDate(date, outlet, now = require('./timezone').nowInMY().toDate(), orderType = "delivery") {
   if (!date || !outlet) return [];
 
   const slots = [];
@@ -114,17 +111,32 @@ function getMinimumLeadTimeForDate(date, outlet, orderType = "delivery") {
   );
 }
 
+// REQ-001: ASAP is now a valid choice. The validator accepts ASAP when the outlet
+// is currently open for the given order_type, and rejects ASAP when closed (the
+// picker should disable the ASAP pill in that case so the user picks a slot).
 function validateStoredOrderDateTime({
   orderType,
   estimatedTime,
   outlet,
-  now = new Date(),
+  now = require('./timezone').nowInMY().toDate(),
 }) {
   if (orderType !== "pickup" && orderType !== "delivery") {
     return { isValid: true, reason: null, message: "" };
   }
 
-  if (!estimatedTime?.date || !estimatedTime?.time || !estimatedTime?.estimatedTime || estimatedTime.estimatedTime === "ASAP") {
+  // REQ-001: ASAP branch — valid only if outlet is currently open for this order_type.
+  if (estimatedTime?.estimatedTime === "ASAP") {
+    if (isOutletOpenNow(outlet, orderType, now)) {
+      return { isValid: true, reason: null, message: "" };
+    }
+    return {
+      isValid: false,
+      reason: "outlet_closed",
+      message: `Outlet is currently closed for ${orderType}. Please pick a future time slot.`,
+    };
+  }
+
+  if (!estimatedTime?.date || !estimatedTime?.time || !estimatedTime?.estimatedTime) {
     return {
       isValid: false,
       reason: "missing",
@@ -165,9 +177,64 @@ function validateStoredOrderDateTime({
   return { isValid: true, reason: null, message: "" };
 }
 
+// REQ-001: Returns true if the outlet is currently open RIGHT NOW for the
+// given order_type (delivery or pickup). ASAP semantics — no slot/lead-time
+// math, just "is the outlet currently serving?" This uses the outlet-wide
+// `operating_schedule` (keyed by weekday name) which is the authoritative
+// source for both pickup and delivery operating hours. `delivery_settings`
+// is only consulted for scheduled-slot generation, not for ASAP.
+function isOutletOpenNow(outlet, orderType, now = require('./timezone').nowInMY().toDate()) {
+  if (!outlet || !orderType) return false;
+  if (orderType !== "pickup" && orderType !== "delivery") return false;
+
+  // Outlet must serve this order type
+  const serveMethodRaw = String(outlet.serve_method || "").toLowerCase();
+  if (serveMethodRaw) {
+    const serveMethod = serveMethodRaw
+      .split(",")
+      .map((v) => v.trim().replace(/[-\s]/g, ""))
+      .filter((v) => v.length > 0);
+    if (serveMethod.length > 0 && !serveMethod.includes(orderType)) return false;
+  }
+
+  // Locate the outlet's operating schedule. Server returns it as
+  // `operating_schedule`, the legacy outlet_select.js stored it as
+  // `operatingHours`. Support both.
+  const schedule = outlet.operating_schedule || outlet.operatingHours || null;
+  if (!schedule || typeof schedule !== 'object' || Array.isArray(schedule)) {
+    return false;
+  }
+
+  const { toMY } = require('./timezone');
+  const myNow = toMY(now);
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const todayName = dayNames[myNow.day()];
+
+  const todaySchedule = schedule[todayName];
+  if (!todaySchedule || !todaySchedule.is_operated) return false;
+
+  const hours = Array.isArray(todaySchedule.operating_hours) ? todaySchedule.operating_hours : [];
+  if (hours.length === 0) return false;
+
+  // Compare HH:mm:ss strings lexicographically — safe for 24-hour fixed-width.
+  const currentTimeStr = myNow.format('HH:mm:ss');
+  for (const slot of hours) {
+    const start = String(slot.start_time || '').slice(0, 8);
+    const end = String(slot.end_time || '').slice(0, 8);
+    if (!start || !end) continue;
+    const startNorm = start.length === 5 ? `${start}:00` : start;
+    const endNorm = end.length === 5 ? `${end}:00` : end;
+    if (currentTimeStr >= startNorm && currentTimeStr < endNorm) {
+      return true;
+    }
+  }
+  return false;
+}
+
 module.exports = {
   parseLocalDateTime,
   formatLocalDate,
   getAvailableSlotsForDate,
   validateStoredOrderDateTime,
+  isOutletOpenNow,
 };

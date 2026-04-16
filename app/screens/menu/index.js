@@ -92,12 +92,14 @@ export default function MenuScreen() {
   const [confirmOrderTypeModalVisible, setConfirmOrderTypeModalVisible] = useState(false);
   const [pendingOrderType, setPendingOrderType] = useState(null);
   const { orderType, outletId, fromQR: fromQRParam } = useLocalSearchParams();
-  const fromQR = String(fromQRParam) === '1';
+  const fromQRNav = String(fromQRParam) === '1';
   const qrBootstrapKeyRef = useRef(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loadingCount, setLoadingCount] = useState(0);
   const navigation = useNavigation();
   const [uniqueQrData, setUniqueQrData] = useState(null);
+  // Treat as QR order if nav param says so OR if QR data exists in storage (survives refresh)
+  const fromQR = fromQRNav || !!uniqueQrData;
   const [qrActiveOrderCount, setQrActiveOrderCount] = useState(0);
   const [showOutletConfirmModal, setShowOutletConfirmModal] = useState(false);
 
@@ -135,6 +137,10 @@ export default function MenuScreen() {
         delivery_interval: latestOutlet.delivery_interval,
         delivery_available_days: latestOutlet.delivery_available_days,
         delivery_settings: latestOutlet.delivery_settings || [],
+        // REQ-001: preserve the outlet-wide operating schedule — isOutletOpenNow
+        // uses this for ASAP checks on both pickup and delivery.
+        serve_method: latestOutlet.serve_method ?? selectedOutlet?.serve_method,
+        operating_schedule: latestOutlet.operating_schedule ?? selectedOutlet?.operating_schedule ?? selectedOutlet?.operatingHours,
       };
 
       const outletScheduleChanged =
@@ -151,36 +157,48 @@ export default function MenuScreen() {
         await AsyncStorage.setItem('outletDetails', JSON.stringify(mergedOutlet));
       }
 
+      // REQ-002: Malaysia time, not device time — otherwise getDay() can
+      // return yesterday/tomorrow on non-MY devices and wrongly reject ASAP.
+      const { nowInMY } = require('../../../utils/timezone');
+      const parsedEstimated = estimatedTimeStr ? JSON.parse(estimatedTimeStr) : null;
+
       const validation = validateStoredOrderDateTime({
         orderType: resolvedOrderType,
-        estimatedTime: estimatedTimeStr ? JSON.parse(estimatedTimeStr) : null,
+        estimatedTime: parsedEstimated,
         outlet: mergedOutlet,
-        now: new Date(),
+        now: nowInMY().toDate(),
       });
 
       if (!validation.isValid) {
         setDateTimeModalMessage(validation.message);
         setShowDateTimePicker(true);
+      } else {
+        // Bug 1 fix: clear any stale error message from a previous validation
+        // pass. Without this, "Outlet is currently closed for pickup" leaks
+        // into a later picker open after the user has already switched to
+        // delivery (and delivery validation passed).
+        setDateTimeModalMessage('');
+        // Bug 2: refresh the canonical value from storage on focus so changes
+        // made in checkout propagate back to the menu header. State is the
+        // canonical string — the render site transforms via renderEstimatedTime.
+        if (parsedEstimated) {
+          setSelectedDateTime(parsedEstimated.estimatedTime || null);
+        }
       }
     } catch (_error) {
     }
   }, [getResolvedOrderType, selectedOutlet]);
 
   useEffect(() => {
-    const checkShowDateTimePicker = async () => {
-      const flag = await AsyncStorage.getItem('showDateTimePicker');
-      if (
-        flag === 'true' &&
-        selectedOutlet?.outletId &&
-        activeOrderType === 'dinein' &&
-        selectedOutlet.isOperate === false
-      ) {
-        setShowDateTimePicker(true);
+    // Dine-in never uses the date/time picker — always ASAP. Clear any stale
+    // flag from previous sessions so the picker can't pop unexpectedly.
+    const clearStaleDineinFlag = async () => {
+      if (activeOrderType === 'dinein') {
         await AsyncStorage.removeItem('showDateTimePicker');
       }
     };
-    checkShowDateTimePicker();
-  }, [selectedOutlet?.outletId, activeOrderType, selectedOutlet?.isOperate]);
+    clearStaleDineinFlag();
+  }, [activeOrderType]);
 
   const showLoading = useCallback(() => {
     setLoadingCount((prev) => prev + 1);
@@ -213,7 +231,7 @@ export default function MenuScreen() {
         router.push('/screens/home/outlet_select');
         return;
       }
-      console.log("selectedOutlet", selectedOutlet);
+      // console.log("selectedOutlet", selectedOutlet);
 
 
       return runWithLoading(async () => {
@@ -235,7 +253,7 @@ export default function MenuScreen() {
           const headers = token ? { Authorization: `Bearer ${token}` } : {};
           const uniqueQrDataStr = await AsyncStorage.getItem('uniqueQrData');
           const uniqueQrData = uniqueQrDataStr ? JSON.parse(uniqueQrDataStr) : null;
-          const qrCode = (fromQR && uniqueQrData) ? uniqueQrData.unique_code : null;
+          const qrCode = uniqueQrData ? uniqueQrData.unique_code : null;
 
           // Fetch menu items with QR discount support
           const response = await axios.get(`${apiUrl}menu/all/${selectedOutlet.outletId}/${customerTier}`, {
@@ -245,7 +263,7 @@ export default function MenuScreen() {
 
           // Check for allowed menu items from QR configuration
           let allowedMenuItemIds = null;
-          if (fromQR && uniqueQrData) {
+          if (uniqueQrData) {
             try {
               if (uniqueQrData.menu_item_ids && Array.isArray(uniqueQrData.menu_item_ids) && uniqueQrData.menu_item_ids.length > 0) {
                 allowedMenuItemIds = uniqueQrData.menu_item_ids.map(String);
@@ -391,16 +409,16 @@ export default function MenuScreen() {
             fetchMenuData({ resetList: true });
           }, 200);
 
-          if (orderType === "dinein" && outletObj.isOperate === false) {
-            setShowDateTimePicker(true);
-          }
+          // Dine-in never shows the picker — it's always ASAP. The outlet's
+          // operating state is surfaced elsewhere (outlet selector, headers).
 
         } catch (_err) {
         }
       });
 
-      // Auto-show date picker for QR orders (only if no valid time selected yet)
-      if (fromQR) {
+      // Auto-show date picker for QR orders (only if no valid time selected yet).
+      // Dine-in is always ASAP — never auto-open the picker for dine-in.
+      if (fromQR && orderType !== 'dinein') {
         setTimeout(async () => {
           try {
             const estimatedTimeStr = await AsyncStorage.getItem('estimatedTime');
@@ -436,19 +454,31 @@ export default function MenuScreen() {
       }
     };
 
-    if (fromQR) {
-      fetchUniqueQrData();
+    // Always try to restore QR data from storage (survives page refresh)
+    fetchUniqueQrData();
+
+    if (fromQRNav) {
       navigation.getParent()?.setOptions({
         tabBarStyle: { display: "none" },
-      });
-    } else {
-      navigation.getParent()?.setOptions({
-        tabBarStyle: { display: "flex" },
       });
     }
 
     handleQR();
-  }, [orderType, outletId, fetchMenuData, runWithLoading, fromQR, navigation]);
+  }, [orderType, outletId, fetchMenuData, runWithLoading, fromQRNav, navigation]);
+
+  // Hide tab bar when QR data is restored from storage (e.g. after page refresh)
+  useEffect(() => {
+    if (uniqueQrData && !fromQRNav) {
+      navigation.getParent()?.setOptions({
+        tabBarStyle: { display: "none" },
+      });
+    }
+    if (!uniqueQrData && !fromQRNav) {
+      navigation.getParent()?.setOptions({
+        tabBarStyle: { display: "flex" },
+      });
+    }
+  }, [uniqueQrData, fromQRNav, navigation]);
 
   const categoryListPerfProps = useMemo(() => {
     if (isWeb) {
@@ -492,6 +522,14 @@ export default function MenuScreen() {
     setActiveOrderType(orderType);
     try {
       await AsyncStorage.setItem('orderType', orderType);
+      // Dine-in never uses the date/time picker — lock the stored estimatedTime
+      // to ASAP so nothing downstream (validator, header display, API payload)
+      // ever sees a stale scheduled slot from a previous pickup/delivery session.
+      if (orderType === 'dinein') {
+        const asap = { estimatedTime: 'ASAP', date: null, time: null };
+        await AsyncStorage.setItem('estimatedTime', JSON.stringify(asap));
+        setSelectedDateTime('ASAP');
+      }
     }
     catch (_err) {
     }
@@ -503,9 +541,14 @@ export default function MenuScreen() {
     setConfirmOrderTypeModalVisible(true);
   }, [activeOrderType]);
 
-  const confirmOrderTypeChange = useCallback(() => {
+  const confirmOrderTypeChange = useCallback(async () => {
     if (pendingOrderType) {
-      handleSetOrderType(pendingOrderType);
+      // Bug 1 fix: await the storage write so the subsequent effect re-runs
+      // see the new order type, and explicitly clear any stale picker error
+      // message ("closed for pickup") from a previous validation pass. The
+      // fetchOutletData effect will re-validate against the new order type.
+      await handleSetOrderType(pendingOrderType);
+      setDateTimeModalMessage('');
       if (pendingOrderType !== "dinein") {
         setShowDateTimePicker(false);
       }
@@ -571,6 +614,9 @@ export default function MenuScreen() {
               delivery_interval: latestOutlet.delivery_interval,
               delivery_available_days: latestOutlet.delivery_available_days,
               delivery_settings: latestOutlet.delivery_settings || [],
+              // REQ-001: preserve outlet-wide operating schedule for ASAP check.
+              serve_method: latestOutlet.serve_method ?? parsedOutletDetails?.serve_method,
+              operating_schedule: latestOutlet.operating_schedule ?? parsedOutletDetails?.operating_schedule ?? parsedOutletDetails?.operatingHours,
             };
             await AsyncStorage.setItem("outletDetails", JSON.stringify(latestOutletDetails));
           }
@@ -579,12 +625,26 @@ export default function MenuScreen() {
 
         setSelectedOutlet(latestOutletDetails);
 
-        const parsedEstimatedTime = estimatedTimeStr ? JSON.parse(estimatedTimeStr) : null;
+        let parsedEstimatedTime = estimatedTimeStr ? JSON.parse(estimatedTimeStr) : null;
+
+        // Dine-in is always ASAP. If the stored estimatedTime is anything else
+        // (stale pickup slot from a previous session, etc), rewrite it now.
+        if (resolvedOrderType === 'dinein') {
+          const asap = { estimatedTime: 'ASAP', date: null, time: null };
+          if (!parsedEstimatedTime || parsedEstimatedTime.estimatedTime !== 'ASAP') {
+            await AsyncStorage.setItem('estimatedTime', JSON.stringify(asap));
+            parsedEstimatedTime = asap;
+            setSelectedDateTime('ASAP');
+          }
+        }
+
+        // REQ-002: Malaysia time, not device time (bug 1 fix).
+        const { nowInMY } = require('../../../utils/timezone');
         const validation = validateStoredOrderDateTime({
           orderType: resolvedOrderType,
           estimatedTime: parsedEstimatedTime,
           outlet: latestOutletDetails,
-          now: new Date(),
+          now: nowInMY().toDate(),
         });
 
         if (!validation.isValid) {
@@ -605,9 +665,9 @@ export default function MenuScreen() {
         const estimatedTime = await AsyncStorage.getItem('estimatedTime');
         if (estimatedTime) {
           const parsedEstimatedTime = JSON.parse(estimatedTime);
-          const displayEstimatedTime = toDisplayEstimatedTimeLabel(parsedEstimatedTime, new Date());
-          setSelectedDateTime(displayEstimatedTime || parsedEstimatedTime.estimatedTime);
-          // setEstimatedtime(parsedOutletDetails);
+          // REQ-001: state holds the canonical string. Display sites transform
+          // via renderEstimatedTime at render time, never here.
+          setSelectedDateTime(parsedEstimatedTime?.estimatedTime || null);
         }
       } catch (_err) {
       }
@@ -997,7 +1057,7 @@ export default function MenuScreen() {
             outlet_id: selectedOutlet.outletId,
             address: selectedDeliveryAddress ? selectedDeliveryAddress.address : "",
             order_type: resolvedOrderType,
-            unique_qr_code: fromQR ? (uniqueQrData?.unique_code || selectedDeliveryAddress?.unique_code || null) : null,
+            unique_qr_code: uniqueQrData?.unique_code || (fromQR ? (selectedDeliveryAddress?.unique_code || null) : null),
             latitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.latitude) : "",
             longitude: selectedDeliveryAddress ? limitDecimals(selectedDeliveryAddress.longitude) : "",
             selected_date: estimatedTimeObj && estimatedTimeObj.estimatedTime === "ASAP" ? null : estimatedTimeObj?.date,
@@ -1140,7 +1200,7 @@ export default function MenuScreen() {
       return undefined;
     }, [fetchQrActiveOrderCount])
   );
-  console.log(totalPrice);
+  // console.log(totalPrice);
 
   return (
     <ResponsiveBackground>
@@ -1245,7 +1305,16 @@ export default function MenuScreen() {
             onPress={() => setShowDateTimePicker(true)}
           >
 
-            <Text style={styles.prominentOutletText}>{selectedDateTime ? selectedDateTime : "Please Select Time"}</Text>
+            <Text style={styles.prominentOutletText}>{
+              // REQ-001: canonical state → transformed display label.
+              (() => {
+                if (!selectedDateTime) return "Please Select Time";
+                if (selectedDateTime === "ASAP") return "ASAP";
+                const { renderEstimatedTime } = require('../../../utils/estimatedTimeRequest');
+                const { nowInMY } = require('../../../utils/timezone');
+                return renderEstimatedTime(selectedDateTime, nowInMY().toDate()) || "Please Select Time";
+              })()
+            }</Text>
             {/* <Text style={styles.prominentOutletText}>{selectedDate}</Text> */}
             <FontAwesome6 name="clock" size={18} color="#C2000E" />
           </TouchableOpacity> : null}

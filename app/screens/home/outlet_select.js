@@ -160,7 +160,7 @@ export default function OutletSelection() {
     const getCoordinates = async () => {
         try {
             setIsRefreshingLocation(true);
-            const currentLocation = await requestLatestLocation({ timeoutMs: 8000 });
+            const currentLocation = await requestLatestLocation({ timeoutMs: 8000, promptSettings: true });
             setLocation({
                 lat: currentLocation.lat,
                 lng: currentLocation.lng

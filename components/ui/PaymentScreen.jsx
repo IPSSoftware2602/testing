@@ -1,7 +1,18 @@
 import React, { useRef, useState, useEffect } from "react";
-import { View, ActivityIndicator, Text, TouchableOpacity, SafeAreaView } from "react-native";
+import { View, ActivityIndicator, Text, TouchableOpacity, SafeAreaView, Platform } from "react-native";
 import { WebView } from "react-native-webview";
 import * as Linking from 'expo-linking';
+
+// Bug fix: Cloudflare Turnstile / "Checking your browser" fails inside iOS
+// WKWebView because WKWebView's default applicationNameForUserAgent is empty,
+// so the UA lacks "Version/17.0 ... Safari/604.1" — the Safari markers CF
+// fingerprints for. We APPEND those markers via applicationNameForUserAgent
+// (not the `userAgent` prop, which replaces WKWebView's entire customUserAgent
+// and can break load behavior because WKWebView relies on its own internal
+// UA signals). This is additive and non-destructive. iOS only — Android
+// WebView is Chrome and already passes CF.
+const IOS_SAFARI_APP_NAME = 'Version/17.0 Mobile/15E148 Safari/604.1';
+const IOS_APPLICATION_NAME_FOR_UA = Platform.OS === 'ios' ? IOS_SAFARI_APP_NAME : undefined;
 
 export default function PaymentScreen({ url, onClose }) {
     const webRef = useRef(null);
@@ -40,6 +51,7 @@ export default function PaymentScreen({ url, onClose }) {
                 // key={webkey}
                 ref={webRef}
                 source={{ uri: url }}
+                applicationNameForUserAgent={IOS_APPLICATION_NAME_FOR_UA}
                 onLoadStart={() => {
                     // console.log("WebView loading started");
                     setLoading(true);

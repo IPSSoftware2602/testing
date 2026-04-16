@@ -1,15 +1,32 @@
+// REQ-002: Initialize dayjs with Malaysia timezone BEFORE any other imports
+// that might transitively use date logic. All date/time in the customer app
+// is anchored to Asia/Kuala_Lumpur — see utils/timezone.js and DECISIONS.md.
+import dayjs from 'dayjs';
+import dayjsUtc from 'dayjs/plugin/utc';
+import dayjsTimezone from 'dayjs/plugin/timezone';
+dayjs.extend(dayjsUtc);
+dayjs.extend(dayjsTimezone);
+dayjs.tz.setDefault('Asia/Kuala_Lumpur');
+
+// REQ-001: Migrate any legacy estimatedTime storage (display labels like
+// "Today 14:00") to the canonical ASAP shape. Fire-and-forget on boot.
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { migrateLegacyEstimatedTime } from '../utils/estimatedTimeRequest';
+migrateLegacyEstimatedTime(AsyncStorage).catch(() => {});
+
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
 import { Asset } from 'expo-asset';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, Text, Platform, Modal, TouchableOpacity, Dimensions, Image } from "react-native";
 import { ToastProvider, } from "react-native-toast-notifications";
 // import { fonts } from '../styles/common';
 import { useState, createContext } from 'react';
 import useAuthGuard from './auth/check_token_expiry';
+import NoInternetModal from '../components/ui/NoInternetModal';
 // Only import and configure Firebase Messaging on native platforms.
 // A static import crashes on Web because the module itself calls firebase.app()
 // at module evaluation time — even if the call-site is guarded.
@@ -179,7 +196,33 @@ export default function RootLayout() {
   });
 
   const [orderTypeModalVisible, setOrderTypeModalVisible] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
+  const checkNetwork = useCallback(async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      await fetch('https://www.google.com/generate_204', {
+        method: 'HEAD',
+        mode: 'no-cors',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      setIsOffline(false);
+    } catch {
+      setIsOffline(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkNetwork();
+    const interval = setInterval(checkNetwork, 5000);
+    return () => clearInterval(interval);
+  }, [checkNetwork]);
+
+  const handleRetry = useCallback(() => {
+    checkNetwork();
+  }, [checkNetwork]);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -192,13 +235,24 @@ export default function RootLayout() {
 
     const messaging = require('@react-native-firebase/messaging').default;
 
+    const handleNotificationTap = (remoteMessage) => {
+      const data = remoteMessage?.data || {};
+      const notificationId = data.notification_id;
+      if (notificationId) {
+        // Defer navigation slightly to ensure router is mounted (esp. from quit state)
+        setTimeout(() => {
+          router.push(`/screens/notification/${notificationId}`);
+        }, 500);
+      }
+    };
+
     // App running in the background, tapped notification
     const unsubscribeOnNotificationOpenedApp = messaging().onNotificationOpenedApp(remoteMessage => {
       console.log(
         'Notification caused app to open from background state:',
-        remoteMessage.notification,
+        remoteMessage,
       );
-      // Navigation logic could be added here
+      handleNotificationTap(remoteMessage);
     });
 
     // App completely closed, tapped notification
@@ -208,8 +262,9 @@ export default function RootLayout() {
         if (remoteMessage) {
           console.log(
             'Notification caused app to open from quit state:',
-            remoteMessage.notification,
+            remoteMessage,
           );
+          handleNotificationTap(remoteMessage);
         }
       });
 
@@ -391,9 +446,11 @@ export default function RootLayout() {
           <Stack.Screen name="screens/auth/register" options={{ headerShown: false }} />
           {/* <Stack.Screen name="screens/auth/forgot-password" options={{ headerShown: false }} /> */}
           <Stack.Screen name="screens/auth/otp" options={{ headerShown: false }} />
+          <Stack.Screen name="screens/notification/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="qr/[code]" options={{ headerShown: false }} />
         </Stack>
       </ToastProvider>
+      <NoInternetModal visible={isOffline} onRetry={handleRetry} />
     </SafeAreaProvider >
   );
 } 

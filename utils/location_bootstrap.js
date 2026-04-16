@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { Platform, Linking, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const CURRENT_LOCATION_STORAGE_KEY = 'currentLocation';
@@ -43,9 +44,32 @@ export async function getStoredCurrentLocation() {
   }
 }
 
-export async function requestLatestLocation({ timeoutMs = 8000 } = {}) {
+export async function requestLatestLocation({ timeoutMs = 8000, promptSettings = false } = {}) {
   const permission = await Location.requestForegroundPermissionsAsync();
   if (permission.status !== 'granted') {
+    // If user permanently denied and caller wants to prompt for Settings
+    if (promptSettings && !permission.canAskAgain) {
+      await new Promise((resolve) => {
+        Alert.alert(
+          'Location Permission Required',
+          'Location access has been denied. Please enable it in Settings to find nearby outlets.',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: resolve },
+            {
+              text: 'Open Settings',
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('app-settings:');
+                } else {
+                  Linking.openSettings();
+                }
+                resolve();
+              },
+            },
+          ]
+        );
+      });
+    }
     throw new Error('LOCATION_PERMISSION_DENIED');
   }
 

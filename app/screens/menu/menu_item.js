@@ -19,6 +19,7 @@ import { useToast } from '../../../hooks/useToast';
 import LoginRequiredModal from '../../../components/ui/LoginRequiredModal';
 import PropTypes from 'prop-types';
 const { buildCachedExpoImageSource, REMOTE_IMAGE_CACHE_POLICY } = require('../../../utils/remoteImage');
+const { buildVisibleVariationOptions } = require('../../../utils/menu_variation_visibility');
 // Removed useAuthGuard import - menu item viewing accessible without login (App Store requirement)
 
 const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
@@ -433,7 +434,16 @@ const CrustOptionsGroup = React.memo(({
     }));
   }, [crustOptions, selectedCrustId]);
 
-  const selectedCount = selectedCrustId ? 1 : 0;
+  const variationVisibility = useMemo(() => (
+    buildVisibleVariationOptions({
+      crustOptions: crustData,
+      isQrOrder,
+      selectedVariationId: selectedCrustId,
+    })
+  ), [crustData, isQrOrder, selectedCrustId]);
+
+  const visibleCrustData = variationVisibility.visibleOptions;
+  const selectedCount = variationVisibility.selectedCount;
   const maxQ = 1;
   const minQ = 0;
   const group = { id: 0, title: 'Choice of Pizza Size' };
@@ -441,24 +451,30 @@ const CrustOptionsGroup = React.memo(({
   return (
     <View style={styles.optionsSection}>
       <Text style={styles.sectionTitle}>Choice of Pizza Size</Text>
-      <View style={styles.optionsGrid}>
-        {crustData.map(item => (
-          <OptionCard
-            key={item.id}
-            item={item}
-            parents={0}
-            type="variation"
-            onOptionToggle={handleOptionToggle}
-            group={group}
-            selected={item.selected}
-            selectedCount={selectedCount}
-            maxQ={maxQ}
-            minQ={minQ}
-            toast={toast}
-            isQrOrder={isQrOrder}
-          />
-        ))}
-      </View>
+      {visibleCrustData.length > 0 ? (
+        <View style={styles.optionsGrid}>
+          {visibleCrustData.map(item => (
+            <OptionCard
+              key={item.id}
+              item={item}
+              parents={0}
+              type="variation"
+              onOptionToggle={handleOptionToggle}
+              group={group}
+              selected={item.selected}
+              selectedCount={selectedCount}
+              maxQ={maxQ}
+              minQ={minQ}
+              toast={toast}
+              isQrOrder={isQrOrder}
+            />
+          ))}
+        </View>
+      ) : (
+        <Text style={{ color: '#bbb', fontStyle: 'italic', margin: 8 }}>
+          No options available for this Item
+        </Text>
+      )}
     </View>
   );
 }, (prevProps, nextProps) => {
@@ -529,18 +545,24 @@ export default function MenuItemScreen() {
   const isLoading = loadingCount > 0;
 
   const isFree = String(is_free_item) === '1' || String(is_free_item).toLowerCase() === 'true';
-  const isQrOrder = String(fromQR) === '1';
+  const [isQrOrder, setIsQrOrder] = useState(String(fromQR) === '1');
   const maxQuantity = isFree ? Number(amount) || 1 : null;
 
   useEffect(() => {
     AsyncStorage.getItem('authToken').then(t => {
       setToken(t || '');
     });
+    // Restore QR state from storage if nav param is missing (e.g. page refresh)
+    if (!isQrOrder) {
+      AsyncStorage.getItem('uniqueQrData').then(data => {
+        if (data) setIsQrOrder(true);
+      });
+    }
   }, []);
 
   //get item details for edit
   useEffect(() => {
-    if (!cart_item_id) return;
+    if (!cart_item_id || !token) return;
     const fetchCartItem = async () => {
       await runWithLoading(async () => {
         try {
@@ -685,6 +707,10 @@ export default function MenuItemScreen() {
 
       if (selectedVariationObj?.option_groups?.length > 0) {
         groupList = selectedVariationObj.option_groups;
+        shouldFetchOptions = true;
+      } else if (baseOptionGroupIds?.length > 0) {
+        // Fallback to base item option groups when variation has none
+        groupList = baseOptionGroupIds.map(id => ({ id }));
         shouldFetchOptions = true;
       }
     }
@@ -1100,7 +1126,16 @@ export default function MenuItemScreen() {
   return (
     <ResponsiveBackground>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-        <TopNavigation title="MENU" isBackButton={true} />
+        <TopNavigation title="MENU" isBackButton={true} navigatePage={() => {
+          if (isQrOrder && outletId) {
+            router.push({
+              pathname: '/screens/menu',
+              params: { outletId, orderType, fromQR: '1' },
+            });
+          } else {
+            router.back();
+          }
+        }} />
         <ScrollView
           contentContainerStyle={{ paddingBottom: 20 }}
           showsVerticalScrollIndicator={false}
@@ -1175,7 +1210,7 @@ export default function MenuItemScreen() {
               textStyle={{ fontSize: 12 }}
               onPress={() => router.push({
                 pathname: '/screens/menu/item_details',
-                params: { id: menuItem.id }
+                params: { id: menuItem.id, outletId, orderType, fromQR: isQrOrder ? '1' : '0' }
               })}
             />
             <View style={styles.priceRow}>

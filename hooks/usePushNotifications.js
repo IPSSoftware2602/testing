@@ -1,9 +1,19 @@
+import { Platform, PermissionsAndroid } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 
 export async function registerPushToken() {
-  // if (!Device.isDevice) return null;
+  // Android 13+ (API 33) requires explicit POST_NOTIFICATIONS permission
+  if (Platform.OS === 'android' && Platform.Version >= 33) {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+    );
+    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+      console.log("Android notification permission not granted");
+      return null;
+    }
+  }
 
-  // Request notification permissions
+  // iOS permission dialog + Android < 13 (auto-granted)
   const authStatus = await messaging().requestPermission();
   const enabled =
     authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
@@ -14,7 +24,6 @@ export async function registerPushToken() {
     return null;
   }
 
-  // === iOS & Android firebase token ===
   const fcmToken = await messaging().getToken();
 
   return { type: "fcm", token: fcmToken };

@@ -43,6 +43,7 @@ export default function VoucherSelectScreen() {
     const [voucherData, setVoucherData] = useState([]);
     const [authToken, setAuthToken] = useState("");
     const [customerData, setCustomerData] = useState(null);
+    const [isQrOrder, setIsQrOrder] = useState(false);
 
     const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
     const scale = useRef(new Animated.Value(1)).current;
@@ -91,6 +92,8 @@ export default function VoucherSelectScreen() {
                 setAuthToken(authToken);
                 setCustomerData(customerData);
 
+                const qrData = await AsyncStorage.getItem('uniqueQrData');
+                if (qrData) setIsQrOrder(true);
 
             } catch (err) {
                 console.log(err);
@@ -233,22 +236,24 @@ export default function VoucherSelectScreen() {
                                 Voucher Wallet
                             </Text>
 
-                            <TouchableOpacity
-                                onPress={() =>
-                                    router.push({
-                                        pathname: '(tabs)/market',
-                                        params: { from: 'voucher-select' },
-                                    })
-                                }
-                                style={{ marginLeft: 12 }}
-                            >
-                                <AnimatedIcon
-                                    name="storefront-outline"
-                                    size={26}
-                                    color="#C2000E"
-                                    style={{ transform: [{ scale }] }}
-                                />
-                            </TouchableOpacity>
+                            {!isQrOrder && (
+                                <TouchableOpacity
+                                    onPress={() =>
+                                        router.push({
+                                            pathname: '(tabs)/market',
+                                            params: { from: 'voucher-select' },
+                                        })
+                                    }
+                                    style={{ marginLeft: 12 }}
+                                >
+                                    <AnimatedIcon
+                                        name="storefront-outline"
+                                        size={26}
+                                        color="#C2000E"
+                                        style={{ transform: [{ scale }] }}
+                                    />
+                                </TouchableOpacity>
+                            )}
 
                         </View>
                     }

@@ -14,7 +14,8 @@ const { buildCachedExpoImageSource, REMOTE_IMAGE_CACHE_POLICY } = require('../..
 export default function ItemDetailsScreen() {
   // Removed useAuthGuard - item details viewing accessible without login (App Store requirement)
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const { id, outletId: paramOutletId, orderType: paramOrderType, fromQR } = useLocalSearchParams();
+  const isQrOrder = String(fromQR) === '1';
   const [menuItem, setMenuItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [itemPrice, setItemPrice] = useState(66);
@@ -78,7 +79,16 @@ export default function ItemDetailsScreen() {
               cachePolicy={REMOTE_IMAGE_CACHE_POLICY}
               recyclingKey={resolvedMenuImageUri || 'menu-default'}
             />
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => {
+              if (isQrOrder && paramOutletId) {
+                router.push({
+                  pathname: '/screens/menu/menu_item',
+                  params: { id, outletId: paramOutletId, orderType: paramOrderType, fromQR: '1' },
+                });
+              } else {
+                router.back();
+              }
+            }} style={styles.backButton}>
               <Ionicons name="chevron-back" size={28} color="#C2000E" />
             </TouchableOpacity>
           </View>

@@ -25,7 +25,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import MapView from '../../../components/order/MapView';
-import { WebView } from 'react-native-webview';
+// WebView is loaded via components/ui/PaymentScreen.jsx — direct import not used here.
 // import OrderProgressBar from '../../../components/order/OrderProgressBar';
 import { CustomTabBarBackground } from '../../../components/ui/CustomTabBarBackground';
 // import PolygonButton from '../../../components/ui/PolygonButton';
@@ -48,6 +48,10 @@ import { Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 const { validateStoredOrderDateTime } = require('../../../utils/order_datetime');
 const { validateQrCheckoutNote } = require('../../../utils/checkoutValidation');
+const { getCheckoutScrollInteractionProps } = require('../../../utils/checkoutIosInteraction');
+const { shouldShowCheckoutBlockingLoader } = require('../../../utils/checkoutBlockingLoader');
+const { hasCheckoutCartPrerequisites } = require('../../../utils/checkoutCartPrereq');
+const { extractPaymentRedirectUrl } = require('../../../utils/paymentRedirectUrl');
 
 const { width } = Dimensions.get('window');
 
@@ -435,6 +439,8 @@ export default function CheckoutScreen({ navigation }) {
   );
 
   const isLoading = loadingCount > 0;
+  const checkoutScrollInteractionProps = getCheckoutScrollInteractionProps(Platform.OS);
+  const showBlockingLoader = shouldShowCheckoutBlockingLoader({ isCheckoutProcessing });
 
 
   const { vip } = useLocalSearchParams();
@@ -455,11 +461,15 @@ export default function CheckoutScreen({ navigation }) {
       const mergedOutlet = {
         ...selectedOutlet,
         lead_time: latestOutlet.lead_time,
+        pickup_lead_time: latestOutlet.pickup_lead_time,
         delivery_start: latestOutlet.delivery_start,
         delivery_end: latestOutlet.delivery_end,
         delivery_interval: latestOutlet.delivery_interval,
         delivery_available_days: latestOutlet.delivery_available_days,
         delivery_settings: latestOutlet.delivery_settings || [],
+        // REQ-001: preserve outlet-wide operating schedule for ASAP check.
+        serve_method: latestOutlet.serve_method ?? selectedOutlet?.serve_method,
+        operating_schedule: latestOutlet.operating_schedule ?? selectedOutlet?.operating_schedule ?? selectedOutlet?.operatingHours,
       };
 
       const outletScheduleChanged =
@@ -475,11 +485,13 @@ export default function CheckoutScreen({ navigation }) {
         await AsyncStorage.setItem('outletDetails', JSON.stringify(mergedOutlet));
       }
 
+      // REQ-002: Malaysia time, not device time.
+      const { nowInMY } = require('../../../utils/timezone');
       const validation = validateStoredOrderDateTime({
         orderType,
         estimatedTime: estimatedTimeStr ? JSON.parse(estimatedTimeStr) : null,
         outlet: mergedOutlet,
-        now: new Date(),
+        now: nowInMY().toDate(),
       });
 
       if (!validation.isValid) {
@@ -860,6 +872,14 @@ export default function CheckoutScreen({ navigation }) {
     : null;
 
   const refreshCartData = async () => {
+    if (!hasCheckoutCartPrerequisites({
+      customerId,
+      outletId: selectedOutlet?.outletId,
+      orderType,
+    })) {
+      return;
+    }
+
     return runWithLoading(async () => {
       const token = await AsyncStorage.getItem('authToken') || '';
       try {
@@ -891,10 +911,19 @@ export default function CheckoutScreen({ navigation }) {
           await AsyncStorage.setItem('estimatedTime', JSON.stringify(normalizedEstimated));
 
           if (responseData.order_summary?.item_count === 0) {
-            router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
+            if (isQrOrder) {
+              router.push({ pathname: '(tabs)/menu', params: { fromQR: '1' } });
+            } else {
+              router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
+            }
           }
 
           setCartData(responseData);
+
+          // Restore QR state from cart response if not already set
+          if (responseData.unique_qr_code && !isQrOrder) {
+            setIsQrOrder(true);
+          }
 
           if ((responseData.order_summary.voucher_discount_amount !== 0 || responseData.order_summary.promo_discount_amount !== 0) && (responseData.order_summary.promo_code || responseData.order_summary.voucher_code)) {
             setPromoDiscount(parseFloat(responseData.order_summary?.promo_discount_amount || responseData.order_summary?.voucher_discount_amount));
@@ -968,7 +997,15 @@ export default function CheckoutScreen({ navigation }) {
   };
 
   useEffect(() => {
-    if (!customerId) return;
+    if (
+      !hasCheckoutCartPrerequisites({
+        customerId,
+        outletId: selectedOutlet?.outletId,
+        orderType,
+      })
+    ) {
+      return;
+    }
 
     const fetchCart = async () => {
       await runWithLoading(async () => {
@@ -992,10 +1029,11 @@ export default function CheckoutScreen({ navigation }) {
               "Authorization": `Bearer ${token}`,
             },
           });
-
+          // console.log(res);
           if (res.data.status === 200) {
             // console.log("fetch cart");
             const responseData = res.data.data;
+            // console.log(responseData)
             const summary = responseData?.order_summary || {};
             const normalizedEstimated = (summary.selected_date && summary.selected_time)
               ? { estimatedTime: `${summary.selected_date} ${summary.selected_time}`, date: summary.selected_date, time: summary.selected_time }
@@ -1007,7 +1045,11 @@ export default function CheckoutScreen({ navigation }) {
             setCartData(responseData);
 
             if (responseData.order_summary?.item_count === 0) {
-              router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
+              if (isQrOrder) {
+                router.push({ pathname: '(tabs)/menu', params: { fromQR: '1' } });
+              } else {
+                router.push({ pathname: '(tabs)', params: { setEmptyCartModal: true } });
+              }
             }
             if ((responseData.order_summary.voucher_discount_amount !== 0 || responseData.order_summary.promo_discount_amount !== 0) && (responseData.order_summary.promo_code || responseData.order_summary.voucher_code)) {
               setPromoDiscount(parseFloat(responseData.order_summary?.promo_discount_amount || responseData.order_summary?.voucher_discount_amount));
@@ -1045,15 +1087,13 @@ export default function CheckoutScreen({ navigation }) {
                 setVoucherToApply(null);
               }, 100);
             }
-
-            refreshCartData();
           }
         }
       });
     };
 
     fetchCart();
-  }, [customerId, runWithLoading, resolvedUniqueQrCode]);
+  }, [customerId, orderType, runWithLoading, resolvedUniqueQrCode, selectedOutlet?.outletId]);
 
   useEffect(() => {
     if (voucherToApply && cartData && !hasAppliedPromo.current) {
@@ -1177,148 +1217,146 @@ export default function CheckoutScreen({ navigation }) {
       return;
     }
 
-    setIsCheckoutProcessing(true);
-    // await runWithLoading(async () => {
-    try {
-      const qrNoteValidation = validateQrCheckoutNote(isQrOrder, orderNote);
-      if (!qrNoteValidation.isValid) {
-        toast.show(qrNoteValidation.message, {
-          type: 'custom_toast',
-          data: { title: 'Please remark your unit no.', status: 'warning' }
-        });
-        return;
-      }
-
-      const normalizedOrderNote = typeof orderNote === 'string' ? orderNote.trim() : '';
-      const token = await AsyncStorage.getItem('authToken') || '';
-
-      const payload = {
-        customer_id: Number(cartData?.customer_id),
-        // customer_id: Number(165),
-        outlet_id: selectedOutlet.outletId,
-        customer_address_id: isQrOrder ? 0 : deliveryAddress.addressId,
-        unique_qr_code: isQrOrder ? (uniqueQrData?.unique_code || deliveryAddress?.unique_code || null) : null,
-        recipient_name: isQrOrder ? qrRecipientName : null,
-        recipient_phone: isQrOrder ? qrRecipientPhone : null,
-        order_type: orderType,
-        // order_type: 'delivery',
-        payment_method: paymentMethod,
-        expected_ready_time: '',
-        placed_at: '',
-        selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
-        selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
-        notes: normalizedOrderNote
-      };
-
-      // console.log('Sending checkout payload:', payload);
-      const res = await axios.post(`${apiUrl}order/create`, payload, {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-
-      if (res.data?.status === 200) {
-        toast.show('Your order has been placed!', {
-          type: 'custom_toast',
-          data: { title: '', status: 'success' }
-        });
-        // checkoutClearStorage();
-
-        await AsyncStorage.setItem('orderId', res.data?.order?.id);
-        const newOrderId = res.data?.order?.id;
-        // console.log(res.data?.order?.id);
-        const clearanceSuccess = await checkoutClearStorage({
-          preserveDeliveryAddress: isQrOrder
-        });
-
-        if (!clearanceSuccess) {
-          toast.show('Order placed but cache cleanup failed', {
+    // setIsCheckoutProcessing(true);
+    await runWithLoading(async () => {
+      try {
+        const qrNoteValidation = validateQrCheckoutNote(isQrOrder, orderNote);
+        if (!qrNoteValidation.isValid) {
+          toast.show(qrNoteValidation.message, {
             type: 'custom_toast',
-            data: { title: 'Warning', status: 'warning' }
+            data: { title: 'Please remark your unit no.', status: 'warning' }
           });
+          return;
         }
 
+        const normalizedOrderNote = typeof orderNote === 'string' ? orderNote.trim() : '';
+        const token = await AsyncStorage.getItem('authToken') || '';
 
-        const redirectUrl = res.data.redirect_url?.trim();
-        // handlePaymentCallBack();
-        if (redirectUrl) {
-          if (Platform.OS === 'web') {
-            // Web solution
-            window.location.href = redirectUrl;
+        const payload = {
+          customer_id: Number(cartData?.customer_id),
+          // customer_id: Number(165),
+          outlet_id: selectedOutlet.outletId,
+          customer_address_id: isQrOrder ? 0 : deliveryAddress.addressId,
+          unique_qr_code: isQrOrder ? (uniqueQrData?.unique_code || deliveryAddress?.unique_code || null) : null,
+          recipient_name: isQrOrder ? qrRecipientName : null,
+          recipient_phone: isQrOrder ? qrRecipientPhone : null,
+          order_type: orderType,
+          // order_type: 'delivery',
+          payment_method: paymentMethod,
+          expected_ready_time: '',
+          placed_at: '',
+          selected_date: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.date,
+          selected_time: estimatedTime.estimatedTime === "ASAP" ? null : estimatedTime.time,
+          notes: normalizedOrderNote
+        };
+
+        // console.log('Sending checkout payload:', payload);
+        const res = await axios.post(`${apiUrl}order/create`, payload, {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+
+        if (res.data?.status === 200) {
+          toast.show('Your order has been placed!', {
+            type: 'custom_toast',
+            data: { title: '', status: 'success' }
+          });
+          // checkoutClearStorage();
+
+          await AsyncStorage.setItem('orderId', res.data?.order?.id);
+          const newOrderId = res.data?.order?.id;
+          // console.log(res.data?.order?.id);
+          const clearanceSuccess = await checkoutClearStorage({
+            preserveDeliveryAddress: isQrOrder
+          });
+
+          if (!clearanceSuccess) {
+            toast.show('Order placed but cache cleanup failed', {
+              type: 'custom_toast',
+              data: { title: 'Warning', status: 'warning' }
+            });
+          }
+
+
+          const redirectUrl = extractPaymentRedirectUrl(res.data);
+          // handlePaymentCallBack();
+          if (redirectUrl) {
+            if (Platform.OS === 'web') {
+              // Web solution
+              window.location.href = redirectUrl;
+            } else {
+              setPaymentUrl(redirectUrl);
+              setShowPaymentScreen(true);
+            }
+
           } else {
-            setPaymentUrl(redirectUrl);
-            setShowPaymentScreen(true);
+            // No hosted payment redirect — go straight to Order Details
+            let url = `/screens/orders/orders_details?orderId=${newOrderId}`;
+            if (isQrOrder && selectedOutlet?.outletId) {
+              url += `&outletId=${selectedOutlet.outletId}&orderType=${orderType || 'delivery'}`;
+            }
+            router.replace(url);
           }
 
         } else {
-          // No hosted payment redirect — go straight to Order Details
-          let url = `/screens/orders/orders_details?orderId=${newOrderId}`;
-          if (isQrOrder && selectedOutlet?.outletId) {
-            url += `&outletId=${selectedOutlet.outletId}&orderType=${orderType || 'delivery'}`;
-          }
-          router.replace(url);
-        }
-
-      } else {
-        console.error('Order failed:', res.data);
-        toast.show('Failed to place order. Please try again.', {
-          type: 'custom_toast',
-          data: { title: '', status: 'warning' }
-        });
-      }
-
-    } catch (err) {
-      if (err?.response?.data?.status === 400) {
-        if (err?.response?.data?.status === 405) {
-          router.push({ pathname: '(tabs)', params: { setErrorModal: true } });
-          checkoutClearStorage();
-        }
-        else if (err?.response?.data?.status === 400) {
-          const message = err?.response?.data?.messages?.error ?? "";
-          if (message === "Insufficient Wallet Balance") {
-            toast.show("Please top up your wallet balance or change a payment method.", {
-              type: 'custom_toast',
-              data: { title: 'Insufficient Wallet Balance', status: 'warning' }
-            });
-          } else {
-            toast.show(message, {
-              type: 'custom_toast',
-              data: { title: '', status: 'warning' }
-            });
-            if (selectedOutlet?.outletId) {
-              if (isQrOrder) {
-                router.push({
-                  pathname: 'screens/menu',
-                  params: {
-                    outletId: selectedOutlet.outletId,
-                    orderType: orderType || 'delivery',
-                    fromQR: '1',
-                  }
-                });
-              } else {
-                router.push({ pathname: '(tabs)/menu' });
-              }
-            } else {
-              router.push({ pathname: '(tabs)/menu' });
-            }
-
-          }
-
-          // console.log('Error fetching cart total:', error?.response?.data?.message ?? "Outlet not available for this order type");
-        }
-        else {
+          console.error('Order failed:', res.data);
           toast.show('Failed to place order. Please try again.', {
             type: 'custom_toast',
-            data: { title: 'Order Failed', status: 'warning' }
+            data: { title: '', status: 'warning' }
           });
         }
 
+      } catch (err) {
+        if (err?.response?.data?.status === 400) {
+          if (err?.response?.data?.status === 405) {
+            router.push({ pathname: '(tabs)', params: { setErrorModal: true } });
+            checkoutClearStorage();
+          }
+          else if (err?.response?.data?.status === 400) {
+            const message = err?.response?.data?.messages?.error ?? "";
+            if (message === "Insufficient Wallet Balance") {
+              toast.show("Please top up your wallet balance or change a payment method.", {
+                type: 'custom_toast',
+                data: { title: 'Insufficient Wallet Balance', status: 'warning' }
+              });
+            } else {
+              toast.show(message, {
+                type: 'custom_toast',
+                data: { title: '', status: 'warning' }
+              });
+              if (selectedOutlet?.outletId) {
+                if (isQrOrder) {
+                  router.push({
+                    pathname: 'screens/menu',
+                    params: {
+                      outletId: selectedOutlet.outletId,
+                      orderType: orderType || 'delivery',
+                      fromQR: '1',
+                    }
+                  });
+                } else {
+                  router.push({ pathname: '(tabs)/menu' });
+                }
+              } else {
+                router.push({ pathname: '(tabs)/menu' });
+              }
+
+            }
+
+            // console.log('Error fetching cart total:', error?.response?.data?.message ?? "Outlet not available for this order type");
+          }
+          else {
+            toast.show('Failed to place order. Please try again.', {
+              type: 'custom_toast',
+              data: { title: 'Order Failed', status: 'warning' }
+            });
+          }
+
+        }
       }
-    } finally {
-      setIsCheckoutProcessing(false);
-    }
-    // });
+    });
   }
   // console.log('ID:', item.menu_item_id);
   const confirmDelete = async (item) => {
@@ -1486,18 +1524,17 @@ export default function CheckoutScreen({ navigation }) {
   };
 
 
-  const formatEstimatedTime = (estimatedTime) => {
-
-    if (estimatedTime && estimatedTime === "ASAP") {
-      if (orderType === "dinein") {
-        return "Now";
-      }
+  // REQ-001: Display-layer transform. Input is canonical "YYYY-MM-DD HH:MM"
+  // or "ASAP" (never a display label). Output is user-facing text.
+  const formatEstimatedTime = (canonical) => {
+    if (canonical === "ASAP") {
+      if (orderType === "dinein") return "Now";
       return "ASAP (30 - 45 mins)";
-    } else {
-      return estimatedTime;
     }
-
-  }
+    const { renderEstimatedTime } = require('../../../utils/estimatedTimeRequest');
+    const { nowInMY } = require('../../../utils/timezone');
+    return renderEstimatedTime(canonical, nowInMY().toDate()) || "Select time";
+  };
 
   const handleAddFreeItemToCart = async (item) => {
     await runWithLoading(async () => {
@@ -1664,27 +1701,39 @@ export default function CheckoutScreen({ navigation }) {
     router.replace(url);
   }
 
+  // Bug fix: checkout back button ALWAYS lands on the menu screen, regardless
+  // of how the user got here (push from menu, deep link, web reload, QR flow).
+  // router.replace cleans the stack so pressing back again on menu doesn't
+  // revive the checkout screen. Using router.back() was unreliable because:
+  //   - on web, a reloaded checkout page has history.length === 1 → no-op
+  //   - on deep-link entry, menu isn't in the stack at all
+  //   - the previous QR branch used router.push (pile-up) with a relative
+  //     pathname that didn't resolve correctly.
   const handleBack = () => {
     if (isQrOrder && selectedOutlet?.outletId) {
-      router.push({
-        pathname: 'screens/menu',
+      router.replace({
+        pathname: '/screens/menu',
         params: {
           outletId: selectedOutlet.outletId,
           orderType: orderType || 'delivery',
           fromQR: '1',
-        }
+        },
       });
     } else {
-      router.back();
+      router.replace('/(tabs)/menu');
     }
-  }
+  };
 
   return (
     <ResponsiveBackground>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
         {renderFreeItemsModal()}
         <TopNavigation title="MY ORDER" isBackButton={true} navigatePage={handleBack} />
-        <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 120 }}
+          showsVerticalScrollIndicator={false}
+          {...checkoutScrollInteractionProps}
+        >
           <AddressCard orderType={orderType} address={orderType === "delivery" ? deliveryAddress.address : selectedOutlet.outletTitle} timeEstimate={formatEstimatedTime(selectedDateTime)} setShowDateTimePicker={setShowDateTimePicker} isQrOrder={isQrOrder} />
 
           {isQrOrder && (
@@ -2011,7 +2060,7 @@ export default function CheckoutScreen({ navigation }) {
                 textAlign: 'right',
                 fontStyle: 'italic'
               }}>
-                <Text style={{ fontSize: 17, marginRight: 3 }}>🎉</Text>
+                <Text style={{ fontSize: 17, marginRight: 3 }}></Text>
                 You have saved RM {parseFloat((isQrOrder ? 0 : Number(cartData?.order_summary?.discount_amount || 0)) + Number(cartData?.order_summary?.promo_discount_amount || 0) + Number(cartData?.order_summary?.voucher_discount_amount || 0)).toFixed(2)} in this order!
               </Text>
             </View>
@@ -2080,7 +2129,7 @@ export default function CheckoutScreen({ navigation }) {
 
         <Modal
           transparent
-          visible={isLoading}
+          visible={showBlockingLoader}
           animationType="fade"
           statusBarTranslucent
         >

@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   loadingTitle: {
     color: '#E60012',
-    fontSize: 18,
+    fontSize: 14,
     textAlign: 'center',
     fontFamily: 'Route159-Heavy',
     marginTop: 12,

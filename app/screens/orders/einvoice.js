@@ -11,6 +11,13 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import ResponsiveBackground from '../../../components/ResponsiveBackground';
+
+// Bug fix: Cloudflare challenge fails inside iOS WKWebView without the Safari
+// version markers. See PaymentScreen.jsx for the full rationale — we APPEND
+// via applicationNameForUserAgent rather than replacing via userAgent so WKWebView
+// keeps its internal UA signals intact. iOS only.
+const IOS_SAFARI_APP_NAME_EINVOICE = 'Version/17.0 Mobile/15E148 Safari/604.1';
+const IOS_APPLICATION_NAME_FOR_UA_EINVOICE = Platform.OS === 'ios' ? IOS_SAFARI_APP_NAME_EINVOICE : undefined;
 import TopNavigation from '../../../components/ui/TopNavigation';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -98,6 +105,10 @@ export default function EInvoice() {
       <WebView
         source={{ uri: sourceUrl }}
         style={{ flex: 1 }}
+        applicationNameForUserAgent={IOS_APPLICATION_NAME_FOR_UA_EINVOICE}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        sharedCookiesEnabled={true}
         startInLoadingState={true}
         renderLoading={() => (
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }}>

@@ -4,7 +4,11 @@ import { Text, TouchableOpacity, View, ScrollView, Modal, Dimensions, StyleSheet
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { apiUrl } from '../../app/constant/constants';
-const { validateStoredOrderDateTime, formatLocalDate } = require('../../utils/order_datetime');
+const { validateStoredOrderDateTime, formatLocalDate, isOutletOpenNow } = require('../../utils/order_datetime');
+const { nowInMY, formatMYDate, formatMYDateTime } = require('../../utils/timezone');
+
+// REQ-001: ASAP is the canonical "as soon as possible" sentinel.
+const ASAP = 'ASAP';
 
 const { width, height } = Dimensions.get('window');
 
@@ -82,134 +86,44 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
         }
     };
 
-    const getSelectedDateTime = async () => {
-        const date = selectedDate;
-        if (!date) return;
-        const options = { month: 'short', day: 'numeric' };
-        const formatted = date.toLocaleDateString('en-US', options);
-
-        let combinedValue = "";
-
-        // Check if selectedDate is today
-        const now = new Date();
-        const isSelectedToday = date.getDate() === now.getDate() &&
-            date.getMonth() === now.getMonth() &&
-            date.getFullYear() === now.getFullYear();
-
-        // console.log(formatted);
-        if (selectedTime === "ASAP") {
-            combinedValue = `${selectedTime}`;
+    // REQ-001: Single canonical write path. Stores the YYYY-MM-DD HH:MM shape
+    // for scheduled slots, or the ASAP shape for ASAP. NEVER writes display
+    // labels like "Today 14:00" — those are derived at render time only.
+    const persistEstimatedTime = async (mode) => {
+        let payload;
+        if (mode === ASAP) {
+            payload = { estimatedTime: ASAP, date: null, time: null };
+        } else {
+            const date = selectedDate;
+            if (!date || !selectedTime) return;
+            const dateStr = formatMYDate(date);
+            const timeStr = String(selectedTime).slice(0, 5);
+            payload = {
+                estimatedTime: `${dateStr} ${timeStr}`,
+                date: dateStr,
+                time: timeStr,
+            };
         }
-        else {
-            if (isSelectedToday) {
-                combinedValue = `Today ${selectedTime}`;
-            } else {
-                combinedValue = `${formatted} ${selectedTime}`;
-            }
-
-        }
-        // console.log(combinedValue);
-        setSelectedDateTime(combinedValue);
-        await handleDateTimeChange(combinedValue);
-    }
-
-    function convertToDateTimeString(input) {
-        // input format: "Jul 31 14:00"
-        const [monthStr, dayStr, timeStr] = input.split(" "); // "Jul", "31", "14:00"
-        const [hours, minutes] = timeStr.split(":").map(Number);
-
-        // Create a Date object using current year
-        const now = new Date();
-        const year = now.getFullYear();
-
-        // Parse month string to month index (0-11)
-        const monthIndex = new Date(`${monthStr} 1, ${year}`).getMonth();
-
-        // Create date
-        const date = new Date(year, monthIndex, Number(dayStr), hours, minutes);
-
-        // Format as "YYYY-MM-DD HH:MM"
-        const yyyy = date.getFullYear();
-        const mm = String(date.getMonth() + 1).padStart(2, "0");
-        const dd = String(date.getDate()).padStart(2, "0");
-        const hh = String(date.getHours()).padStart(2, "0");
-        const min = String(date.getMinutes()).padStart(2, "0");
-
-        return [`${yyyy}-${mm}-${dd}`, `${hh}:${min}`];
-    }
-
-    const setEstimaedTime = async ({ estimatedTime, date, time }) => {
-
-        let estimatedTimeDetail = {
-            estimatedTime,
-            date,
-            time
-        };
+        setSelectedDateTime(payload.estimatedTime);
         try {
-            await AsyncStorage.setItem('estimatedTime', JSON.stringify(estimatedTimeDetail));
+            await AsyncStorage.setItem('estimatedTime', JSON.stringify(payload));
+        } catch (err) {
+            console.log(err?.response?.data?.message);
         }
-        catch (err) {
-            console.log(err.response.data.message);
-        }
-    }
-
-    const handleDateTimeChange = async (selectedDateTime) => {
-        if (!selectedDateTime) return;
-
-        const now = new Date();
-        // const selectedDate = new Date(selectedDateTime);
-
-        // Format date: yyyy-mm-dd
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-based
-        const dd = String(now.getDate()).padStart(2, '0');
-
-        // Format time: hh:mm
-        const hh = String(now.getHours()).padStart(2, '0');
-        const min = String(now.getMinutes()).padStart(2, '0');
-
-        let finalDate = `${yyyy}-${mm}-${dd}`;
-        let finalTime = `${hh}:${min}`;
-
-        if (selectedDateTime.split(" ").length > 1) {
-            const [dayLabel, timeString] = selectedDateTime.split(" "); // e.g., "today", "14:00"
-            const now = new Date();
-            // let selectedDate = new Date(selectedDateTime);
-
-            if (dayLabel.toLowerCase() === "today") {
-
-                const yyyy = selectedDate.getFullYear();
-                const mm = String(selectedDate.getMonth() + 1).padStart(2, "0");
-                const dd = String(selectedDate.getDate()).padStart(2, "0");
-                const hh = String(selectedDate.getHours()).padStart(2, "0");
-                const min = String(selectedDate.getMinutes()).padStart(2, "0");
-                finalDate = `${yyyy}-${mm}-${dd}`;
-                finalTime = timeString;
-            } else {
-                // If not 'today', assume already a valid full time string
-                finalDate = convertToDateTimeString(selectedDateTime)[0];
-                finalTime = convertToDateTimeString(selectedDateTime)[1];
-            }
-        }
-        await setEstimaedTime({ estimatedTime: selectedDateTime, date: finalDate, time: finalTime });
-        // router.push('/screens/orders/checkout');
-
-        // router.push({
-        //   pathname: '/screens/orders/checkout',
-        //   params: {
-        //     estimatedTime: selectedDateTime,
-        //     date: finalDate,
-        //     time: finalTime
-        //   }
-        // });
     };
 
-    // Helper to calculate available slots for a given date
+    // REQ-001: convertToDateTimeString, setEstimaedTime, and handleDateTimeChange
+    // were removed. They parsed display labels with `new Date()` and bare wall-clock
+    // and were the source of off-by-one bugs. The new persistEstimatedTime() above
+    // is the single canonical write path.
+
+    // Helper to calculate available slots for a given date.
+    // REQ-002: All time math anchored to Malaysia time, not device time.
     const getAvailableSlots = (date, outletData) => {
         if (!outletData || !date) return [];
 
         const day = date.getDay(); // 0 = Sunday
-        const now = new Date();
+        const now = nowInMY().toDate();
 
         // Build list of delivery setting objects to iterate
         let settingsList = [];
@@ -293,17 +207,18 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
         return allSlots;
     };
 
-    //initial rendering (default show today)
+    //initial rendering (default show today). REQ-002: anchor on MY time.
     useEffect(() => {
         if (outlet) {
             const dates = [];
+            const todayMY = nowInMY().toDate();
             // Generate next 3 days
             for (let i = 0; i < 3; i++) {
-                const date = new Date();
+                const date = new Date(todayMY);
                 date.setDate(date.getDate() + i);
 
                 const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-                const dateString = formatLocalDate(date);
+                const dateString = formatMYDate(date);
 
                 // Calculate slots to determine if operate
                 const slots = getAvailableSlots(date, outlet);
@@ -323,86 +238,115 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
 
     }, [outlet]);
 
+    // REQ-001: Restore selection from storage. Delegates the default-time
+    // decision to generateTimesForDate (which picks ASAP when enabled, else
+    // the earliest real slot). The previous version double-setState'd ASAP
+    // here and overrode the earliest-slot fallback — bug fix 3.
     useEffect(() => {
-        if (availableDates) {
-            const firstOperationalDate = availableDates.find(d => d.isOperate)?.date;
+        if (!availableDates || availableDates.length === 0) return;
+        const firstOperationalDate = availableDates.find(d => d.isOperate)?.date;
 
-            if (estimatedTime.estimatedTime) {
-                const estimatedDate = new Date(estimatedTime?.date);
-                const matchingDate = availableDates.find(d => d.dateString === estimatedTime.date);
-                if (matchingDate?.isOperate === true) {
-                    setSelectedDateTime(estimatedTime.estimatedTime);
-                    generateTimesForDate(estimatedDate);
-                    setSelectedDate(estimatedDate);
-                }
-                else {
-                    // setSelectedDateTime(null);
-                    if (firstOperationalDate) {
-                        setSelectedDate(firstOperationalDate);
-                        generateTimesForDate(firstOperationalDate);
-                        getSelectedDateTime();
-                    }
-                }
+        // Stored canonical YYYY-MM-DD HH:MM → restore that exact slot
+        if (estimatedTime?.estimatedTime && estimatedTime.estimatedTime !== ASAP &&
+            estimatedTime?.date && estimatedTime?.time) {
+            const matchingDate = availableDates.find(d => d.dateString === estimatedTime.date);
+            if (matchingDate?.isOperate === true) {
+                setSelectedDate(matchingDate.date);
+                generateTimesForDate(matchingDate.date);
+                setSelectedDateTime(estimatedTime.estimatedTime);
+                return;
             }
-            else {
-                // Find first operational date if available
-                if (firstOperationalDate) {
-                    setSelectedDate(firstOperationalDate);
-                    generateTimesForDate(firstOperationalDate);
-                    getSelectedDateTime();
-                }
-            }
+        }
 
+        // Default path: select today's date row. generateTimesForDate will
+        // pick ASAP if the outlet is open right now, otherwise the earliest
+        // real slot. Do NOT override its decision here.
+        if (firstOperationalDate) {
+            setSelectedDate(firstOperationalDate);
+            generateTimesForDate(firstOperationalDate);
         }
     }, [availableDates]);
 
 
 
+    // REQ-001: Inject ASAP as the first virtual time slot when the chosen
+    // date is today AND the outlet is currently open. ASAP is disabled (greyed)
+    // when outlet is closed for the chosen order_type — user must pick a slot.
     const generateTimesForDate = (date) => {
         if (!outlet || !date) return;
 
-        // Use the pre-calculated logic or re-calculate
         const slots = getAvailableSlots(date, outlet);
-        // Handle no slots
-        if (slots.length === 0) {
+
+        // Determine if `date` is today in MY time
+        const todayMY = nowInMY().toDate();
+        const isToday = date.getFullYear() === todayMY.getFullYear()
+            && date.getMonth() === todayMY.getMonth()
+            && date.getDate() === todayMY.getDate();
+
+        const asapEnabled = isToday && isOutletOpenNow(outlet, orderType, todayMY);
+        const asapSlot = {
+            time: ASAP,
+            endTime: null,
+            label: asapEnabled ? 'ASAP' : 'ASAP (closed)',
+            isOperate: asapEnabled,
+            isAsap: true,
+        };
+
+        // ASAP is always the first option for today (even when disabled, so users
+        // see it). For future dates, ASAP doesn't render at all.
+        const composed = isToday ? [asapSlot, ...slots] : slots;
+
+        if (composed.length === 0) {
             setAvailableTimes([]);
             setSelectedTime(null);
+            setSelectedTimeIndex(null);
             return;
         }
 
-        setAvailableTimes(slots);
-        // Default select first available
-        //loop all the slot and get the earliest time
-        let earliestTime = slots[0].time;
-        for (let i = 1; i < slots.length; i++) {
-            if (slots[i].time < earliestTime) {
-                earliestTime = slots[i].time;
+        setAvailableTimes(composed);
+
+        // Default selection: ASAP if enabled, otherwise the earliest real slot.
+        if (asapEnabled) {
+            setSelectedTime(ASAP);
+            setSelectedTimeIndex(0);
+        } else {
+            const firstReal = composed.find(s => s.isOperate && !s.isAsap);
+            if (firstReal) {
+                setSelectedTime(firstReal.time);
+                setSelectedTimeIndex(composed.indexOf(firstReal));
+            } else {
+                setSelectedTime(null);
+                setSelectedTimeIndex(null);
             }
         }
-        console.log("earliestTime", earliestTime)
-        setSelectedTime(earliestTime);
     };
 
+    // REQ-001: Restore the time selection from storage. ASAP is recognized as
+    // the canonical sentinel and matches the virtual ASAP slot if present.
     useEffect(() => {
-        if (estimatedTime.time) {
-            const estTimeObj = availableTimes.find(time => time.time === estimatedTime.time);
-            if (estTimeObj) {
-                const estIndex = availableTimes.findIndex(t => t.time === estimatedTime.time);
-                if (estIndex !== -1) {
-                    console.log("estimatedTime.time", estimatedTime.time)
-                    setSelectedTime(estimatedTime.time);
-                    setSelectedTimeIndex(estIndex);
-                }
-            } else {
+        if (!availableTimes || availableTimes.length === 0) return;
 
-                setSelectedTime(availableTimes[0]?.time ?? null);
-                setSelectedTimeIndex(0);
+        // Stored ASAP → select ASAP slot if it exists and is enabled
+        if (estimatedTime?.estimatedTime === ASAP) {
+            const asapIdx = availableTimes.findIndex(t => t.isAsap && t.isOperate);
+            if (asapIdx !== -1) {
+                setSelectedTime(ASAP);
+                setSelectedTimeIndex(asapIdx);
+                return;
             }
         }
-        // else {
-        //     setSelectedTime(availableTimes[0].time);
-        // }
-    }, [availableTimes])
+
+        // Stored "HH:MM" → match real slot
+        if (estimatedTime?.time) {
+            const estIndex = availableTimes.findIndex(t => t.time === estimatedTime.time && !t.isAsap);
+            if (estIndex !== -1) {
+                setSelectedTime(estimatedTime.time);
+                setSelectedTimeIndex(estIndex);
+                return;
+            }
+        }
+        // Otherwise leave whatever generateTimesForDate already chose
+    }, [availableTimes]);
 
 
 
@@ -518,20 +462,23 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                             ]}
                             disabled={!selectedDate || !selectedTime}
                             onPress={async () => {
+                                // REQ-001: ASAP and scheduled-slot share one validate+persist path.
+                                const isAsap = selectedTime === ASAP;
                                 const selectedDateValue = selectedDate instanceof Date ? selectedDate : new Date(selectedDate);
-                                const yyyy = selectedDateValue.getFullYear();
-                                const mm = String(selectedDateValue.getMonth() + 1).padStart(2, '0');
-                                const dd = String(selectedDateValue.getDate()).padStart(2, '0');
+                                const dateStr = formatMYDate(selectedDateValue);
+                                const candidate = isAsap
+                                    ? { estimatedTime: ASAP, date: null, time: null }
+                                    : {
+                                        estimatedTime: `${dateStr} ${selectedTime}`,
+                                        date: dateStr,
+                                        time: selectedTime,
+                                    };
 
                                 const validation = validateStoredOrderDateTime({
                                     orderType,
-                                    estimatedTime: {
-                                        estimatedTime: `${yyyy}-${mm}-${dd} ${selectedTime}`,
-                                        date: `${yyyy}-${mm}-${dd}`,
-                                        time: selectedTime,
-                                    },
+                                    estimatedTime: candidate,
                                     outlet,
-                                    now: new Date(),
+                                    now: nowInMY().toDate(),
                                 });
 
                                 if (!validation.isValid) {
@@ -540,7 +487,7 @@ export default function CustomDateTimePickerModal({ showDateTimePicker = false, 
                                     return;
                                 }
 
-                                await getSelectedDateTime();
+                                await persistEstimatedTime(isAsap ? ASAP : 'slot');
                                 updateNoticeMessage('');
                                 setShowDateTimePicker(false);
                             }}

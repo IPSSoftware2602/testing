@@ -696,13 +696,14 @@ export default function OrderDetails({ navigation }) {
   }, [authToken, orderId])
 
   useEffect(() => {
-    // Only poll if order is not completed or cancelled
+    // Poll every 10 seconds to refresh the progress bar / order status,
+    // but stop once the order reaches a terminal state (completed or
+    // cancelled) so we don't waste bandwidth or battery.
     if (orderId && order?.status !== "completed" && order?.status !== "cancelled") {
       const interval = setInterval(() => {
         getOrder();
-      }, 60000); //
+      }, 10000);
 
-      // Cleanup interval on unmount or when order is completed/cancelled
       return () => clearInterval(interval);
     }
 
@@ -817,23 +818,34 @@ export default function OrderDetails({ navigation }) {
 
     try {
       if (Platform.OS === 'web') {
-        // Open in new tab with noopener/noreferrer for security
+        // Open in new tab with noopener/noreferrer for security.
         window.open(trackingLink, '_blank', 'noopener,noreferrer');
-      } else {
-        // Mobile behavior (unchanged)
+      } else if (Platform.OS === 'ios') {
+        // iOS: SFSafariViewController keeps the user in-app. Must run AFTER any
+        // RN Modal has fully dismissed — the caller wraps this in setTimeout(350)
+        // when invoked from inside a modal (see the Track Driver button).
         await WebBrowser.openBrowserAsync(trackingLink, {
           toolbarColor: '#C2000E',
           controlsColor: 'white',
           dismissButtonStyle: 'close',
         });
-
-        if (!WebBrowser.dismissBrowser()) {
-          await Linking.openURL(trackingLink);
-        }
+      } else {
+        // Android: go straight to the system browser via Linking. We intentionally
+        // skip WebBrowser.openBrowserAsync on Android because it uses Chrome Custom
+        // Tabs, which isn't reliably available on bare emulators — the Promise
+        // could resolve without actually opening anything, leaving the user
+        // stranded. Linking.openURL always hands off to an installed browser.
+        await Linking.openURL(trackingLink);
       }
     } catch (err) {
-      console.error('Redirect failed:', err);
-      router.push('/orders');
+      console.error('Tracking link open failed:', err);
+      // Last-resort fallback for ALL platforms: system URL handler. Don't
+      // navigate the user away from the order on generic failures.
+      try {
+        await Linking.openURL(trackingLink);
+      } catch (_fallbackErr) {
+        // swallow — user can tap again
+      }
     }
   };
 
@@ -1712,8 +1724,17 @@ export default function OrderDetails({ navigation }) {
                     backgroundColor: "#C2000E",
                   }}
                   onPress={() => {
+                    // Bug fix: iOS refuses to present SFSafariViewController on
+                    // top of an RN Modal that is still animating. Calling
+                    // WebBrowser.openBrowserAsync in the same tick as the
+                    // setDriverModalVisible(false) causes the expo-web-browser
+                    // promise to never resolve and the app appears to hang.
+                    // Dismiss the modal first, then open the tracker after the
+                    // iOS modal dismiss animation finishes (~300ms).
                     setDriverModalVisible(false);
-                    handleLalamoveTracking();
+                    setTimeout(() => {
+                      handleLalamoveTracking();
+                    }, 350);
                   }}
                 >
                   <Text
