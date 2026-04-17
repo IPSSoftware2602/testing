@@ -10,19 +10,19 @@ const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
 
 const { width } = Dimensions.get('window');
 
-const MenuItem = memo(({ 
-  item, 
-  index, 
-  isFirstInCategory, 
-  categories, 
-  customer, 
+const MenuItem = memo(({
+  item,
+  index,
+  isFirstInCategory,
+  categories,
+  customer,
   onPress,
   isQrOrder = false,
 }) => {
   const [imageLoading, setImageLoading] = useState(true);
   const imageSourceRef = useRef(item.image);
   const hasLoadedRef = useRef(false);
-
+  console.log(item.image);
   // Memoize image source to prevent unnecessary re-renders
   const imageSource = useMemo(() => {
     return buildCachedExpoImageSource(item.image, require('../../assets/icons/burger.png'));
@@ -113,7 +113,7 @@ const MenuItem = memo(({
                 </View>
               ))}
             </View>
-            
+
             <View style={styles.menuPriceRow}>
               <View style={styles.menuOldPriceContainer}>
                 <Text style={styles.menuPrice}>RM {item.price}</Text>
@@ -276,8 +276,8 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   menuTag: {
-    width: width <= 440 ? (width <= 375 ? (width <= 360 ? 14 : 16) : 18) : 16, 
-    height: width <= 440 ? (width <= 375 ? (width <= 360 ? 14 : 16) : 18) : 16, 
+    width: width <= 440 ? (width <= 375 ? (width <= 360 ? 14 : 16) : 18) : 16,
+    height: width <= 440 ? (width <= 375 ? (width <= 360 ? 14 : 16) : 18) : 16,
     marginLeft: 5,
   },
   categoryDividerText: {

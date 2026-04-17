@@ -742,10 +742,19 @@ export default function MenuItemScreen() {
           const outletDetails = await AsyncStorage.getItem('outletDetails');
           const outletId = outletDetails ? JSON.parse(outletDetails).outletId : 0;
           const crustId = selectedCrustId || 0;
+
+          let qrCode = null;
+          if (isQrOrder) {
+            const uniqueQrDataRaw = await AsyncStorage.getItem('uniqueQrData');
+            const uniqueQrData = uniqueQrDataRaw ? JSON.parse(uniqueQrDataRaw) : null;
+            qrCode = uniqueQrData?.unique_code || null;
+          }
+
           const optionUrl = (groupId) =>
             `${apiUrl}option/${groupId}/${outletId}/${id}/${crustId}`;
           const promises = validGroups.map(group =>
             axios.get(optionUrl(group.id), {
+              params: { unique_qr_code: qrCode },
               headers: { Authorization: `Bearer ${token}` },
               timeout: 5000
             }).catch(err => {
@@ -758,7 +767,7 @@ export default function MenuItemScreen() {
           const successfulResults = results.filter(res => res !== null);
 
           if (successfulResults.length > 0) {
-            const groupsData = successfulResults.map(res => res.data.data);
+            const groupsData = successfulResults.map(res => res.data.data).filter(g => g !== null);
             const orderType = await AsyncStorage.getItem('orderType');
             if (orderType === 'delivery' || orderType === 'pickup') {
               if (groupsData.some(group => group.title === 'Takeaway Packaging')) {
