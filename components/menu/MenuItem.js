@@ -116,8 +116,12 @@ const MenuItem = memo(({
 
             <View style={styles.menuPriceRow}>
               <View style={styles.menuOldPriceContainer}>
-                <Text style={styles.menuPrice}>RM {item.price}</Text>
-                {item.discount_price && <Text style={styles.menuPriceslash}>RM {item.discount_price}</Text>}
+                <Text style={styles.menuPrice}>
+                  {item.has_variations ? 'From ' : ''}RM {item.price}
+                </Text>
+                {item.discount_price && Number(item.discount_price) > Number(item.price) && (
+                  <Text style={styles.menuPriceslash}>RM {item.discount_price}</Text>
+                )}
               </View>
               {item.is_available ? (
                 <PolygonButton

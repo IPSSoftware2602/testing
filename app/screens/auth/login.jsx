@@ -1,12 +1,14 @@
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Dimensions, Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { Dimensions, Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Polygon, Svg } from 'react-native-svg';
 import GridBackground from '../../../components/slash/GridBackground';
 import TopNavigation from '../../../components/ui/TopNavigation';
+import CountryCodePicker from '../../../components/ui/CountryCodePicker';
+import { findCountryByDial } from '../../../constants/countries';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 import { textStyles } from '../../../styles/common';
 import axios from 'axios';
 import { apiUrl } from '../../constant/constants';
@@ -16,17 +18,9 @@ import { useToast } from '../../../hooks/useToast';
 
 const { width, height } = Dimensions.get('window');
 
-const COUNTRY_CODES = [
-  { label: '+60 (MY)', value: '+60' },
-  { label: '+862 (CN)', value: '+862' },
-  { label: '+65 (SG)', value: '+65' },
-];
-
 export default function Login() {
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+60');
-  const [pickerVisible, setPickerVisible] = useState(false);
-  const [tempCountryCode, setTempCountryCode] = useState('+60');
   const router = useRouter();
   const { redirect, qrCode } = useLocalSearchParams();
   const toast = useToast();
@@ -36,55 +30,57 @@ export default function Login() {
   // }, [])
 
   const handleSendOTP = async (sendVia) => {
-    if (phone) {
-      try {
-        const response = await axios.post(
-          apiUrl + "send-otp",
-          {
-            phone_number: `${countryCode}${phone}`,
-            send_via: sendVia
-          }
-        );
-        const loginData = await response.data;
-        // console.log(loginData);
-
-        if (loginData.status === "success") {
-          router.push({
-            pathname: '/screens/auth/otp',
-            params: {
-              phone_number: `${countryCode}${phone}`,
-              send_via: sendVia,
-              redirect: redirect || '',
-              qrCode: qrCode || '',
-            }
-          });
-        }
-
-      } catch (err) {
-        if (err.status === 404) {
-          toast.show('Please try again later', {
-            type: 'custom_toast',
-            data: { title: 'Internal Server Error', status: 'danger' }
-          });
-
-          // Alert.alert('Internal Server Error', 'Please try again later');
-        }
-        else {
-          console.log(err);
-          toast.show(err.response.data.messages.error, {
-            type: 'custom_toast',
-            data: { title: 'Error', status: 'danger' }
-          });
-        }
-      }
-    }
-    else {
+    if (!phone) {
       toast.show('Please try again later', {
         type: 'custom_toast',
         data: { title: 'Something Went Wrong', status: 'danger' }
       });
+      return;
     }
+    // CR-003: validate via libphonenumber against the selected country.
+    const country = findCountryByDial(countryCode);
+    if (!country || !isValidPhoneNumber(phone, country.code)) {
+      toast.show(`Phone number is not valid for ${country?.name || 'the selected country'}.`, {
+        type: 'custom_toast',
+        data: { title: 'Invalid phone', status: 'danger' }
+      });
+      return;
+    }
+    try {
+      const response = await axios.post(
+        apiUrl + "send-otp",
+        {
+          phone_number: `${countryCode}${phone}`,
+          send_via: sendVia
+        }
+      );
+      const loginData = await response.data;
 
+      if (loginData.status === "success") {
+        router.push({
+          pathname: '/screens/auth/otp',
+          params: {
+            phone_number: `${countryCode}${phone}`,
+            send_via: sendVia,
+            redirect: redirect || '',
+            qrCode: qrCode || '',
+          }
+        });
+      }
+    } catch (err) {
+      if (err.status === 404) {
+        toast.show('Please try again later', {
+          type: 'custom_toast',
+          data: { title: 'Internal Server Error', status: 'danger' }
+        });
+      } else {
+        console.log(err);
+        toast.show(err.response.data.messages.error, {
+          type: 'custom_toast',
+          data: { title: 'Error', status: 'danger' }
+        });
+      }
+    }
   }
   return (
     // <View style={styles.outerWrapper}>
@@ -145,91 +141,14 @@ export default function Login() {
 
                 {/* Phone input */}
                 <View style={styles.inputRow}>
-                  {/* Country Code Selector */}
-                  {Platform.OS === 'ios' ? (
-                    <>
-                      <TouchableOpacity
-                        style={styles.countryCodeDropdownWrap}
-                        onPress={() => {
-                          setTempCountryCode(countryCode);
-                          setPickerVisible(true);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.countryCodeText}>{countryCode}</Text>
-                        <Text style={styles.countryCodeChevron}>▼</Text>
-                      </TouchableOpacity>
+                  {/* CR-003: unified country code picker (search modal, ~70 countries, iOS/Android/Web). */}
+                  <CountryCodePicker
+                    value={countryCode}
+                    onChange={setCountryCode}
+                    triggerStyle={styles.countryCodeDropdownWrap}
+                    textStyle={styles.countryCodeText}
+                  />
 
-                      {/* iOS Modal Picker */}
-                      <Modal
-                        visible={pickerVisible}
-                        transparent
-                        animationType="slide"
-                        onRequestClose={() => setPickerVisible(false)}
-                      >
-                        <TouchableOpacity
-                          style={styles.modalOverlay}
-                          activeOpacity={1}
-                          onPress={() => setPickerVisible(false)}
-                        />
-                        <View style={styles.modalPickerContainer}>
-                          <View style={styles.modalPickerHeader}>
-                            <TouchableOpacity onPress={() => setPickerVisible(false)}>
-                              <Text style={styles.modalPickerCancel}>Cancel</Text>
-                            </TouchableOpacity>
-                            <Text style={styles.modalPickerTitle}>Country Code</Text>
-                            <TouchableOpacity onPress={() => {
-                              setCountryCode(tempCountryCode);
-                              setPickerVisible(false);
-                            }}>
-                              <Text style={styles.modalPickerDone}>Done</Text>
-                            </TouchableOpacity>
-                          </View>
-                          <Picker
-                            selectedValue={tempCountryCode}
-                            onValueChange={(value) => setTempCountryCode(value)}
-                            itemStyle={styles.countryCodePickerItem}
-                          >
-                            {COUNTRY_CODES.map((item) => (
-                              <Picker.Item key={item.value} label={item.label} value={item.value} color="#000" />
-                            ))}
-                          </Picker>
-                        </View>
-                      </Modal>
-                    </>
-                  ) : Platform.OS === 'android' ? (
-                    <View style={styles.countryCodeDropdownWrap}>
-                      <View style={styles.countryCodeLabelWrap} pointerEvents="none">
-                        <Text style={styles.countryCodeText}>{countryCode}</Text>
-                        <Text style={styles.countryCodeChevron}>▼</Text>
-                      </View>
-                      <Picker
-                        selectedValue={countryCode}
-                        onValueChange={(value) => setCountryCode(value)}
-                        style={styles.countryCodePickerOverlay}
-                        itemStyle={styles.countryCodePickerItem}
-                        dropdownIconColor="transparent"
-                      >
-                        {COUNTRY_CODES.map((item) => (
-                          <Picker.Item key={item.value} label={item.label} value={item.value} color="#fff" />
-                        ))}
-                      </Picker>
-                    </View>
-                  ) : (
-                    <View style={styles.countryCodeDropdownWrap}>
-                      <Picker
-                        selectedValue={countryCode}
-                        onValueChange={(value) => setCountryCode(value)}
-                        style={styles.countryCodePicker}
-                        itemStyle={styles.countryCodePickerItem}
-                        dropdownIconColor="#C2000E"
-                      >
-                        {COUNTRY_CODES.map((item) => (
-                          <Picker.Item key={item.value} label={item.label} value={item.value} color="#000" />
-                        ))}
-                      </Picker>
-                    </View>
-                  )}
                   {Platform.OS === 'web' ? (
                     <div data-testid="phone-input" style={{ flex: 1 }}>
                       <TextInput

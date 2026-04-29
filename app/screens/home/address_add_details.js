@@ -17,6 +17,9 @@ import ReadOnlyDeliveryMapNative from '../../../components/order/ReadOnlyDeliver
 import { useToast } from '../../../hooks/useToast';
 import { CustomCheckbox } from '../../../components/ui/CustomCheckBox';
 import useAuthGuard from '../../auth/check_token_expiry';
+import CountryCodePicker from '../../../components/ui/CountryCodePicker';
+import { dialDigits, findCountryByDial } from '../../../constants/countries';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,6 +39,7 @@ export default function DeliveryAddressAddDetails() {
     const [currentAddress, setCurrentAddress] = useState(address);
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
+    const [countryCode, setCountryCode] = useState("+60");
     const [unit, setUnit] = useState("");
     const [notes, setNotes] = useState("");
     // const [isDefault, setIsDefault] = useState(false);
@@ -74,13 +78,22 @@ export default function DeliveryAddressAddDetails() {
                 return;
             }
 
+            const country = findCountryByDial(countryCode);
+            if (!country || !isValidPhoneNumber(phone, country.code)) {
+                toast.show(`Phone number is not valid for ${country?.name || 'the selected country'}.`, {
+                    type: 'custom_toast',
+                    data: { title: 'Invalid phone', status: 'danger' }
+                });
+                return;
+            }
+
             try {
                 const response = await axios.post(
                     `${apiUrl}customer/address/create`,
                     {
                         address: currentAddress,
                         name: name,
-                        phone: phone,
+                        phone: `${dialDigits(countryCode)}${phone}`,
                         unit: unit || "",
                         note: notes || "",
                         latitude: latitude,
@@ -115,6 +128,7 @@ export default function DeliveryAddressAddDetails() {
         setCurrentAddress("");
         setName("");
         setPhone("");
+        setCountryCode("+60");
         setUnit("");
         setNotes("");
     }
@@ -178,21 +192,21 @@ export default function DeliveryAddressAddDetails() {
                                 autoCapitalize="none"
                                  maxLength={10} 
                             /> */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                                <Text
-                                    style={[commonStyles.input, { flex: 1, textAlignVertical: 'center', textAlign: 'center' }]}
-                                >
-                                    +60
-                                </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <CountryCodePicker
+                                    value={countryCode}
+                                    onChange={setCountryCode}
+                                    triggerStyle={[commonStyles.input, { paddingVertical: 0, justifyContent: 'center', flexDirection: 'row', alignItems: 'center' }]}
+                                />
                                 <TextInput
-                                    style={[commonStyles.input, { flex: 9 }]}
+                                    style={[commonStyles.input, { flex: 1 }]}
                                     placeholder="Phone Number (e.g. 0123456789)"
                                     placeholderTextColor="#999"
                                     value={phone}
                                     onChangeText={setPhone}
                                     keyboardType="number-pad"
                                     autoCapitalize="none"
-                                    maxLength={10}
+                                    maxLength={15}
                                 />
                             </View>
                             <Text style={styles.formTitle}><Text style={{ color: '#C2000E' }}>* </Text>Unit</Text>

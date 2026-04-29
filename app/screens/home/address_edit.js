@@ -15,6 +15,10 @@ import ReadOnlyDeliveryMapWeb from '../../../components/order/ReadOnlyDeliveryMa
 import ReadOnlyDeliveryMapNative from '../../../components/order/ReadOnlyDeliveryMap';
 import { CustomCheckbox } from '../../../components/ui/CustomCheckBox';
 import useAuthGuard from '../../auth/check_token_expiry';
+import CountryCodePicker from '../../../components/ui/CountryCodePicker';
+import { splitInternationalPhone, dialDigits, findCountryByDial } from '../../../constants/countries';
+import { isValidPhoneNumber } from 'libphonenumber-js';
+import { useToast } from '../../../hooks/useToast';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,7 +40,9 @@ export default function DeliveryAddressEdit() {
         latitude: "3.139",
     });
     const [authToken, setAuthToken] = useState("");
+    const [countryCode, setCountryCode] = useState("+60");
     const [isDefault, setIsDefault] = useState(false);
+    const toast = useToast();
     const [location, setLocation] = useState({
         longitude: "101.6869",
         latitude: "3.139"
@@ -77,9 +83,13 @@ export default function DeliveryAddressEdit() {
                 const address = await response.data;
                 const addressData = address.data;
                 setIsDefault(addressData.is_default === "1");
+                // CR-003: split stored international phone back into picker + bare number.
+                const { dial, local } = splitInternationalPhone(addressData.phone);
+                setCountryCode(dial);
                 setAddressData((prev) => ({
                     ...prev,
-                    ...addressData
+                    ...addressData,
+                    phone: local,
                 }));
                 setLocation(
                     {
@@ -105,6 +115,14 @@ export default function DeliveryAddressEdit() {
     }
 
     const handleUpdateAddress = () => {
+        const country = findCountryByDial(countryCode);
+        if (!country || !isValidPhoneNumber(addressData.phone || '', country.code)) {
+            toast.show(`Phone number is not valid for ${country?.name || 'the selected country'}.`, {
+                type: 'custom_toast',
+                data: { title: 'Invalid phone', status: 'danger' }
+            });
+            return;
+        }
         const updateLocation = async () => {
             try {
                 const response = await axios.post(
@@ -116,7 +134,7 @@ export default function DeliveryAddressEdit() {
                         unit: addressData.unit,
                         note: addressData.note,
                         name: addressData.name,
-                        phone: addressData.phone,
+                        phone: `${dialDigits(countryCode)}${addressData.phone}`,
                         is_default: isDefault === true ? "1" : "0"
                     },
                     {
@@ -225,21 +243,21 @@ export default function DeliveryAddressEdit() {
                                 // keyboardType="email-address"
                                 autoCapitalize="none"
                             /> */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                                <Text
-                                    style={[commonStyles.input, { flex: 1, textAlignVertical: 'center', textAlign: 'center' }]}
-                                >
-                                    +60
-                                </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <CountryCodePicker
+                                    value={countryCode}
+                                    onChange={setCountryCode}
+                                    triggerStyle={[commonStyles.input, { paddingVertical: 0, justifyContent: 'center', flexDirection: 'row', alignItems: 'center' }]}
+                                />
                                 <TextInput
-                                    style={[commonStyles.input, { flex: 9 }]}
+                                    style={[commonStyles.input, { flex: 1 }]}
                                     placeholder="Phone Number (e.g. 0123456789)"
                                     placeholderTextColor="#999"
                                     value={addressData.phone}
                                     onChangeText={(value) => handleInputChange("phone", value)}
                                     keyboardType="number-pad"
                                     autoCapitalize="none"
-                                    maxLength={10}
+                                    maxLength={15}
                                 />
                             </View>
                             <Text style={styles.formTitle}><Text style={{ color: '#C2000E' }}>* </Text>Unit</Text>

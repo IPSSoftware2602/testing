@@ -47,6 +47,19 @@ export default function Splash() {
       };
 
       try {
+        // CR-007: clear any stale unique-QR session when entering via the root URL.
+        //
+        // Splash is the entry point for `/` (root). The QR flow (/qr/:code) routes
+        // through app/qr/[code].js directly and does NOT pass through splash, so
+        // these removals only affect users who explicitly navigated to the root —
+        // matching the bug report: visit /qr/CODE then type order.uspizza.my, the
+        // QR cache should NOT linger. In-app tab navigation between QR menu and
+        // Home tab does not re-run splash, so an active QR session survives that.
+        // App-kill-and-relaunch DOES re-run splash and clears QR, which is the
+        // desired boundary for table-QR scenarios.
+        await AsyncStorage.removeItem('uniqueQrData');
+        await AsyncStorage.removeItem('pendingQrData');
+
         if (referral_id) {
           await AsyncStorage.setItem('referralId', referral_id);
         }
