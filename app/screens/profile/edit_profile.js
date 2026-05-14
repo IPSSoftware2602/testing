@@ -327,7 +327,7 @@ export default function UpdateProfile() {
                   value={customerData.birthday}
                   placeholder="Select your birthday"
                   style={commonStyles.input}
-                  isDisabled={true}
+                // isDisabled={true}
                 />
 
                 {/* Phone */}
@@ -436,7 +436,7 @@ const styles = {
     fontWeight: 'bold',
   },
   inputLabel: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 12 : 12) : 14) : 14,
     color: '#C2000E',
     marginBottom: 4,

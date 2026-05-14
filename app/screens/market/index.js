@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 12 : 12) : 12) : 12,
     color: '#333',
     marginBottom: 0,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     textAlign: 'center',
     paddingBottom: 6,
   },

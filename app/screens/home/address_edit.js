@@ -17,7 +17,7 @@ import { CustomCheckbox } from '../../../components/ui/CustomCheckBox';
 import useAuthGuard from '../../auth/check_token_expiry';
 import CountryCodePicker from '../../../components/ui/CountryCodePicker';
 import { splitInternationalPhone, dialDigits, findCountryByDial } from '../../../constants/countries';
-import { isValidPhoneNumber } from 'libphonenumber-js';
+import { isValidPhoneNumber, parsePhoneNumberFromString } from 'libphonenumber-js';
 import { useToast } from '../../../hooks/useToast';
 
 const { width, height } = Dimensions.get('window');
@@ -115,14 +115,19 @@ export default function DeliveryAddressEdit() {
     }
 
     const handleUpdateAddress = () => {
+        // CR-003 baseline: validate phone against the SELECTED country's format.
+        // CR-012: also normalize via parsePhoneNumberFromString so the saved
+        // value is always canonical E.164 regardless of what the user typed.
         const country = findCountryByDial(countryCode);
-        if (!country || !isValidPhoneNumber(addressData.phone || '', country.code)) {
+        const parsedPhone = country ? parsePhoneNumberFromString(addressData.phone || '', country.code) : null;
+        if (!country || !parsedPhone || !parsedPhone.isValid()) {
             toast.show(`Phone number is not valid for ${country?.name || 'the selected country'}.`, {
                 type: 'custom_toast',
                 data: { title: 'Invalid phone', status: 'danger' }
             });
             return;
         }
+        const canonicalPhone = parsedPhone.number.replace(/^\+/, '');
         const updateLocation = async () => {
             try {
                 const response = await axios.post(
@@ -134,7 +139,7 @@ export default function DeliveryAddressEdit() {
                         unit: addressData.unit,
                         note: addressData.note,
                         name: addressData.name,
-                        phone: `${dialDigits(countryCode)}${addressData.phone}`,
+                        phone: canonicalPhone,
                         is_default: isDefault === true ? "1" : "0"
                     },
                     {
@@ -179,11 +184,11 @@ export default function DeliveryAddressEdit() {
     }
 
     const handleNavigateBack = () => {
-    if (origin === "profile") {
-        router.replace("/screens/profile/addresses");
-    } else {
-        router.replace("/screens/home/address_select");
-    }
+        if (origin === "profile") {
+            router.replace("/screens/profile/addresses");
+        } else {
+            router.replace("/screens/home/address_select");
+        }
     };
 
     return (
@@ -243,14 +248,15 @@ export default function DeliveryAddressEdit() {
                                 // keyboardType="email-address"
                                 autoCapitalize="none"
                             /> */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <View style={styles.phoneRow}>
                                 <CountryCodePicker
                                     value={countryCode}
                                     onChange={setCountryCode}
-                                    triggerStyle={[commonStyles.input, { paddingVertical: 0, justifyContent: 'center', flexDirection: 'row', alignItems: 'center' }]}
+                                    triggerStyle={styles.countryCodeButton}
+                                    textStyle={styles.countryCodeButtonText}
                                 />
                                 <TextInput
-                                    style={[commonStyles.input, { flex: 1 }]}
+                                    style={styles.phoneInput}
                                     placeholder="Phone Number (e.g. 0123456789)"
                                     placeholderTextColor="#999"
                                     value={addressData.phone}
@@ -307,6 +313,38 @@ export default function DeliveryAddressEdit() {
 }
 
 const styles = StyleSheet.create({
+    // CR-011: phone row layout — country picker + phone input share one row,
+    // both visually matching the form's input style. Same as add screen.
+    phoneRow: {
+        flexDirection: 'row',
+        alignItems: 'stretch',
+        marginBottom: 15,
+        gap: 8,
+    },
+    countryCodeButton: {
+        borderWidth: 1,
+        borderColor: '#DDDDDD',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        minWidth: 92,
+    },
+    countryCodeButtonText: {
+        fontSize: 14,
+        color: '#333333',
+        fontWeight: '500',
+    },
+    phoneInput: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: '#DDDDDD',
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        fontSize: 12,
+        fontFamily: 'RobotoSlab-Regular',
+        color: '#333333',
+    },
     formWrapper: {
         display: 'flex',
         flexDirection: 'column',
@@ -341,7 +379,7 @@ const styles = StyleSheet.create({
         marginTop: "6%",
         marginLeft: '8%',
         marginBottom: '2%',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
     editBtn: {
         marginVertical: '5%',

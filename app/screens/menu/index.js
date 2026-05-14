@@ -519,6 +519,25 @@ export default function MenuScreen() {
   }, [menuItems.length]);
 
   const handleSetOrderType = async (orderType) => {
+    // CR-017: refuse to change order type while a QR session is active. The
+    // order-type tabs in JSX are already hidden in QR mode, but any indirect
+    // call path (deep links, back navigation, code outside the tab UI) could
+    // still hit this handler. QR orders MUST stay 'delivery' end-to-end —
+    // backend force and checkout force are the other defense layers.
+    if (orderType !== 'delivery') {
+      try {
+        const qrRaw = await AsyncStorage.getItem('uniqueQrData');
+        const qr = qrRaw ? JSON.parse(qrRaw) : null;
+        if (qr && qr.unique_code) {
+          // Silently no-op. Keeping orderType locked to 'delivery'.
+          return;
+        }
+      } catch (_e) {
+        // If AsyncStorage read fails, fall through — better to allow the user
+        // to change order type than to deadlock the UI.
+      }
+    }
+
     setActiveOrderType(orderType);
     try {
       await AsyncStorage.setItem('orderType', orderType);
@@ -1586,7 +1605,7 @@ const styles = StyleSheet.create({
     color: '#C2000E',
     fontWeight: 'bold',
     fontSize: 13, // Slightly smaller font
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     textAlign: 'center', // Center text
     paddingHorizontal: 4, // Add padding
     flexWrap: 'wrap', // Allow text wrapping
@@ -1633,7 +1652,7 @@ const styles = StyleSheet.create({
   qrOrderBadgeText: {
     color: '#fff',
     fontSize: 9,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     lineHeight: 11,
   },
   orderTypeTabs: {
@@ -1710,7 +1729,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
@@ -1752,7 +1771,7 @@ const styles = StyleSheet.create({
     color: '#C2000E',
     fontWeight: 'bold',
     fontSize: width <= 390 ? (width <= 360 ? 16 : 17) : 18,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   choiceBadge: {
     backgroundColor: '#C2000E',
@@ -1765,7 +1784,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 12,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   bottomBar: {
     flexDirection: 'row',
@@ -1835,7 +1854,7 @@ const styles = StyleSheet.create({
     color: '#C2000E',
     fontWeight: 'bold',
     fontSize: 16,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   prominentTimeSelector: {
     flexDirection: 'row',
@@ -1906,7 +1925,7 @@ const styles = StyleSheet.create({
   qrFooterName: {
     color: '#C2000E',
     fontSize: 14,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     textAlign: 'center',
     marginBottom: 2,
   },
@@ -1941,7 +1960,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#C2000E',
     marginBottom: 8,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     textAlign: 'center',
   },
   modalMessage: {
@@ -1994,7 +2013,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 16,
     color: '#C2000E',
   },
@@ -2019,7 +2038,7 @@ const styles = StyleSheet.create({
   },
   outletModalHeaderTitle: {
     fontSize: 17,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#333',
     textAlign: 'center',
     marginBottom: 14,
@@ -2033,7 +2052,7 @@ const styles = StyleSheet.create({
   },
   outletModalName: {
     fontSize: 20,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#C2000E',
     marginBottom: 6,
     textAlign: 'center',
@@ -2049,7 +2068,7 @@ const styles = StyleSheet.create({
   },
   outletModalDistance: {
     fontSize: 13,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#C2000E',
     textAlign: 'center',
     marginBottom: 20,

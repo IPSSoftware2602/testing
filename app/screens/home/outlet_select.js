@@ -8,6 +8,7 @@ import TopNavigation from '../../../components/ui/TopNavigation';
 import { fonts, colors } from '../../../styles/common';
 import { FontAwesome6 } from '@expo/vector-icons';
 import PolygonButton from '../../../components/ui/PolygonButton';
+import ConfirmationModal from '../../../components/ui/ConfirmationModal';
 import { apiUrl } from '../../constant/constants';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -29,6 +30,9 @@ export default function OutletSelection() {
     const [authToken, setAuthToken] = useState("");
     const [orderType, setOrderType] = useState("");
     const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
+    const [showClearCartModal, setShowClearCartModal] = useState(false);
+    const [pendingOutletItem, setPendingOutletItem] = useState(null);
+    const [isSwitchingOutlet, setIsSwitchingOutlet] = useState(false);
 
     const buildMenuRoute = useCallback(() => ({
         pathname: '(tabs)/menu',
@@ -267,6 +271,113 @@ export default function OutletSelection() {
         }
     }
 
+    // Performs the actual outlet switch + navigation. Used both for the
+    // straight-through case (no cart conflict) and after the user confirms
+    // clearing the cart on the previous outlet.
+    const proceedWithOutletSwitch = async (item) => {
+        const status = getOutletStatus(item.operating_schedule);
+        if (!status.isOpen && orderType === 'dinein') {
+            toast.show('This outlet currently is closed, But you can still order for later', {
+                type: 'custom_toast',
+                data: {
+                    title: 'Outlet Closed',
+                    message: status.statusText,
+                    status: 'danger'
+                }
+            });
+            await AsyncStorage.setItem('showDateTimePicker', 'true');
+            await setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: status.isOpen, operatingHours: item.operating_schedule });
+            router.push(buildMenuRoute());
+            return;
+        }
+
+        await setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: status.isOpen, operatingHours: item.operating_schedule });
+        if (status.isOpen || (!status.isOpen && orderType !== 'dinein')) {
+            router.push(buildMenuRoute());
+        }
+    };
+
+    // Returns true when the customer's active cart on `outletId` has at least
+    // one item. Treats "no cart" / network failure as "no items" so we never
+    // block the user behind a confirm dialog they can't dismiss.
+    const cartHasItemsForOutlet = async (customerId, outletId, token) => {
+        try {
+            const response = await axios.get(`${apiUrl}cart/get`, {
+                params: { customer_id: customerId, outlet_id: outletId },
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const items = response?.data?.data?.items;
+            return Array.isArray(items) && items.length > 0;
+        } catch (err) {
+            return false;
+        }
+    };
+
+    const handleSelectOutlet = async (item) => {
+        try {
+            const token = await AsyncStorage.getItem('authToken');
+            const customerData = await AsyncStorage.getItem('customerData');
+            const customer = customerData ? JSON.parse(customerData) : null;
+            const storedOutlet = await AsyncStorage.getItem('outletDetails');
+            const currentOutletId = storedOutlet ? JSON.parse(storedOutlet)?.outletId : null;
+
+            // Same outlet, or guest user (no cart possible) → switch directly.
+            if (!token || !customer?.id || !currentOutletId || String(currentOutletId) === String(item.id)) {
+                await proceedWithOutletSwitch(item);
+                return;
+            }
+
+            const hasItems = await cartHasItemsForOutlet(customer.id, currentOutletId, token);
+            if (hasItems) {
+                setPendingOutletItem(item);
+                setShowClearCartModal(true);
+                return;
+            }
+
+            await proceedWithOutletSwitch(item);
+        } catch (err) {
+            // Defensive: don't trap the user — fall through to the normal switch.
+            await proceedWithOutletSwitch(item);
+        }
+    };
+
+    const handleConfirmClearCart = async () => {
+        if (isSwitchingOutlet || !pendingOutletItem) return;
+        setIsSwitchingOutlet(true);
+        try {
+            const token = await AsyncStorage.getItem('authToken');
+            const customerData = await AsyncStorage.getItem('customerData');
+            const customer = customerData ? JSON.parse(customerData) : null;
+            const storedOutlet = await AsyncStorage.getItem('outletDetails');
+            const currentOutletId = storedOutlet ? JSON.parse(storedOutlet)?.outletId : null;
+
+            if (token && customer?.id && currentOutletId) {
+                try {
+                    await axios.post(
+                        `${apiUrl}cart/delete`,
+                        { customer_id: customer.id, outlet_id: currentOutletId },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                } catch (err) {
+                    // Cart may already be gone (404 / not found) — swallow and continue.
+                }
+            }
+
+            const itemToSwitch = pendingOutletItem;
+            setShowClearCartModal(false);
+            setPendingOutletItem(null);
+            await proceedWithOutletSwitch(itemToSwitch);
+        } finally {
+            setIsSwitchingOutlet(false);
+        }
+    };
+
+    const handleCancelClearCart = () => {
+        setShowClearCartModal(false);
+        setPendingOutletItem(null);
+        router.push(buildMenuRoute());
+    };
+
     // Usage in OpeningStatus component:
     const OpeningStatus = ({ operatingSchedule }) => {
         const { isOpen, statusText, operatingHours } = getOutletStatus(operatingSchedule);
@@ -298,27 +409,7 @@ export default function OutletSelection() {
     const renderOutlet = ({ item }) => (
         <>
             <TouchableOpacity
-                onPress={async () => {
-                    if (!getOutletStatus(item.operating_schedule).isOpen && orderType === 'dinein') {
-                        toast.show('This outlet currently is closed, But you can still order for later', {
-                            type: 'custom_toast',
-                            data: {
-                                title: 'Outlet Closed',
-                                message: getOutletStatus(item.operating_schedule).statusText,
-                                status: 'danger'
-                            }
-                        });
-                        await AsyncStorage.setItem('showDateTimePicker', 'true');
-                        await setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen, operatingHours: item.operating_schedule });
-                        router.push(buildMenuRoute()); // proceed for  dine-in even is closed 
-                        return;
-                    }
-
-                    await setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen, operatingHours: item.operating_schedule });
-                    if (getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')) {
-                        router.push(buildMenuRoute())
-                    }
-                }}
+                onPress={() => handleSelectOutlet(item)}
                 // onPress={() => {
                 //     setOutletDetials({
                 //         outletId: item.id,
@@ -376,13 +467,7 @@ export default function OutletSelection() {
                         color="#C2000E"
                         textColor="#fff"
                         textStyle={{ fontWeight: 'bold', fontSize: 20, fontFamily: 'Route159-HeavyItalic' }}
-                        onPress={async () => {
-                            // setSelectedOutlet(item.id);
-                            await setOutletDetials({ outletId: item.id, distance: item.distance_km, outletTitle: item.title, isOperate: getOutletStatus(item.operating_schedule).isOpen });
-                            if (getOutletStatus(item.operating_schedule).isOpen || (!getOutletStatus(item.operating_schedule).isOpen && orderType !== 'dinein')) {
-                                router.push(buildMenuRoute())
-                            }
-                        }}
+                        onPress={() => handleSelectOutlet(item)}
                     />
                 </View>
                 {/* : null} */}
@@ -431,6 +516,16 @@ export default function OutletSelection() {
                     keyboardDismissMode="on-drag"
                     showsVerticalScrollIndicator={false}
                     ListEmptyComponent={renderEmptyOutlet}
+                />
+
+                <ConfirmationModal
+                    isVisible={showClearCartModal}
+                    title="Clear Current Cart?"
+                    subtitle="Switching outlets will remove the items in your current cart. Continue?"
+                    confirmationText="Yes"
+                    cancelText="Cancel"
+                    onConfirm={handleConfirmClearCart}
+                    onCancel={handleCancelClearCart}
                 />
 
             </SafeAreaView>
@@ -571,7 +666,7 @@ const styles = StyleSheet.create({
         fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 16 : 14) : 14) : 18,
         fontWeight: 'bold',
         color: '#C2000E',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         // textTransform: 'uppercase',
         marginLeft: 0,
     },
@@ -612,7 +707,7 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
         fontSize: 12,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
     timeText: {
         fontSize: 12,
@@ -639,7 +734,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 18,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         color: '#C2000E',
         marginBottom: 8,
         textAlign: 'center',
@@ -660,7 +755,7 @@ const styles = StyleSheet.create({
     permissionTitle: {
         fontSize: 18,
         color: '#C2000E',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         textAlign: 'center'
     },
     permissionSubtitle: {
@@ -680,7 +775,7 @@ const styles = StyleSheet.create({
     enableLocationText: {
         color: '#FFF',
         fontSize: 15,
-        fontFamily: 'Route159-Bold'
+        fontFamily: 'Route159-Regular'
     }
 
 });

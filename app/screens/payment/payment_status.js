@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     },
     statusText: {
         fontSize: 28,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         marginBottom: 16,
         textAlign: 'center',
     },
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     trackOrderText: {
         color: '#fff',
         fontSize: 18,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         letterSpacing: 0.5,
     },
 });

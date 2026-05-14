@@ -187,9 +187,9 @@ export default function QrOrdersScreen() {
       }
     >
       <View style={styles.statusBar}>
-        {item.status === 'pending' && item.payment_status==='paid' ? <Text style={styles.statusText}>Preparing your order</Text> : null}
-        {item.status !== 'pending' && item.status !== 'completed' && item.payment_status==='paid' ? <Text style={styles.statusText}>Order is processing</Text> : null}
-        {item.status === 'completed' && item.payment_status==='paid' ? <Text style={styles.statusText}>Order has completed</Text> : null}
+        {item.status === 'pending' && item.payment_status === 'paid' ? <Text style={styles.statusText}>Preparing your order</Text> : null}
+        {item.status !== 'pending' && item.status !== 'completed' && item.payment_status === 'paid' ? <Text style={styles.statusText}>Order is processing</Text> : null}
+        {item.status === 'completed' && item.payment_status === 'paid' ? <Text style={styles.statusText}>Order has completed</Text> : null}
 
         <View style={styles.paymentStatusContainer}>
           {item.payment_status === 'paid' ? (
@@ -386,13 +386,13 @@ const styles = StyleSheet.create({
   },
   orderIdLabel: {
     color: '#222',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 14 : 14) : 14) : 16,
     marginBottom: 2,
   },
   orderId: {
     textDecorationLine: 'underline',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   orderDate: {
     color: '#B0B0B0',
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   },
   deliveryLocation: {
     color: '#222',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 14 : 12) : 12) : 14,
   },
   emptyContainer: {
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 16 : 14) : 14) : 25,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#C2000E',
     marginBottom: 8,
     textAlign: 'center',
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   qrFooterName: {
     color: '#C2000E',
     fontSize: 14,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     textAlign: 'center',
     marginBottom: 2,
   },

@@ -34,13 +34,15 @@ export default function ConfirmationModal({
                     <Text style={styles.subtitle}>{subtitle}</Text>
 
                     <View style={styles.buttonRow}>
-                        <TouchableOpacity
-                            style={[styles.button, styles.cancelBtn]}
-                            onPress={onCancel}
-                            activeOpacity={0.8}
-                        >
-                            <Text style={[styles.buttonText, styles.cancelText]}>{cancelText}</Text>
-                        </TouchableOpacity>
+                        {cancelText !== null && (
+                            <TouchableOpacity
+                                style={[styles.button, styles.cancelBtn]}
+                                onPress={onCancel}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={[styles.buttonText, styles.cancelText]}>{cancelText}</Text>
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity
                             style={[styles.button, styles.confirmBtn]}
@@ -83,7 +85,7 @@ const styles = StyleSheet.create({
         color: '#222',
         marginBottom: 8,
         textAlign: 'center',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
     subtitle: {
         fontSize: 16,
@@ -117,10 +119,10 @@ const styles = StyleSheet.create({
     },
     cancelText: {
         color: '#007AFF', // Blue for neutral action
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
     confirmText: {
         color: '#FFF', // White text for contrast
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
 });

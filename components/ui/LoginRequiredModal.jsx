@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
         color: '#C2000E',
         marginBottom: 8,
         textAlign: 'center',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
     subtitle: {
         fontSize: 16,
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     },
     confirmText: {
         color: '#FFF',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
 });
 

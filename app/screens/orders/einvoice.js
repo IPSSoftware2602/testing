@@ -127,7 +127,7 @@ export default function EInvoice() {
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Text
                 style={{
-                  fontFamily: "Route159-Bold",
+                  fontFamily: "Route159-Regular",
                   fontSize: 18,
                   color: "#C2000E",
                   marginRight: 12

@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   pointsLabel: {
     color: '#C2000E',
     fontSize: 16,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     marginTop: 2,
   },
   pointsValue: {
@@ -266,14 +266,14 @@ const styles = StyleSheet.create({
   balanceLabel: {
     color: '#C2000E',
     fontSize: 13,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     marginTop: 2,
   },
   balanceValue: {
     color: '#C2000E',
     fontWeight: 'bold',
     fontSize: 15,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   qrCode: {
     width: 38,
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   },
   benefitTitle: {
     fontSize: 16,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#333333',
     marginBottom: '2%',
     textAlign: 'flex-start',
@@ -333,14 +333,14 @@ const styles = StyleSheet.create({
   },
   benefitTextPerk: {
     fontSize: 15,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#C2000E',
     marginTop: '4%',
     textAlign: 'flex-start',
   },
   benefitTextPerk2: {
     fontSize: 15,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#333333',
     marginTop: '4%',
     textAlign: 'center',
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   },
   benefitListTitle: {
     fontSize: 15,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#C2000E',
     // color: '#333333',
     marginBottom: '2%',
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   recentOrdersText: {
     color: '#C2000E',
     fontSize: 12,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   quickActionsGrid: {
     backgroundColor: '#fff',
@@ -470,14 +470,14 @@ const styles = StyleSheet.create({
     color: '#C2000E',
     fontWeight: 'bold',
     fontSize: 13,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     textAlign: 'center',
   },
   badgeText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 12,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   memberBadge: {
     alignSelf: 'center',

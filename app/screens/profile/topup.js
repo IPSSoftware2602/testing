@@ -277,128 +277,128 @@ export default function TopupWalletScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
 
-        <ScrollView
-          style={{ overflow: 'hidden' }} // prevent accidental horizontal scroll on web
-          contentContainerStyle={{ paddingBottom: 120, minWidth: '100%' }}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Topup Amount</Text>
-            <View style={styles.amountInputRow}>
-              <Text style={styles.amountInputRM}>RM</Text>
-              {selectedId ? (
-                <Text style={styles.amountInputValue}>
-                  {(() => {
-                    const selected = topupPackages.find(pkg => pkg.id === selectedId);
-                    return selected ? parseFloat(selected.topup_amount).toFixed(2) : '0.00';
-                  })()}
-                </Text>
+          <ScrollView
+            style={{ overflow: 'hidden' }} // prevent accidental horizontal scroll on web
+            contentContainerStyle={{ paddingBottom: 120, minWidth: '100%' }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Topup Amount</Text>
+              <View style={styles.amountInputRow}>
+                <Text style={styles.amountInputRM}>RM</Text>
+                {selectedId ? (
+                  <Text style={styles.amountInputValue}>
+                    {(() => {
+                      const selected = topupPackages.find(pkg => pkg.id === selectedId);
+                      return selected ? parseFloat(selected.topup_amount).toFixed(2) : '0.00';
+                    })()}
+                  </Text>
+                ) : (
+                  <TextInput
+                    // ref={manualAmountInputRef}
+                    style={[styles.amountInputValue, { borderWidth: 0, borderColor: 'transparent', backgroundColor: 'transparent', outlineWidth: 0, outlineColor: 'transparent' }]}
+                    placeholder="0.00"
+                    keyboardType="decimal-pad"
+                    value={manualAmount}
+                    onChangeText={handleManualAmountChange}
+                    maxLength={7}
+                  />
+                )}
+              </View>
+              <View style={styles.separator} />
+              <Text style={styles.amountInputNote}>*Whole amount between RM10 and RM200</Text>
+
+              {loading ? (
+                <Text style={{ color: '#888', marginTop: 10 }}>Loading packages...</Text>
               ) : (
-                <TextInput
-                  // ref={manualAmountInputRef}
-                  style={[styles.amountInputValue, { borderWidth: 0, borderColor: 'transparent', backgroundColor: 'transparent', outlineWidth: 0, outlineColor: 'transparent' }]}
-                  placeholder="0.00"
-                  keyboardType="decimal-pad"
-                  value={manualAmount}
-                  onChangeText={handleManualAmountChange}
-                  maxLength={7}
-                />
+                <View style={styles.packageRow}>
+                  {topupPackages.map((pkg) => {
+                    const amt = parseFloat(pkg.topup_amount);
+                    const credit = pkg.credit_amount ? parseFloat(pkg.credit_amount) : 0;
+                    const isSelected = selectedId === pkg.id;
+                    return (
+                      <TouchableOpacity
+                        key={pkg.id}
+                        style={[styles.packageButton, isSelected && styles.packageButtonSelected]}
+                        onPress={() => {
+                          if (isSelected) {
+                            setSelectedId(null);
+                          } else {
+                            setSelectedId(pkg.id);
+                            setManualAmount('');
+                          }
+                        }}
+                      >
+                        <Text style={[styles.packageButtonText, isSelected && styles.packageButtonTextSelected]}>
+                          RM{amt}
+                        </Text>
+                        {credit > 0 && (
+                          <Text style={[
+                            styles.packageCredit,
+                            isSelected && { color: '#fff' }
+                          ]}>
+                            +RM {credit} Bonus
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {/* Deselect package button */}
+                  <TouchableOpacity
+                    style={[styles.packageButton, !selectedId && styles.packageButtonSelected]}
+                    onPress={() => setSelectedId(null)}
+                  >
+                    <Text style={[styles.packageButtonText, !selectedId && styles.packageButtonTextSelected, { fontSize: 14 }]}>Other Amount</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
+
+            <PaymentMethodButton />
+
             <View style={styles.separator} />
-            <Text style={styles.amountInputNote}>*Whole amount between RM10 and RM200</Text>
 
-            {loading ? (
-              <Text style={{ color: '#888', marginTop: 10 }}>Loading packages...</Text>
-            ) : (
-              <View style={styles.packageRow}>
-                {topupPackages.map((pkg) => {
-                  const amt = parseFloat(pkg.topup_amount);
-                  const credit = pkg.credit_amount ? parseFloat(pkg.credit_amount) : 0;
-                  const isSelected = selectedId === pkg.id;
-                  return (
-                    <TouchableOpacity
-                      key={pkg.id}
-                      style={[styles.packageButton, isSelected && styles.packageButtonSelected]}
-                      onPress={() => {
-                        if (isSelected) {
-                          setSelectedId(null);
-                        } else {
-                          setSelectedId(pkg.id);
-                          setManualAmount('');
-                        }
-                      }}
-                    >
-                      <Text style={[styles.packageButtonText, isSelected && styles.packageButtonTextSelected]}>
-                        RM{amt}
-                      </Text>
-                      {credit > 0 && (
-                        <Text style={[
-                          styles.packageCredit,
-                          isSelected && { color: '#fff' }
-                        ]}>
-                          +RM {credit} Bonus
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-                {/* Deselect package button */}
-                <TouchableOpacity
-                  style={[styles.packageButton, !selectedId && styles.packageButtonSelected]}
-                  onPress={() => setSelectedId(null)}
-                >
-                  <Text style={[styles.packageButtonText, !selectedId && styles.packageButtonTextSelected, { fontSize: 14 }]}>Other Amount</Text>
-                </TouchableOpacity>
+            {/* Summary Section */}
+            <View style={styles.totalsSection}>
+              <Text style={styles.TopupSummary}>Summary</Text>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Top-up Amount</Text>
+                <Text style={styles.summaryValue}>
+                  RM {selectedId
+                    ? (() => {
+                      const selected = topupPackages.find(pkg => pkg.id === selectedId);
+                      return selected ? parseFloat(selected.topup_amount).toFixed(2) : '0.00';
+                    })()
+                    : (manualAmount && !isNaN(parseFloat(manualAmount))
+                      ? parseFloat(manualAmount).toFixed(2)
+                      : '0.00')}
+                </Text>
               </View>
-            )}
-          </View>
-
-          <PaymentMethodButton />
-
-          <View style={styles.separator} />
-
-          {/* Summary Section */}
-          <View style={styles.totalsSection}>
-            <Text style={styles.TopupSummary}>Summary</Text>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Top-up Amount</Text>
-              <Text style={styles.summaryValue}>
-                RM {selectedId
-                  ? (() => {
-                    const selected = topupPackages.find(pkg => pkg.id === selectedId);
-                    return selected ? parseFloat(selected.topup_amount).toFixed(2) : '0.00';
-                  })()
-                  : (manualAmount && !isNaN(parseFloat(manualAmount))
-                    ? parseFloat(manualAmount).toFixed(2)
-                    : '0.00')}
-              </Text>
+              {selectedId && (() => {
+                const selected = topupPackages.find(pkg => pkg.id === selectedId);
+                const credit = selected && selected.credit_amount ? parseFloat(selected.credit_amount) : 0;
+                return credit > 0 ? (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Bonus Credit</Text>
+                    <Text style={styles.summaryValue}>RM {credit.toFixed(2)}</Text>
+                  </View>
+                ) : null;
+              })()}
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, styles.totalPaymentLabel]}>Total Payment</Text>
+                <Text style={[styles.summaryValue, styles.totalPaymentValue]}>
+                  RM {selectedId
+                    ? (() => {
+                      const selected = topupPackages.find(pkg => pkg.id === selectedId);
+                      return selected ? parseFloat(selected.topup_amount).toFixed(2) : '0.00';
+                    })()
+                    : (manualAmount && !isNaN(parseFloat(manualAmount))
+                      ? parseFloat(manualAmount).toFixed(2)
+                      : '0.00')}
+                </Text>
+              </View>
             </View>
-            {selectedId && (() => {
-              const selected = topupPackages.find(pkg => pkg.id === selectedId);
-              const credit = selected && selected.credit_amount ? parseFloat(selected.credit_amount) : 0;
-              return credit > 0 ? (
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Bonus Credit</Text>
-                  <Text style={styles.summaryValue}>RM {credit.toFixed(2)}</Text>
-                </View>
-              ) : null;
-            })()}
-            <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, styles.totalPaymentLabel]}>Total Payment</Text>
-              <Text style={[styles.summaryValue, styles.totalPaymentValue]}>
-                RM {selectedId
-                  ? (() => {
-                    const selected = topupPackages.find(pkg => pkg.id === selectedId);
-                    return selected ? parseFloat(selected.topup_amount).toFixed(2) : '0.00';
-                  })()
-                  : (manualAmount && !isNaN(parseFloat(manualAmount))
-                    ? parseFloat(manualAmount).toFixed(2)
-                    : '0.00')}
-              </Text>
-            </View>
-          </View>
-        </ScrollView>
+          </ScrollView>
         </KeyboardAvoidingView>
 
         {/* Bottom Bar */}
@@ -437,13 +437,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   summaryLabel: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 14,
     color: '#C2000E',
     opacity: 0.7,
   },
   summaryValue: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 14,
     color: '#C2000E',
     opacity: 0.7,
@@ -463,12 +463,12 @@ const styles = StyleSheet.create({
     gap: 2, // Optional: adds spacing between items (React Native 0.71+)
   },
   TopupSummary: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 18,
     color: '#C2000E',
   },
   topuptitle: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 18,
     color: '#C2000E',
     marginBottom: 6,
@@ -480,13 +480,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   amountInputRM: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 18,
     color: '#C2000E',
     marginRight: 2,
   },
   amountInputValue: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 32,
     color: '#C2000E',
     borderColor: '#C2000E',
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
     borderColor: '#C2000E',
   },
   packageButtonText: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 18,
     color: '#C2000E',
     textAlign: 'center',
@@ -556,12 +556,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   paymentMethodText: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 16,
     color: '#333',
   },
   grandtotalTitle: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 20,
     color: '#C2000E',
     marginVertical: '2%',
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   sectionTitle: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 18,
     color: '#C2000E',
     marginBottom: 6,

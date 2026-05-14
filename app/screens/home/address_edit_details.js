@@ -138,13 +138,13 @@ export default function DeliveryAddressEditDetails() {
     }
 
     const handleBack = () => {
-    router.replace({
-        pathname: "/screens/home/address_edit",
-        params: {
-        addressId,
-        origin
-        }
-    });
+        router.replace({
+            pathname: "/screens/home/address_edit",
+            params: {
+                addressId,
+                origin
+            }
+        });
     };
 
     return (
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
         marginTop: "6%",
         marginLeft: '8%',
         marginBottom: '2%',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
     residenceName: {
         fontSize: 15,

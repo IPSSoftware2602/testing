@@ -415,19 +415,19 @@ export default function HomeScreen() {
                   <View style={styles.memberRow}>
                     <View>
                       <Text style={styles.points}>POINT:
-                        {/* <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>888 Sedap Points</Text> */}
+                        {/* <Text style={{ color: '#C2000E', fontFamily: 'Route159-Regular' }}>888 Sedap Points</Text> */}
                         {customerData && customerData.customer_point ? (
-                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}> {parseInt(customerData.customer_point)} Sedap Points</Text>
+                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Regular' }}> {parseInt(customerData.customer_point)} Sedap Points</Text>
                         ) : (
-                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>  888 Sedap Points</Text>
+                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Regular' }}>  888 Sedap Points</Text>
                         )}
                       </Text>
                       <Text style={styles.balance}>BALANCE:
-                        {/* <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>RM 666.00</Text> */}
+                        {/* <Text style={{ color: '#C2000E', fontFamily: 'Route159-Regular' }}>RM 666.00</Text> */}
                         {customerData && customerData.customer_wallet ? (
-                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>  RM {customerData.customer_wallet}</Text>
+                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Regular' }}>  RM {customerData.customer_wallet}</Text>
                         ) : (
-                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Bold' }}>  RM 666.00</Text>
+                          <Text style={{ color: '#C2000E', fontFamily: 'Route159-Regular' }}>  RM 666.00</Text>
                         )}
                       </Text>
                     </View>
@@ -665,7 +665,7 @@ export default function HomeScreen() {
             onCancel={() => setShowLoginModal(false)}
           />
 
-          {/* <ForceUpdateModal isVisible={showForceUpdateModal} /> */}
+          <ForceUpdateModal isVisible={showForceUpdateModal} />
         </View>
 
         {/* </View> */}

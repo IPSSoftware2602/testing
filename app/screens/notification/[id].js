@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: 'bold',
     color: '#333',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   centered: {
     flex: 1,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#222',
     marginBottom: 6,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   date: {
     fontSize: 12,
@@ -194,6 +194,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
 });

@@ -100,12 +100,12 @@ export default function VoucherDetails() {
     const token = await AsyncStorage.getItem('authToken');
     const customerData = await AsyncStorage.getItem('customerData');
     const customer = customerData ? JSON.parse(customerData) : null;
-    
+
     if (!token || !customer || !customer.id) {
       setShowLoginModal(true);
       return;
     }
-    
+
     if (!voucher?.id) {
       toast.show('Missing voucher info', {
         type: 'custom_toast',
@@ -113,45 +113,45 @@ export default function VoucherDetails() {
       });
       return;
     }
-    
-  try {
-    const res = await axios.post(
-      `${apiUrl}voucher/claim`,
-      {
-        customer_id: customer.id,
-        voucher_id: voucher.id,
-      },
-      {
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    );
 
-    if (res.data.message === 'Voucher already redeemed for this customer') {
-      toast.show('You have already redeemed this voucher. Please check your voucher wallet.', {
-        type: 'custom_toast',
-        data: { title: 'Info', status: 'success' }
-      });
-    } else if (res.data.status === 200) {
-      toast.show('Voucher redeemed successfully!', {
-        type: 'custom_toast',
-        data: { title: 'Success', status: 'success' }
-      });
-      setTimeout(() => {
-        router.push('/market');
-      }, 1000);
-    } else {
-      toast.show(res.data.message || 'Failed to redeem voucher', {
+    try {
+      const res = await axios.post(
+        `${apiUrl}voucher/claim`,
+        {
+          customer_id: customer.id,
+          voucher_id: voucher.id,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (res.data.message === 'Voucher already redeemed for this customer') {
+        toast.show('You have already redeemed this voucher. Please check your voucher wallet.', {
+          type: 'custom_toast',
+          data: { title: 'Info', status: 'success' }
+        });
+      } else if (res.data.status === 200) {
+        toast.show('Voucher redeemed successfully!', {
+          type: 'custom_toast',
+          data: { title: 'Success', status: 'success' }
+        });
+        setTimeout(() => {
+          router.push('/market');
+        }, 1000);
+      } else {
+        toast.show(res.data.message || 'Failed to redeem voucher', {
+          type: 'custom_toast',
+          data: { title: 'Error', status: 'danger' }
+        });
+      }
+    } catch (err) {
+      toast.show(err.response?.data?.message || 'An error occurred', {
         type: 'custom_toast',
         data: { title: 'Error', status: 'danger' }
       });
     }
-  } catch (err) {
-    toast.show(err.response?.data?.message || 'An error occurred', {
-      type: 'custom_toast',
-      data: { title: 'Error', status: 'danger' }
-    });
-  }
-};
+  };
 
   if (loading) {
     return (
@@ -215,7 +215,7 @@ export default function VoucherDetails() {
           </View>
 
           <View style={{ marginHorizontal: 16, marginTop: 18 }}>
-            <Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E', marginBottom: 6 }}>
+            <Text style={{ fontFamily: 'Route159-Regular', fontSize: 18, color: '#C2000E', marginBottom: 6 }}>
               Voucher Name
             </Text>
             <Text style={{ fontSize: 15, color: '#333' }}>
@@ -224,7 +224,7 @@ export default function VoucherDetails() {
           </View>
 
           <View style={{ marginHorizontal: 16, marginTop: 18 }}>
-            <Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E', marginBottom: 6 }}>
+            <Text style={{ fontFamily: 'Route159-Regular', fontSize: 18, color: '#C2000E', marginBottom: 6 }}>
               Expiry
             </Text>
             <Text style={{ fontSize: 15, color: '#333' }}>
@@ -233,7 +233,7 @@ export default function VoucherDetails() {
           </View>
 
           <View style={{ marginHorizontal: 16, marginTop: 18 }}>
-            <Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E', marginBottom: 6 }}>
+            <Text style={{ fontFamily: 'Route159-Regular', fontSize: 18, color: '#C2000E', marginBottom: 6 }}>
               Voucher Details
             </Text>
             <Text style={{ fontSize: 15, color: '#333' }}>
@@ -242,7 +242,7 @@ export default function VoucherDetails() {
           </View>
 
           <View style={{ marginHorizontal: 16, marginTop: 18 }}>
-            <Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E', marginBottom: 6, textAlign: 'left', }}>
+            <Text style={{ fontFamily: 'Route159-Regular', fontSize: 18, color: '#C2000E', marginBottom: 6, textAlign: 'left', }}>
               Terms & Conditions
             </Text>
             <View style={{ marginTop: 4 }}>
@@ -252,7 +252,7 @@ export default function VoucherDetails() {
         </ScrollView>
         <View style={styles.bottomContainer}>
           <View style={styles.bottomBar}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}
               onPress={handleRedeem}
             >

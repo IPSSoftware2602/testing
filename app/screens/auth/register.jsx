@@ -211,6 +211,8 @@ export default function Register() {
               onDateChange={setBirthday}
               placeholder="Select Birthday"
               style={commonStyles.input}
+              minYear={1926}
+              maxYear={new Date().getFullYear()}
             />
 
             <PolygonButton
@@ -284,7 +286,7 @@ const styles = {
     fontWeight: "bold",
   },
   inputLabel: {
-    fontFamily: "Route159-Bold",
+    fontFamily: "Route159-Regular",
     fontSize:
       width <= 440 ? (width <= 375 ? (width <= 360 ? 12 : 12) : 14) : 14,
     color: "#C2000E",

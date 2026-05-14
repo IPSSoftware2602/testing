@@ -12,7 +12,7 @@ dayjs.tz.setDefault('Asia/Kuala_Lumpur');
 // "Today 14:00") to the canonical ASAP shape. Fire-and-forget on boot.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { migrateLegacyEstimatedTime } from '../utils/estimatedTimeRequest';
-migrateLegacyEstimatedTime(AsyncStorage).catch(() => {});
+migrateLegacyEstimatedTime(AsyncStorage).catch(() => { });
 
 import { useFonts } from 'expo-font';
 import { Stack, router } from 'expo-router';
@@ -184,7 +184,7 @@ export default function RootLayout() {
 
     // Route159 fonts
     'Route159-Regular': require('../assets/fonts/Route159-Regular.otf'),
-    'Route159-Bold': require('../assets/fonts/Route159-Bold.otf'),
+    // 'Route159-Regular': require('../assets/fonts/Route159-Regular.otf'),
     'Route159-BoldItalic': require('../assets/fonts/Route159-BoldItalic.otf'),
     'Route159-Heavy': require('../assets/fonts/Route159-Heavy.otf'),
     'Route159-HeavyItalic': require('../assets/fonts/Route159-HeavyItalic.otf'),
@@ -331,7 +331,7 @@ export default function RootLayout() {
                     fontSize: 14,
                     color: "#333",
                     fontWeight: "bold",
-                    fontFamily: 'Route159-Bold',
+                    fontFamily: 'Route159-Regular',
                   }}
                 >
                   {toast.data?.title}

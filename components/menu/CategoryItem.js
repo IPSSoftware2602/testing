@@ -3,9 +3,9 @@ import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions } from 'rea
 
 const { width } = Dimensions.get('window');
 
-const CategoryItem = memo(({ 
-  item, 
-  isActive, 
+const CategoryItem = memo(({
+  item,
+  isActive,
   onPress,
   disabled = false,
   style,
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     color: '#C2000E',
     fontWeight: 'bold',
     fontSize: 13,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     textAlign: 'center',
     paddingHorizontal: 4,
     flexWrap: 'wrap',

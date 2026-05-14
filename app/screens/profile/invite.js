@@ -46,54 +46,54 @@ export default function Invite() {
     const sendReferral = async () => {
         // console.log(customerData);
         if (!customerData) return;
-      
+
         const message = `Join US Pizza and get rewards! Register with my referral link: https://order.uspizza.my/screens/splash?referral_id=${customerData.customer_referral_code}`;
         const encodedMessage = encodeURIComponent(message);
         const waDeepLink = `whatsapp://send?text=${encodedMessage}`;
         const waBusinessDeepLink = `whatsapp-business://send?text=${encodedMessage}`;
         const url = `https://wa.me/?text=${encodedMessage}`;
-      
+
         if (Platform.OS === "web") {
-          // ✅ Web → WhatsApp Web chooser
-          window.open(url, "_blank");
-          return;
+            // ✅ Web → WhatsApp Web chooser
+            window.open(url, "_blank");
+            return;
         }
-      
+
         try {
-          if (Platform.OS === "ios") {
-            // ✅ iOS → Use native Share sheet (will show WhatsApp as an option)
-            await Share.share({
-              message,
-            });
-          } else {
-            // ✅ Android → Prefer deep link so WhatsApp Business opens compose window
-            const canOpenWaBusiness = await Linking.canOpenURL(waBusinessDeepLink);
-            if (canOpenWaBusiness) {
-              await Linking.openURL(waBusinessDeepLink);
-              return;
-            }
+            if (Platform.OS === "ios") {
+                // ✅ iOS → Use native Share sheet (will show WhatsApp as an option)
+                await Share.share({
+                    message,
+                });
+            } else {
+                // ✅ Android → Prefer deep link so WhatsApp Business opens compose window
+                const canOpenWaBusiness = await Linking.canOpenURL(waBusinessDeepLink);
+                if (canOpenWaBusiness) {
+                    await Linking.openURL(waBusinessDeepLink);
+                    return;
+                }
 
-            const canOpenWa = await Linking.canOpenURL(waDeepLink);
-            if (canOpenWa) {
-              await Linking.openURL(waDeepLink);
-              return;
-            }
+                const canOpenWa = await Linking.canOpenURL(waDeepLink);
+                if (canOpenWa) {
+                    await Linking.openURL(waDeepLink);
+                    return;
+                }
 
-            const supported = await Linking.canOpenURL(url);
-            if (supported) {
-              await Linking.openURL(url);
-              return;
-            }
+                const supported = await Linking.canOpenURL(url);
+                if (supported) {
+                    await Linking.openURL(url);
+                    return;
+                }
 
-            // Fallback to SMS if WhatsApp missing
-            // await Linking.openURL(`sms:?body=${encodedMessage}`);
-          }
+                // Fallback to SMS if WhatsApp missing
+                // await Linking.openURL(`sms:?body=${encodedMessage}`);
+            }
         } catch (error) {
-          console.log("Error sharing referral:", error);
-          // Last fallback for both iOS & Android
-          await Share.share({
-            message,
-          });
+            console.log("Error sharing referral:", error);
+            // Last fallback for both iOS & Android
+            await Share.share({
+                message,
+            });
         }
     };
 
@@ -149,7 +149,7 @@ export default function Invite() {
                                 <Text style={styles.inviteSectionDescription}>This coupon is valid for 7 natural days from the day of receipt</Text>
                             </View>
                         </View>
-                        
+
 
                         <PolygonButton
                             text="INVITE NOW"
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 18,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         color: '#C2000E',
         marginBottom: 8,
         textAlign: 'center',

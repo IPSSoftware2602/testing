@@ -96,12 +96,12 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 24,
     color: '#231815',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   errorTitle: {
     fontSize: 24,
     color: '#9F0712',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   subtitle: {
     marginTop: 12,
@@ -121,6 +121,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
 });

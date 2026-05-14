@@ -148,53 +148,53 @@ export default function Addresses() {
 
                     {/* Edit & Delete buttons */}
                     <View style={styles.buttonRow}>
-                    {/* ✏️ Edit Button */}
-                    {Platform.OS === 'web' ? (
-                        <div data-testid="edit-address-button" style={{ display: 'flex' }}>
-                        <TouchableOpacity
-                            style={styles.iconButton}
-                            onPress={() =>
-                            router.push({
-                                pathname: '/screens/home/address_edit',
-                                params: { addressId: item.id, origin: 'profile' },
-                            })
-                            }
-                        >
-                            <FontAwesome6 name="pen-to-square" size={18} color="#666" />
-                        </TouchableOpacity>
-                        </div>
-                    ) : (
-                        <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() =>
-                            router.push({
-                            pathname: '/screens/home/address_edit',
-                            params: { addressId: item.id, origin: 'profile' },
-                            })
-                        }
-                        >
-                        <FontAwesome6 name="pen-to-square" size={18} color="#666" />
-                        </TouchableOpacity>
-                    )}
+                        {/* ✏️ Edit Button */}
+                        {Platform.OS === 'web' ? (
+                            <div data-testid="edit-address-button" style={{ display: 'flex' }}>
+                                <TouchableOpacity
+                                    style={styles.iconButton}
+                                    onPress={() =>
+                                        router.push({
+                                            pathname: '/screens/home/address_edit',
+                                            params: { addressId: item.id, origin: 'profile' },
+                                        })
+                                    }
+                                >
+                                    <FontAwesome6 name="pen-to-square" size={18} color="#666" />
+                                </TouchableOpacity>
+                            </div>
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.iconButton}
+                                onPress={() =>
+                                    router.push({
+                                        pathname: '/screens/home/address_edit',
+                                        params: { addressId: item.id, origin: 'profile' },
+                                    })
+                                }
+                            >
+                                <FontAwesome6 name="pen-to-square" size={18} color="#666" />
+                            </TouchableOpacity>
+                        )}
 
-                    {/* 🗑️ Delete Button */}
-                    {Platform.OS === 'web' ? (
-                        <div data-testid="delete-address-button" style={{ display: 'flex' }}>
-                        <TouchableOpacity
-                            style={styles.iconButton}
-                            onPress={() => handleDelete(item.id)}
-                        >
-                            <FontAwesome6 name="trash-can" size={18} color="#666" />
-                        </TouchableOpacity>
-                        </div>
-                    ) : (
-                        <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => handleDelete(item.id)}
-                        >
-                        <FontAwesome6 name="trash-can" size={18} color="#666" />
-                        </TouchableOpacity>
-                    )}
+                        {/* 🗑️ Delete Button */}
+                        {Platform.OS === 'web' ? (
+                            <div data-testid="delete-address-button" style={{ display: 'flex' }}>
+                                <TouchableOpacity
+                                    style={styles.iconButton}
+                                    onPress={() => handleDelete(item.id)}
+                                >
+                                    <FontAwesome6 name="trash-can" size={18} color="#666" />
+                                </TouchableOpacity>
+                            </div>
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.iconButton}
+                                onPress={() => handleDelete(item.id)}
+                            >
+                                <FontAwesome6 name="trash-can" size={18} color="#666" />
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
             </View>
@@ -203,11 +203,11 @@ export default function Addresses() {
     )
 
     const renderEmptyAddresses = () => (
-            <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No saved addresses found.</Text>
-                <Text style={styles.emptySubText}>Please add a delivery address to continue.</Text>
-            </View>
-        );
+        <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No saved addresses found.</Text>
+            <Text style={styles.emptySubText}>Please add a delivery address to continue.</Text>
+        </View>
+    );
 
     return (
         <ResponsiveBackground>
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
         marginTop: "6%",
         marginLeft: '8%',
         marginBottom: '2%',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
     name: {
         fontSize: 15,
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
         color: '#C2000E',
         fontWeight: 'bold',
         marginBottom: 4,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         borderWidth: 1,
         borderColor: '#C2000E',
         borderRadius: 3,
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 18,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         color: '#C2000E',
         marginBottom: 8,
         textAlign: 'center',

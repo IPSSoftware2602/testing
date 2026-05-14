@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   },
   paymentText: {
     flex: 1,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 16,
     color: '#1a1a1a',
     letterSpacing: 0.3,
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   categoryTitle: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 15,
     color: '#C2000E',
     marginRight: 16,

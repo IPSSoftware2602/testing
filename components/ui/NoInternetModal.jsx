@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
 });
 

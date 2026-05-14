@@ -1494,7 +1494,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#C2000E',
   },
   description: {
@@ -1545,7 +1545,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 12,
     color: '#C2000E',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     paddingTop: 16,
     paddingLeft: 0,
   },
@@ -1554,7 +1554,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 12,
     color: '#C2000E',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     paddingTop: 16,
     paddingLeft: 8,
   },
@@ -1697,7 +1697,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 16,
     color: '#C2000E',
   },

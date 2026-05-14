@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 18,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         color: '#C2000E',
         marginBottom: 8,
         textAlign: 'center',

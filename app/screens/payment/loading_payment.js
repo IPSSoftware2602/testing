@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     },
     loadingTitle: {
         fontSize: 24,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         color: '#1a1a1a',
         marginBottom: 12,
         textAlign: 'center',

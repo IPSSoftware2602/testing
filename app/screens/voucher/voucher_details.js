@@ -176,14 +176,14 @@ const styles = StyleSheet.create({
   contentContainer: { padding: 20 },
   name: {
     fontSize: 24,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#C2000E',
     marginBottom: 8,
     textAlign: 'center',
   },
   voucherCode: {
     fontSize: 14,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#555',
     textAlign: 'center',
     marginBottom: 20,

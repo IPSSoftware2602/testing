@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
         marginTop: "6%",
         marginLeft: '8%',
         marginBottom: '2%',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
     name: {
         fontSize: 15,
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
         color: '#C2000E',
         fontWeight: 'bold',
         marginBottom: 4,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         borderWidth: 1,
         borderColor: '#C2000E',
         borderRadius: 3,
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 18,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         color: '#C2000E',
         marginBottom: 8,
         textAlign: 'center',

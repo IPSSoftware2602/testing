@@ -56,144 +56,144 @@ export default function GeneralReceipt() {
 
   // 🔹 Handle Download PDF - Works on both web and mobile
   const handleDownload = async () => {
-  if (!order) return;
+    if (!order) return;
 
-  toast.show('Preparing your receipt...', {
-    type: 'custom_toast',
-    data: { title: '', status: 'success' },
-  });
+    toast.show('Preparing your receipt...', {
+      type: 'custom_toast',
+      data: { title: '', status: 'success' },
+    });
 
-  try {
-    setDownloading(true);
+    try {
+      setDownloading(true);
 
-    const token = await AsyncStorage.getItem('authToken');
-    const customerData = await AsyncStorage.getItem('customerData');
-    const customer_id = customerData ? JSON.parse(customerData).id : null;
-    const downloadUrl = `${apiUrl}order/pdf/${orderId}/${customer_id}`;
+      const token = await AsyncStorage.getItem('authToken');
+      const customerData = await AsyncStorage.getItem('customerData');
+      const customer_id = customerData ? JSON.parse(customerData).id : null;
+      const downloadUrl = `${apiUrl}order/pdf/${orderId}/${customer_id}`;
 
-    console.log('Starting PDF download from:', downloadUrl);
+      console.log('Starting PDF download from:', downloadUrl);
 
-    if (Platform.OS === 'web') {
-      const isIOSWeb =
-        /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      if (Platform.OS === 'web') {
+        const isIOSWeb =
+          /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
-      if (isIOSWeb) {
+        if (isIOSWeb) {
+          const response = await fetch(downloadUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!response.ok) throw new Error('Download failed');
+
+          const blob = await response.blob();
+          const file = new File([blob], `USPizza_Receipt_${order.order_so}.pdf`, {
+            type: 'application/pdf',
+          });
+
+          if (navigator.share) {
+            await navigator.share({
+              title: 'US PIZZA Receipt',
+              text: 'Here’s your receipt PDF',
+              files: [file],
+            });
+            toast.show('Receipt Downloaded successfully!', {
+              type: 'custom_toast',
+              data: { title: '', status: 'success' },
+            });
+          } else {
+            // 🪄 Fallback: open PDF inline
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const dataUrl = reader.result;
+              const newTab = window.open();
+              newTab.document.write(
+                `<iframe src="${dataUrl}" style="width:100%;height:100%;border:none;"></iframe>`
+              );
+            };
+            reader.readAsDataURL(blob);
+            toast.show('Receipt Downloaded successfully!', {
+              type: 'custom_toast',
+              data: { title: '', status: 'success' },
+            });
+          }
+          return;
+        }
+
+        // ✅ Normal browsers (Chrome, Edge, Desktop Safari, etc.)
         const response = await fetch(downloadUrl, {
           headers: { Authorization: `Bearer ${token}` },
         });
-
         if (!response.ok) throw new Error('Download failed');
 
         const blob = await response.blob();
-        const file = new File([blob], `USPizza_Receipt_${order.order_so}.pdf`, {
-          type: 'application/pdf',
-        });
+        const blobUrl = window.URL.createObjectURL(blob);
 
-        if (navigator.share) {
-          await navigator.share({
-            title: 'US PIZZA Receipt',
-            text: 'Here’s your receipt PDF',
-            files: [file],
-          });
-          toast.show('Receipt Downloaded successfully!', {
-            type: 'custom_toast',
-            data: { title: '', status: 'success' },
-          });
-        } else {
-          // 🪄 Fallback: open PDF inline
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const dataUrl = reader.result;
-            const newTab = window.open();
-            newTab.document.write(
-              `<iframe src="${dataUrl}" style="width:100%;height:100%;border:none;"></iframe>`
-            );
-          };
-          reader.readAsDataURL(blob);
-          toast.show('Receipt Downloaded successfully!', {
-            type: 'custom_toast',
-            data: { title: '', status: 'success' },
-          });
-        }
-        return;
-      }
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `USPizza_Receipt_${order.order_so}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
 
-      // ✅ Normal browsers (Chrome, Edge, Desktop Safari, etc.)
-      const response = await fetch(downloadUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('Download failed');
-
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = `USPizza_Receipt_${order.order_so}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-
-      toast.show('PDF download started.', {
-        type: 'custom_toast',
-        data: { title: '', status: 'success' },
-      });
-    } else {
-      // ✅ Native Mobile (Expo)
-      const response = await fetch(downloadUrl, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const blob = await response.blob();
-      if (blob.size === 0) throw new Error('Received empty PDF blob');
-
-      // Convert blob → base64
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-
-      // Save file locally
-      const orderNumber = order.order_so || 'receipt';
-      const fileName = `USPizza_Receipt_${orderNumber}.pdf`;
-      const filePath = `${FileSystem.documentDirectory}${fileName}`;
-
-      await FileSystem.writeAsStringAsync(
-        filePath,
-        base64.split(',')[1],
-        { encoding: FileSystem.EncodingType.Base64 }
-      );
-
-      const fileInfo = await FileSystem.getInfoAsync(filePath);
-      if (!fileInfo.exists) throw new Error('File was not saved successfully');
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(filePath, {
-          mimeType: 'application/pdf',
-          dialogTitle: 'Save Receipt PDF',
+        toast.show('PDF download started.', {
+          type: 'custom_toast',
+          data: { title: '', status: 'success' },
         });
       } else {
-        Alert.alert('Receipt Downloaded!', `Saved as: ${fileName}`, [
-          { text: 'OK' },
-        ]);
+        // ✅ Native Mobile (Expo)
+        const response = await fetch(downloadUrl, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        if (blob.size === 0) throw new Error('Received empty PDF blob');
+
+        // Convert blob → base64
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
+        // Save file locally
+        const orderNumber = order.order_so || 'receipt';
+        const fileName = `USPizza_Receipt_${orderNumber}.pdf`;
+        const filePath = `${FileSystem.documentDirectory}${fileName}`;
+
+        await FileSystem.writeAsStringAsync(
+          filePath,
+          base64.split(',')[1],
+          { encoding: FileSystem.EncodingType.Base64 }
+        );
+
+        const fileInfo = await FileSystem.getInfoAsync(filePath);
+        if (!fileInfo.exists) throw new Error('File was not saved successfully');
+
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(filePath, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Save Receipt PDF',
+          });
+        } else {
+          Alert.alert('Receipt Downloaded!', `Saved as: ${fileName}`, [
+            { text: 'OK' },
+          ]);
+        }
       }
+    } catch (err) {
+      console.error('PDF download failed:', err);
+      Alert.alert('Error', `Failed to download PDF: ${err.message}`);
+    } finally {
+      setDownloading(false);
     }
-  } catch (err) {
-    console.error('PDF download failed:', err);
-    Alert.alert('Error', `Failed to download PDF: ${err.message}`);
-  } finally {
-    setDownloading(false);
-  }
-};
+  };
 
 
 
@@ -217,7 +217,7 @@ export default function GeneralReceipt() {
       <ResponsiveBackground>
         <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
           <TopNavigation
-            title={<Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E' }}>General Receipt</Text>}
+            title={<Text style={{ fontFamily: 'Route159-Regular', fontSize: 18, color: '#C2000E' }}>General Receipt</Text>}
             isBackButton={true}
             navigatePage={() => router.back()}
           />
@@ -235,7 +235,7 @@ export default function GeneralReceipt() {
       <ResponsiveBackground>
         <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
           <TopNavigation
-            title={<Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E' }}>Receipt</Text>}
+            title={<Text style={{ fontFamily: 'Route159-Regular', fontSize: 18, color: '#C2000E' }}>Receipt</Text>}
             isBackButton={true}
             navigatePage={() => router.back()}
           />
@@ -251,7 +251,7 @@ export default function GeneralReceipt() {
     <ResponsiveBackground>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
         <TopNavigation
-          title={<Text style={{ fontFamily: 'Route159-Bold', fontSize: 18, color: '#C2000E' }}>Receipt</Text>}
+          title={<Text style={{ fontFamily: 'Route159-Regular', fontSize: 18, color: '#C2000E' }}>Receipt</Text>}
           isBackButton={true}
           navigatePage={() => router.back()}
         />

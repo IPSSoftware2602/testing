@@ -396,6 +396,8 @@ export default function CheckoutScreen({ navigation }) {
   const [dateTimeModalMessage, setDateTimeModalMessage] = useState('');
   const [deleteItem, setDeleteItem] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(null);
+  const [showMinOrderModal, setShowMinOrderModal] = useState(false);
+  const [minOrderMessage, setMinOrderMessage] = useState('');
   const [showFreeItemsModal, setShowFreeItemsModal] = useState(false);
   const [freeItems, setFreeItems] = useState([]);
   const [applyingVoucher, setApplyingVoucher] = useState(false);
@@ -1240,8 +1242,11 @@ export default function CheckoutScreen({ navigation }) {
           unique_qr_code: isQrOrder ? (uniqueQrData?.unique_code || deliveryAddress?.unique_code || null) : null,
           recipient_name: isQrOrder ? qrRecipientName : null,
           recipient_phone: isQrOrder ? qrRecipientPhone : null,
-          order_type: orderType,
-          // order_type: 'delivery',
+          // CR-017: QR orders are always delivery. Belt + suspenders alongside
+          // the backend force in OrderController::createOrder — fixes the leak
+          // where stale AsyncStorage `orderType=pickup` from a prior session
+          // bled into the QR checkout payload.
+          order_type: isQrOrder ? 'delivery' : orderType,
           payment_method: paymentMethod,
           expected_ready_time: '',
           placed_at: '',
@@ -1315,12 +1320,21 @@ export default function CheckoutScreen({ navigation }) {
             checkoutClearStorage();
           }
           else if (err?.response?.data?.status === 400) {
-            const message = err?.response?.data?.messages?.error ?? "";
+            const message = err?.response?.data?.messages?.error ?? err?.response?.data?.message ?? "";
+            const isMinOrderError = err?.response?.data?.minimum_order != null;
             if (message === "Insufficient Wallet Balance") {
               toast.show("Please top up your wallet balance or change a payment method.", {
                 type: 'custom_toast',
                 data: { title: 'Insufficient Wallet Balance', status: 'warning' }
               });
+            } else if (isMinOrderError) {
+              const minOrder = parseFloat(err?.response?.data?.minimum_order ?? 0);
+              const subtotal = parseFloat(err?.response?.data?.subtotal_amount ?? 0);
+              const shortBy = Math.max(0, minOrder - subtotal);
+              setMinOrderMessage(
+                `You only need RM${shortBy.toFixed(2)} more to reach the RM${minOrder.toFixed(2)} minimum order for this outlet.`
+              );
+              setShowMinOrderModal(true);
             } else {
               toast.show(message, {
                 type: 'custom_toast',
@@ -1623,7 +1637,7 @@ export default function CheckoutScreen({ navigation }) {
           maxHeight: '70%',
         }}>
           <Text style={{
-            fontFamily: 'Route159-Bold',
+            fontFamily: 'Route159-Regular',
             fontSize: 20,
             color: '#C2000E',
             marginBottom: 16,
@@ -1656,7 +1670,7 @@ export default function CheckoutScreen({ navigation }) {
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={{
-                    fontFamily: 'Route159-Bold',
+                    fontFamily: 'Route159-Regular',
                     fontSize: 16,
                     color: '#C2000E',
                   }}>{item.title}</Text>
@@ -1682,7 +1696,7 @@ export default function CheckoutScreen({ navigation }) {
           >
             <Text style={{
               color: '#fff',
-              fontFamily: 'Route159-Bold',
+              fontFamily: 'Route159-Regular',
               fontSize: 16
             }}>Close</Text>
           </TouchableOpacity>
@@ -1921,7 +1935,7 @@ export default function CheckoutScreen({ navigation }) {
               }}>
                 <Text style={{
                   color: '#C2000E',
-                  fontFamily: 'Route159-Bold',
+                  fontFamily: 'Route159-Regular',
                   fontSize: 14,
                 }}>
                   🎟 Applied Voucher: {voucherCode}
@@ -2115,6 +2129,30 @@ export default function CheckoutScreen({ navigation }) {
           isVisible={showVoucherConfirmModal}
         />
 
+        <ConfirmationModal
+          title={"Almost there!"}
+          subtitle={minOrderMessage}
+          confirmationText={"OK"}
+          cancelText={null}
+          onConfirm={() => {
+            setShowMinOrderModal(false);
+            setMinOrderMessage('');
+            if (selectedOutlet?.outletId && isQrOrder) {
+              router.push({
+                pathname: 'screens/menu',
+                params: {
+                  outletId: selectedOutlet.outletId,
+                  orderType: orderType || 'delivery',
+                  fromQR: '1',
+                }
+              });
+            } else {
+              router.push({ pathname: '(tabs)/menu' });
+            }
+          }}
+          isVisible={showMinOrderModal}
+        />
+
         {showPaymentScreen && (
           <Modal
             visible={showPaymentScreen}
@@ -2192,7 +2230,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     marginRight: 8,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 16,
     color: '#333',
   },
@@ -2218,13 +2256,13 @@ const styles = StyleSheet.create({
   },
 
   paymentMethodText: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     // fontSize: 16,
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 16 : 15) : 18) : 16,
     color: '#333',
   },
   grandtotalTitle: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     // fontSize: 20,
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 16 : 15) : 18) : 20,
     color: '#C2000E',
@@ -2258,7 +2296,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   applyButtonText: {
     color: 'white',
@@ -2288,7 +2326,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   addressCardTitle: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 16,
     color: '#C2000E',
     marginLeft: 8,
@@ -2305,7 +2343,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   changeAddressText: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 14,
     color: '#C2000E',
     // marginRight: '1%'
@@ -2376,7 +2414,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#C2000E',
   },
   deliveryTabs: {
@@ -2441,14 +2479,14 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   sectionTitle: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 18,
     color: '#C2000E',
     marginBottom: 6,
     paddingLeft: 4,
   },
   sectionVouchers: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 18,
     color: '#C2000E',
     marginBottom: 0,
@@ -2497,7 +2535,7 @@ const styles = StyleSheet.create({
   //   paddingVertical: 3,
   // },
   // orderItemName: {
-  //   fontFamily: 'Route159-Bold',
+  //   fontFamily: 'Route159-Regular',
   //   fontSize: 16,
   //   color: '#C2000E',
   //   minHeight: 18,
@@ -2515,12 +2553,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   orderItemPrice: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 16,
     color: '#C2000E',
   },
   orderItemEdit: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 12,
     color: '#C2000E',
     textDecorationLine: 'underline',
@@ -2543,7 +2581,7 @@ const styles = StyleSheet.create({
   addMoreText: {
     marginLeft: 8,
     color: '#C2000E',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   popularItemCard: {
     width: 120,
@@ -2556,7 +2594,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   popularItemName: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 13,
     textAlign: 'center',
     marginTop: 4,
@@ -2575,7 +2613,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   popularItemPrice: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 14,
     color: '#C2000E',
   },
@@ -2605,7 +2643,7 @@ const styles = StyleSheet.create({
     color: '#555',
   },
   totalValue: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 14,
     color: '#555',
   },
@@ -2655,7 +2693,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   orderItemName: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 16,
     color: '#C2000E',
     flex: 1, // Allow text to take available space
@@ -2685,7 +2723,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 16,
     color: '#C2000E',
   },
@@ -2693,7 +2731,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   inputLabel: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 14,
     color: '#333',
     marginBottom: 6,

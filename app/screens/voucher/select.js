@@ -232,7 +232,7 @@ export default function VoucherSelectScreen() {
                 <TopNavigation
                     title={
                         <View style={{ flexDirection: "row", alignItems: "center" }}>
-                            <Text style={{ fontFamily: "Route159-Bold", fontSize: 18, color: "#C2000E" }}>
+                            <Text style={{ fontFamily: "Route159-Regular", fontSize: 18, color: "#C2000E" }}>
                                 Voucher Wallet
                             </Text>
 
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
     },
     sectionTitle: {
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         fontSize: 18,
         color: '#C2000E',
         marginBottom: 4,
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 18,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         color: '#C2000E',
         marginBottom: 8,
         textAlign: 'center',
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     voucherCode: {
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         fontSize: width <= 360 ? 14 : 16,
         color: '#C2000E',
         lineHeight: width <= 360 ? 14 : 16,
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
     discountText: {
         fontSize: 28,
         color: '#fff',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         textShadowColor: 'rgba(0,0,0,0.5)',
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 3,
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
 
     infoValue: {
         fontSize: 14,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         textAlign: 'center',
         maxWidth: '100%',
     },
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     addVoucherText: {
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         color: '#fff',
         fontSize: 16,
     },
@@ -703,7 +703,7 @@ const styles = StyleSheet.create({
     expiredText: {
         color: '#fff',
         fontSize: 24,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         letterSpacing: 2,
         borderWidth: 2,
         borderColor: '#fff',
@@ -733,14 +733,14 @@ const styles = StyleSheet.create({
     notYetActiveText: {
         color: '#fff',
         fontSize: 16,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         letterSpacing: 1,
         textAlign: 'center',
     },
     notYetActiveDateText: {
         color: '#fff',
         fontSize: 22,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         letterSpacing: 1,
         marginTop: 4,
         borderWidth: 2,

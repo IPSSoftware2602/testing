@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     color: '#C2000E',
     fontWeight: 'bold',
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 12 : 13) : 14) : 14,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   menuPriceslash: {
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 10 : 10) : 12) : 12,
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     color: '#C2000E',
     fontWeight: 'bold',
     fontSize: 16,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   chooseButtonText: {
     fontWeight: 'bold',

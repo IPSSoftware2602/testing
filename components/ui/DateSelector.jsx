@@ -10,15 +10,16 @@ import {
   StyleSheet,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import DatePicker from 'react-native-ui-datepicker';
+import Picker from 'react-mobile-picker';
 import dayjs from 'dayjs';
-import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
-import {
-  resolveWebCalendarBaseDate,
-  applyWebCalendarYearMonthChange,
-  detectWebCalendarMonthView,
-} from '../../utils/date_selector_web_state';
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+const DEFAULT_MIN_YEAR = 1900;
+const DEFAULT_MAX_YEAR = 2100;
 
 const { width } = Dimensions.get('window');
 
@@ -48,36 +49,23 @@ const DateSelector = ({
   style,
   textStyle,
   isDisabled = false,
+  minYear = DEFAULT_MIN_YEAR,
+  maxYear = DEFAULT_MAX_YEAR,
 }) => {
   const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState(value);
-  const [hideCalendarNav, setHideCalendarNav] = useState(false);
   const colorScheme = useColorScheme();
   const colors = colorScheme === 'dark' ? Colors.dark : Colors.light;
+  const YEARS = React.useMemo(
+    () => Array.from({ length: maxYear - minYear + 1 }, (_, i) => String(minYear + i)),
+    [minYear, maxYear]
+  );
+  const minimumDate = React.useMemo(() => new Date(minYear, 0, 1), [minYear]);
+  const maximumDate = React.useMemo(() => new Date(maxYear, 11, 31), [maxYear]);
 
   useEffect(() => {
     setTempDate(value || null);
   }, [value]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !showPicker) {
-      setHideCalendarNav(false);
-      return undefined;
-    }
-
-    const detectMonthView = () => {
-      try {
-        setHideCalendarNav(detectWebCalendarMonthView(document));
-      } catch {
-        setHideCalendarNav(false);
-      }
-    };
-
-    detectMonthView();
-    const timer = setInterval(detectMonthView, 120);
-
-    return () => clearInterval(timer);
-  }, [showPicker]);
 
   // --- Mobile (iOS + Android) Picker ---
   const renderMobilePicker = () => {
@@ -87,7 +75,9 @@ const DateSelector = ({
         <DateTimePicker
           value={safeDate(value)}
           mode="date"
-          display="calendar"
+          display="spinner"
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
           onChange={(event, selectedDate) => {
             setShowPicker(false);
             if (selectedDate) {
@@ -135,6 +125,8 @@ const DateSelector = ({
               value={safeDate(tempDate)}
               mode="date"
               display="spinner"
+              minimumDate={minimumDate}
+              maximumDate={maximumDate}
               onChange={(event, selectedDate) => {
                 if (selectedDate) {
                   setTempDate(dayjs(selectedDate).format('YYYY-MM-DD'));
@@ -148,95 +140,122 @@ const DateSelector = ({
     );
   };
 
-  // --- WEB DROPDOWN PICKER ---
-  const renderWebPicker = () => (
-    <>
-      {/* Input */}
-      <TouchableOpacity
-        onPress={() => !isDisabled && setShowPicker(!showPicker)}
-        style={[
-          styles.inputBox,
-          { backgroundColor: isDisabled ? '#f2f2f2' : 'transparent' },
-          style,
-        ]}
-        activeOpacity={isDisabled ? 1 : 0.7}
-      >
-        <Text
-          style={[
-            {
-              color: value ? Colors.light.text : '#999',
-              fontSize: 16,
-            },
-            textStyle,
-          ]}
-        >
-          {value ? formatDate(value) : placeholder}
-        </Text>
-      </TouchableOpacity>
+  // --- WEB WHEEL PICKER (react-mobile-picker) ---
+  const renderWebPicker = () => {
+    const base = tempDate && dayjs(tempDate).isValid() ? dayjs(tempDate) : dayjs();
+    const selYear = base.year();
+    const selMonth = base.month(); // 0-11
+    const daysInSelMonth = dayjs(
+      `${selYear}-${String(selMonth + 1).padStart(2, '0')}-01`
+    ).daysInMonth();
+    const selDay = Math.min(base.date(), daysInSelMonth);
 
-      {/* Modal for Web - ensures backdrop blocks all interactions */}
-      <Modal
-        visible={showPicker && !isDisabled}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowPicker(false)}
-      >
-        <View style={styles.webBackdrop}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            activeOpacity={1}
-            onPress={() => setShowPicker(false)}
-          />
-          <View style={styles.webDropdownContainer}>
-            <View style={styles.webDropdown}>
-              <View style={styles.webCalendarWrapper}>
-                <DatePicker
-                  className="uspizza-web-datepicker"
-                  mode="single"
-                  date={resolveWebCalendarBaseDate(tempDate, value)}
-                  onChange={({ date }) => {
-                    if (date) {
-                      const formatted = dayjs(date).format('YYYY-MM-DD');
-                      setTempDate(formatted);
-                      onDateChange(formatted);
-                      setShowPicker(false);
-                    }
-                  }}
-                  onMonthChange={(month) => {
-                    const next = applyWebCalendarYearMonthChange(tempDate || value, { month });
-                    setTempDate(next.format('YYYY-MM-DD'));
-                  }}
-                  onYearChange={(year) => {
-                    const next = applyWebCalendarYearMonthChange(tempDate || value, { year });
-                    setTempDate(next.format('YYYY-MM-DD'));
-                  }}
-                  minDate={dayjs('1900-01-01')}
-                  maxDate={dayjs('2100-12-31')}
-                  components={{
-                    IconPrev: <Ionicons name="chevron-back" size={20} color="#333" />,
-                    IconNext: <Ionicons name="chevron-forward" size={20} color="#333" />,
-                  }}
-                  styles={{
-                    month_selector: { marginRight: 36, paddingHorizontal: 14 },
-                    year_selector: { marginLeft: 36, paddingHorizontal: 14 },
-                    month_selector_label: { fontWeight: '700' },
-                    year_selector_label: { fontWeight: '700' },
-                    button_prev: hideCalendarNav ? { display: 'none' } : {},
-                    button_next: hideCalendarNav ? { display: 'none' } : {},
-                  }}
-                  classNames={{
-                    button_prev: 'uspizza-date-prev',
-                    button_next: 'uspizza-date-next',
-                    months: 'uspizza-date-months',
-                  }}
-                />
+    const days = Array.from({ length: daysInSelMonth }, (_, i) =>
+      String(i + 1).padStart(2, '0')
+    );
+
+    const pickerValue = {
+      day: String(selDay).padStart(2, '0'),
+      month: MONTHS[selMonth],
+      year: String(selYear),
+    };
+
+    const handlePickerChange = (newValue) => {
+      const yearNum = parseInt(newValue.year, 10);
+      const monthIdx = MONTHS.indexOf(newValue.month);
+      const dayNum = parseInt(newValue.day, 10);
+      const dim = dayjs(
+        `${yearNum}-${String(monthIdx + 1).padStart(2, '0')}-01`
+      ).daysInMonth();
+      const safeDay = Math.min(dayNum, dim);
+      setTempDate(
+        dayjs(
+          `${yearNum}-${String(monthIdx + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`
+        ).format('YYYY-MM-DD')
+      );
+    };
+
+    return (
+      <>
+        {/* Input */}
+        <TouchableOpacity
+          onPress={() => !isDisabled && setShowPicker(!showPicker)}
+          style={[
+            styles.inputBox,
+            { backgroundColor: isDisabled ? '#f2f2f2' : 'transparent' },
+            style,
+          ]}
+          activeOpacity={isDisabled ? 1 : 0.7}
+        >
+          <Text
+            style={[
+              { color: value ? Colors.light.text : '#999', fontSize: 16 },
+              textStyle,
+            ]}
+          >
+            {value ? formatDate(value) : placeholder}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Modal for Web - backdrop blocks all interactions */}
+        <Modal
+          visible={showPicker && !isDisabled}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowPicker(false)}
+        >
+          <View style={styles.webBackdrop}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setShowPicker(false)}
+            />
+            <View style={styles.webDropdownContainer}>
+              <View style={styles.webDropdown}>
+                <View style={styles.webWheelHeader}>
+                  <TouchableOpacity onPress={() => {
+                    setShowPicker(false);
+                    setTempDate(value);
+                  }}>
+                    <Text style={{ fontSize: 16, color: '#333' }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>
+                    Select Date
+                  </Text>
+                  <TouchableOpacity onPress={() => {
+                    onDateChange(tempDate);
+                    setShowPicker(false);
+                  }}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#C2000E' }}>
+                      Done
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Picker value={pickerValue} onChange={handlePickerChange} wheelMode="natural">
+                  <Picker.Column name="day">
+                    {days.map((d) => (
+                      <Picker.Item key={d} value={d}>{d}</Picker.Item>
+                    ))}
+                  </Picker.Column>
+                  <Picker.Column name="month">
+                    {MONTHS.map((m) => (
+                      <Picker.Item key={m} value={m}>{m}</Picker.Item>
+                    ))}
+                  </Picker.Column>
+                  <Picker.Column name="year">
+                    {YEARS.map((y) => (
+                      <Picker.Item key={y} value={y}>{y}</Picker.Item>
+                    ))}
+                  </Picker.Column>
+                </Picker>
               </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </>
-  );
+        </Modal>
+      </>
+    );
+  };
 
   return (
     <View>
@@ -325,5 +344,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 15,
+  },
+
+  webWheelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingHorizontal: 4,
   },
 });

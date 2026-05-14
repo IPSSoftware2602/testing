@@ -105,7 +105,7 @@ export default function ItemDetailsScreen() {
         </ScrollView>
         <Text style={styles.footerNote}>
           All prices or charges are subject to a{"\n"}10% service charge and 6% SST
-      </Text>
+        </Text>
       </SafeAreaView>
     </ResponsiveBackground>
   );
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 26,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#C2000E',
     marginBottom: 8,
   },

@@ -338,13 +338,16 @@ const DeliveryStatus = ({ stage = "preparing", item, expected_ready_time }) => {
 
   const status = [
     { stage: "completed", image: require('../../../assets/elements/home/recharge_gift.png'), title: "Order Completed", subtitle: "Thank you for your support! Comeback for more Ultra Sedap!" },
-    { stage: "on_the_way", image: require('../../../assets/elements/order/driver.png'), title: "Out for Delivery", subtitle: "Pizza is on the road! Countdown to Ultra Sedap" },
+    // CR-013: status copy aligned to backend status mapping.
+    //   picked_up   → "Your order is in oven" (Zeoniq Preparing for delivery)
+    //   on_the_way  → "Rider is on the way"   (Grab IN_DELIVERY / PENDING_DROP_OFF)
+    { stage: "on_the_way", image: require('../../../assets/elements/order/driver.png'), title: "Rider is on the way", subtitle: "Pizza is on the road! Countdown to Ultra Sedap" },
     {
       stage: "preparing", image: require('../../../assets/elements/order/pizza.png'), title: "Preparing Order", subtitle: isScheduledOrder
         ? `You can head over now for your pickup at ${expected_ready_time}`
         : "Freshness in progress - just for you."
     },
-    { stage: "picked_up", image: require('../../../assets/elements/home/home_pickup.png'), title: "Order Ready", subtitle: "Your order has been picked up by the driver" },
+    { stage: "picked_up", image: require('../../../assets/elements/home/home_pickup.png'), title: "Your order is in oven", subtitle: "Freshness in progress — we'll let you know when the rider is on the way." },
     {
       stage: "confirmed", image: require('../../../assets/elements/order/pizza.png'), title: "Order Confirmed!", subtitle: isScheduledOrder
         ? `We will prepare your pizza fresh and have it ready at ${expected_ready_time}` : "Get ready... ultra sedap is coming your way!"
@@ -884,6 +887,18 @@ export default function OrderDetails({ navigation }) {
         await AsyncStorage.setItem('estimatedTime', JSON.stringify({ estimatedTime: "ASAP", date: null, time: null }));
         const orderType = response.data.data.order_type;
         await AsyncStorage.setItem('orderType', orderType); // If order_type is a string, this is fine
+
+        if (orderType === 'delivery' && response.data.data.customer_address_id && response.data.data.address) {
+          await AsyncStorage.setItem('deliveryAddressDetails', JSON.stringify({
+            addressId: response.data.data.customer_address_id,
+            address: response.data.data.address,
+            latitude: response.data.data.latitude,
+            longitude: response.data.data.longitude,
+          }));
+        } else {
+          await AsyncStorage.removeItem('deliveryAddressDetails');
+        }
+
         router.push('/screens/orders/checkout');
       }
     } catch (err) {
@@ -1029,7 +1044,7 @@ export default function OrderDetails({ navigation }) {
         <TopNavigation
           title={
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Text style={{ fontFamily: "Route159-Bold", fontSize: 18, color: "#C2000E" }}>
+              <Text style={{ fontFamily: "Route159-Regular", fontSize: 18, color: "#C2000E" }}>
                 TRACK YOUR ORDER
               </Text>
               <TouchableOpacity onPress={() => setReceiptModalVisible(true)} style={{ marginLeft: 12 }}>
@@ -1291,7 +1306,9 @@ export default function OrderDetails({ navigation }) {
                 justifyContent: 'center',
               }}
               onPress={() => {
-                if (!isPaid) {
+                if (!isActive) {
+                  handleOrderAgain();
+                } else if (!isPaid) {
                   setPaymentMethodModalVisible(true);
                 } else if (isDelivery) {
                   handleLalamoveTracking();
@@ -1677,14 +1694,14 @@ export default function OrderDetails({ navigation }) {
 
               {/* Info Rows */}
               <View style={{ width: "100%", marginBottom: 14 }}>
-                <Text style={{ fontFamily: "Route159-Bold", color: "#C2000E" }}>Name</Text>
+                <Text style={{ fontFamily: "Route159-Regular", color: "#C2000E" }}>Name</Text>
                 <Text style={{ fontFamily: "RobotoSlab-Regular", fontSize: 14 }}>
                   {order?.deliveries?.[0]?.driver_name || "-"}
                 </Text>
               </View>
 
               <View style={{ width: "100%", marginBottom: 14 }}>
-                <Text style={{ fontFamily: "Route159-Bold", color: "#C2000E" }}>Phone</Text>
+                <Text style={{ fontFamily: "Route159-Regular", color: "#C2000E" }}>Phone</Text>
                 {order?.deliveries?.[0]?.driver_phone ? (
                   <TouchableOpacity
                     onPress={() => openDialer(order.deliveries[0].driver_phone)}
@@ -1707,7 +1724,7 @@ export default function OrderDetails({ navigation }) {
               </View>
 
               <View style={{ width: "100%", marginBottom: 14 }}>
-                <Text style={{ fontFamily: "Route159-Bold", color: "#C2000E" }}>Vehicle Plate</Text>
+                <Text style={{ fontFamily: "Route159-Regular", color: "#C2000E" }}>Vehicle Plate</Text>
                 <Text style={{ fontFamily: "RobotoSlab-Regular", fontSize: 14 }}>
                   {order?.deliveries?.[0]?.driver_plate || "-"}
                 </Text>
@@ -1740,7 +1757,7 @@ export default function OrderDetails({ navigation }) {
                   <Text
                     style={{
                       color: "white",
-                      fontFamily: "Route159-Bold",
+                      fontFamily: "Route159-Regular",
                       fontSize: 16,
                     }}
                   >
@@ -1793,7 +1810,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     color: '#C2000E',
   },
   deliveryTabs: {
@@ -1980,13 +1997,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center'
   },
   sectionTitle: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 16 : 16) : 16) : 18,
     color: '#C2000E',
     marginBottom: 12,
   },
   grandtotalTitle: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 16 : 16) : 16) : 18,
     color: '#C2000E',
     marginVertical: '2%',
@@ -2033,14 +2050,14 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   orderItemName: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: width <= 440 ? (width <= 375 ? (width <= 360 ? 15 : 16) : 16) : 16,
     color: '#C2000E',
     minHeight: 20,
     lineHeight: 20,
   },
   pickupNo: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 28,
     color: '#C2000E',
     minHeight: 20,
@@ -2061,14 +2078,14 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   orderItemPrice: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 16,
     minHeight: 20,
     lineHeight: 16,
     color: '#C2000E',
   },
   orderItemEdit: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 12,
     color: '#C2000E',
     textDecorationLine: 'underline',
@@ -2128,7 +2145,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   optionsModalTitle: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 18,
     color: '#C2000E',
     marginBottom: 12,
@@ -2156,7 +2173,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   optionsModalPrice: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 12,
     color: '#C2000E',
   },
@@ -2169,7 +2186,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#C2000E',
   },
   optionsModalCloseText: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 14,
     color: '#fff',
   },
@@ -2181,7 +2198,7 @@ const styles = StyleSheet.create({
   addMoreText: {
     marginLeft: 8,
     color: '#C2000E',
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   totalsSection: {
     padding: 16,
@@ -2215,7 +2232,7 @@ const styles = StyleSheet.create({
     color: '#555',
   },
   totalValue: {
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 14,
     color: '#555',
   },
@@ -2228,7 +2245,7 @@ const styles = StyleSheet.create({
   voucherText: {
     flex: 1,
     marginLeft: 12,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     fontSize: 16,
     color: '#C2000E',
   },

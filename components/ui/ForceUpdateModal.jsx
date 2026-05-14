@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#C2000E',
         marginBottom: 10,
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
         textAlign: 'center',
     },
     message: {
@@ -95,6 +95,6 @@ const styles = StyleSheet.create({
     buttonText: {
         fontSize: 18,
         fontWeight: 'bold',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
 });

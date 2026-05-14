@@ -19,7 +19,7 @@ import { CustomCheckbox } from '../../../components/ui/CustomCheckBox';
 import useAuthGuard from '../../auth/check_token_expiry';
 import CountryCodePicker from '../../../components/ui/CountryCodePicker';
 import { dialDigits, findCountryByDial } from '../../../constants/countries';
-import { isValidPhoneNumber } from 'libphonenumber-js';
+import { isValidPhoneNumber, parsePhoneNumberFromString } from 'libphonenumber-js';
 
 const { width, height } = Dimensions.get('window');
 
@@ -78,14 +78,22 @@ export default function DeliveryAddressAddDetails() {
                 return;
             }
 
+            // Validate phone against the SELECTED country's format (CR-003 baseline).
+            // CR-012: also normalize via parsePhoneNumberFromString so the saved
+            // value is always canonical E.164 regardless of what the user typed.
+            // Prevents the doubled-prefix corruption case (user types "60125854587"
+            // with the +60 picker selected → naive concat would save "6060125854587").
             const country = findCountryByDial(countryCode);
-            if (!country || !isValidPhoneNumber(phone, country.code)) {
+            const parsedPhone = country ? parsePhoneNumberFromString(phone, country.code) : null;
+            if (!country || !parsedPhone || !parsedPhone.isValid()) {
                 toast.show(`Phone number is not valid for ${country?.name || 'the selected country'}.`, {
                     type: 'custom_toast',
                     data: { title: 'Invalid phone', status: 'danger' }
                 });
                 return;
             }
+            // E.164 string ("+60125854587") → strip "+" for the address payload format.
+            const canonicalPhone = parsedPhone.number.replace(/^\+/, '');
 
             try {
                 const response = await axios.post(
@@ -93,7 +101,7 @@ export default function DeliveryAddressAddDetails() {
                     {
                         address: currentAddress,
                         name: name,
-                        phone: `${dialDigits(countryCode)}${phone}`,
+                        phone: canonicalPhone,
                         unit: unit || "",
                         note: notes || "",
                         latitude: latitude,
@@ -192,14 +200,15 @@ export default function DeliveryAddressAddDetails() {
                                 autoCapitalize="none"
                                  maxLength={10} 
                             /> */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <View style={styles.phoneRow}>
                                 <CountryCodePicker
                                     value={countryCode}
                                     onChange={setCountryCode}
-                                    triggerStyle={[commonStyles.input, { paddingVertical: 0, justifyContent: 'center', flexDirection: 'row', alignItems: 'center' }]}
+                                    triggerStyle={styles.countryCodeButton}
+                                    textStyle={styles.countryCodeButtonText}
                                 />
                                 <TextInput
-                                    style={[commonStyles.input, { flex: 1 }]}
+                                    style={styles.phoneInput}
                                     placeholder="Phone Number (e.g. 0123456789)"
                                     placeholderTextColor="#999"
                                     value={phone}
@@ -257,6 +266,41 @@ export default function DeliveryAddressAddDetails() {
 }
 
 const styles = StyleSheet.create({
+    // CR-011: phone row layout — country picker + phone input on one line, both
+    // visually matching the rest of the form's input style. Uses `alignItems: stretch`
+    // so the picker and input always share the same height even if RN's intrinsic
+    // measurement disagrees, and gives the picker a fixed minWidth so the dial
+    // codes ("+852", "+673") don't squash the phone field.
+    phoneRow: {
+        flexDirection: 'row',
+        alignItems: 'stretch',
+        marginBottom: 15,
+        gap: 8,
+    },
+    countryCodeButton: {
+        borderWidth: 1,
+        borderColor: '#DDDDDD',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        minWidth: 92,
+    },
+    countryCodeButtonText: {
+        fontSize: 14,
+        color: '#333333',
+        fontWeight: '500',
+    },
+    phoneInput: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: '#DDDDDD',
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        fontSize: 12,
+        fontFamily: 'RobotoSlab-Regular',
+        color: '#333333',
+    },
     formWrapper: {
         display: 'flex',
         flexDirection: 'column',
@@ -291,7 +335,7 @@ const styles = StyleSheet.create({
         marginTop: "6%",
         marginLeft: '8%',
         marginBottom: '2%',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
     editBtn: {
         marginVertical: '5%',

@@ -366,14 +366,14 @@ const styles = StyleSheet.create({
   balanceLabel: {
     color: '#C2000E',
     fontSize: 13,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     marginTop: 2,
   },
   balanceValue: {
     color: '#C2000E',
     fontWeight: 'bold',
     fontSize: 15,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   qrCode: {
     width: 38,
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   recentOrdersText: {
     color: '#C2000E',
     fontSize: 12,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   quickActionsGrid: {
     backgroundColor: '#fff',
@@ -493,14 +493,14 @@ const styles = StyleSheet.create({
     color: '#C2000E',
     fontWeight: 'bold',
     fontSize: 13,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
     textAlign: 'center',
   },
   badgeText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 12,
-    fontFamily: 'Route159-Bold',
+    fontFamily: 'Route159-Regular',
   },
   memberBadge: {
     alignSelf: 'center',

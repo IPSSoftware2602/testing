@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
     homeButton: {
         paddingHorizontal: 32,
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: 'bold',
         color: '#333',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
     appBannerSubtitle: {
         fontSize: 12,
@@ -302,6 +302,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 12,
         fontWeight: 'bold',
-        fontFamily: 'Route159-Bold',
+        fontFamily: 'Route159-Regular',
     },
 });
